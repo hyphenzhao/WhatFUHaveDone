@@ -1,0 +1,123 @@
+-- Work Log + Schedule Planner Database Schema
+-- MySQL 8.0
+
+CREATE DATABASE IF NOT EXISTS worklog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE worklog;
+
+-- 1. 人物 (People)
+CREATE TABLE IF NOT EXISTS people (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    relationship VARCHAR(255) DEFAULT '',
+    importance INT DEFAULT 0 CHECK (importance >= 0 AND importance <= 5),
+    usefulness INT DEFAULT 0 CHECK (usefulness >= 0 AND usefulness <= 5),
+    archived TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- 2. 标签 (Tags)
+CREATE TABLE IF NOT EXISTS tags (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    color VARCHAR(7) NOT NULL DEFAULT '#3B82F6',
+    archived TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- 3. 成果 (Results)
+CREATE TABLE IF NOT EXISTS results (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    quantity INT DEFAULT 1,
+    level VARCHAR(50) DEFAULT '',
+    archived TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- 4. 成果-标签关联 (Result-Tag many-to-many)
+CREATE TABLE IF NOT EXISTS result_tags (
+    result_id INT NOT NULL,
+    tag_id INT NOT NULL,
+    PRIMARY KEY (result_id, tag_id),
+    FOREIGN KEY (result_id) REFERENCES results(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 5. 任务 (Tasks)
+CREATE TABLE IF NOT EXISTS tasks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    stage ENUM('in_progress', 'stage_complete', 'completed', 'failed') DEFAULT 'in_progress',
+    stage_number INT DEFAULT 1,
+    archived TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- 6. 任务-受益人关联 (Task-People many-to-many)
+CREATE TABLE IF NOT EXISTS task_people (
+    task_id INT NOT NULL,
+    people_id INT NOT NULL,
+    PRIMARY KEY (task_id, people_id),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (people_id) REFERENCES people(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 7. 任务-标签关联 (Task-Tag many-to-many)
+CREATE TABLE IF NOT EXISTS task_tags (
+    task_id INT NOT NULL,
+    tag_id INT NOT NULL,
+    PRIMARY KEY (task_id, tag_id),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 8. 任务-成果关联 (Task-Result many-to-many)
+CREATE TABLE IF NOT EXISTS task_results (
+    task_id INT NOT NULL,
+    result_id INT NOT NULL,
+    PRIMARY KEY (task_id, result_id),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (result_id) REFERENCES results(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 9. 每日工作量记录 (Work Logs)
+CREATE TABLE IF NOT EXISTS work_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    task_id INT NOT NULL,
+    log_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_task_date (task_id, log_date),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 10. 每日产出记录 (Result Logs)
+CREATE TABLE IF NOT EXISTS result_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    task_id INT NOT NULL,
+    result_id INT NOT NULL,
+    log_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (result_id) REFERENCES results(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 11. 计划 (Plans - future tasks)
+CREATE TABLE IF NOT EXISTS plans (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    task_id INT NOT NULL,
+    planned_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Index for calendar queries
+CREATE INDEX idx_work_logs_date ON work_logs(log_date);
+CREATE INDEX idx_result_logs_date ON result_logs(log_date);
+CREATE INDEX idx_plans_date ON plans(planned_date);
+CREATE INDEX idx_tasks_stage ON tasks(stage);
+CREATE INDEX idx_tasks_archived ON tasks(archived);

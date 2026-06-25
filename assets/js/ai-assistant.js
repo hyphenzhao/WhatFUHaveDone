@@ -278,8 +278,16 @@ const AiChat = {
                 }
                 this.messages.push(res.data.message || { role: 'assistant', content: res.data.content });
                 await this._typeText(res.data.content);
-                if (approved && typeof refreshAll === 'function') refreshAll();
+                if (approved && typeof refreshAll === 'function') await refreshAll();
                 await this._saveConv();
+                if (approved) Toast.success('操作已完成');
+            } else if (res.data.type === 'confirmation') {
+                this.pendingCalls = res.data.pending_calls;
+                this.messages.push(res.data.message);
+                const steps = res.data.steps || [];
+                for (const step of steps) { await this._showStep(step); await new Promise(r => setTimeout(r, 100)); }
+                this._showToolCalls(res.data.pending_calls);
+                this._showConfirmation(res.data.pending_calls);
             }
         } catch (e) {
             this._hideTyping();

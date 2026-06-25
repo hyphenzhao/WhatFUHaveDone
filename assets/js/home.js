@@ -141,32 +141,33 @@ async function renderBaziPillars(dateStr) {
         const startDate = new Date(startSolar.getYear(), startSolar.getMonth() - 1, startSolar.getDay());
         const startAge = (startDate - bd) / (365.25 * 24 * 3600 * 1000);
 
+        const daYuns = yun.getDaYun();
         let daYunIdx = -1;
-        for (let i = 0; i < 10; i++) {
-            const dy = yun.getDaYun(i);
-            const dyStart = startAge + i * 10;
+        for (let i = 0; i < daYuns.length; i++) {
+            const dyStart = daYuns[i].getStartAge();
             if (ageYears >= dyStart && ageYears < dyStart + 10) { daYunIdx = i; break; }
         }
-        if (daYunIdx < 0) daYunIdx = 0;
-        const daYun = yun.getDaYun(daYunIdx);
+        if (daYunIdx < 0) daYunIdx = Math.min(daYuns.length - 1, Math.max(0, Math.floor((ageYears - daYuns[0].getStartAge()) / 10)));
+        const daYun = daYuns[daYunIdx];
         daYunGz = daYun.getGanZhi();
-        daYunPeriod = daYunGz + ' (' + Math.floor(daYunIdx*10+startAge) + '-' + Math.floor(daYunIdx*10+startAge+10) + '岁)';
+        daYunPeriod = daYunGz + ' (' + Math.floor(daYun.getStartAge()) + '-' + Math.floor(daYun.getEndAge()) + '岁)';
         dySS = getShiShenLabel(dayGan, daYunGz[0]);
         hasYun = true;
 
+        const liuNians = daYun.getLiuNian();
         let liuNianIdx = -1;
-        for (let i = 0; i < 10; i++) {
-            if (daYun.getLiuNian(i).getYear() === selDate.getFullYear()) { liuNianIdx = i; break; }
+        for (let i = 0; i < liuNians.length; i++) {
+            if (liuNians[i].getYear() === selDate.getFullYear()) { liuNianIdx = i; break; }
         }
-        if (liuNianIdx < 0) liuNianIdx = Math.max(0, Math.min(9, Math.floor(ageYears - daYunIdx * 10 - startAge)));
-        const liuNian = daYun.getLiuNian(liuNianIdx);
+        if (liuNianIdx < 0) liuNianIdx = Math.max(0, Math.floor(ageYears - daYun.getStartAge()));
+        const liuNian = liuNians[liuNianIdx];
         lnGz = liuNian.getGanZhi();
         lnPeriod = lnGz + ' (' + selDate.getFullYear() + '年)';
         lnSS = getShiShenLabel(dayGan, lnGz[0]);
 
-        const liuYueArr = liuNian.getLiuYue();
+        const liuYues = liuNian.getLiuYue();
         const selMonth = selDate.getMonth() + 1;
-        const liuYue = liuYueArr[selMonth - 1];
+        const liuYue = liuYues[selMonth - 1];
         if (liuYue) {
             lyGz = liuYue.getGanZhi();
             lyPeriod = lyGz + ' (' + selDate.getFullYear() + '年' + selMonth + '月)';

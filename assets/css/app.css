@@ -663,6 +663,8 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     border: 1px solid #eab308;
     border-radius: var(--radius);
     padding: 10px 12px;
+    word-break: break-word;
+    overflow: hidden;
 }
 .liuri-header { font-weight: 700; font-size: 0.88rem; margin-bottom: 4px; }
 .liuri-ganzhi { font-size: 1.05rem; letter-spacing: 2px; }

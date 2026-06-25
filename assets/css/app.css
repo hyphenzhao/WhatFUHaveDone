@@ -656,8 +656,8 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     margin-top: 4px;
 }
 /* Liuri card in daily status */
-.daily-liuri { width: 220px; max-width: 220px; flex-shrink: 0; padding: 0 0 8px; }
-@media (max-width: 768px) { .daily-liuri { width: 100%; max-width: 100%; } }
+.daily-liuri { /* inside daily-left-col, auto width */ }
+@media (max-width: 768px) { .daily-left-col { width: 100%; } }
 .liuri-card {
     background: linear-gradient(135deg, #fefce8, #fffbeb);
     border: 1px solid #eab308;
@@ -897,9 +897,15 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     gap: 16px;
     align-items: flex-start;
 }
-.daily-almanac {
+.daily-left-col {
     width: 220px;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.daily-almanac {
+    /* now inside daily-left-col, no width needed */
 }
 .daily-cards {
     flex: 1;

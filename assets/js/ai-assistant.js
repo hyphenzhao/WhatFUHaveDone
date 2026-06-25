@@ -133,10 +133,33 @@ const AiChat = {
         try {
             const ctrl = new AbortController();
             const timeout = setTimeout(() => ctrl.abort(), 120000); // 2 min timeout
+            const body = { messages: this.messages };
+            if (typeof App !== 'undefined' && App.selectedDate) {
+                body.selected_date = App.selectedDate;
+                // Almanac context: try Calendar.calendarMeta first, fallback to Lunar
+                let meta = {};
+                if (typeof Calendar !== 'undefined' && Calendar.calendarMeta) {
+                    meta = Calendar.calendarMeta[App.selectedDate] || {};
+                }
+                if (!meta.lunar_day && typeof Lunar !== 'undefined') {
+                    try {
+                        const d = new Date(App.selectedDate + 'T12:00:00');
+                        const lunar = Lunar.fromDate(d);
+                        meta = { lunar_month: lunar.getMonthInChinese(), lunar_day: lunar.getDayInChinese(), solar_term: lunar.getJieQi() || (lunar.getPrevJieQi(true)||{}).getName?.() || '' };
+                    } catch(e) {}
+                }
+                if (meta.lunar_month || meta.lunar_day) {
+                    body.almanac = {
+                        solar_date: App.selectedDate,
+                        lunar_date: `${meta.lunar_month || ''}月${meta.lunar_day || ''}`,
+                        solar_term: meta.solar_term || '',
+                    };
+                }
+            }
             const res = await fetch('/api/ai/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: this.messages }),
+                body: JSON.stringify(body),
                 signal: ctrl.signal,
             }).then(r => r.json());
             clearTimeout(timeout);

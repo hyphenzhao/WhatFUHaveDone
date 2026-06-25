@@ -617,8 +617,22 @@ if ($action === 'config' && $parts[3] === 'test' && $method === 'POST') {
 
 // ===== SYSTEM PROMPT =====
 
-function get_system_prompt(PDO $db): array {
+function get_system_prompt(PDO $db, string $selectedDate = '', array $almanac = []): array {
     $today = today();
+    $viewDate = $selectedDate ?: $today;
+
+    // Build almanac context
+    $almanacContext = '';
+    if ($almanac || $viewDate !== $today) {
+        $almanacContext = "\n=== CURRENT VIEW CONTEXT ===\n";
+        $almanacContext .= "User is viewing: $viewDate";
+        if ($viewDate !== $today) $almanacContext .= " (NOT today; today is $today)";
+        if ($almanac) {
+            $almanacContext .= "\nLunar: {$almanac['lunar_date']}";
+            if (!empty($almanac['solar_term'])) $almanacContext .= " | Solar term: {$almanac['solar_term']}";
+        }
+        $almanacContext .= "\nWhen answering questions about 'today' or 'this week', refer to this viewing date unless the user explicitly specifies otherwise.\n";
+    }
 
     // Load user profile
     $profile = '';
@@ -692,7 +706,7 @@ For EVERY user request, follow this process:
 - Be concise but thorough. Answer in Chinese.
 PROMPT;
 
-    return ['role' => 'system', 'content' => $prompt . ($profile ? "\n" . $profile : '') . $skills];
+    return ['role' => 'system', 'content' => $prompt . $almanacContext . ($profile ? "\n" . $profile : '') . $skills];
 }
 
 // ===== CHAT ENDPOINT =====
@@ -771,7 +785,9 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
     }, $allTools);
 
     // Build messages
-    $messages = [get_system_prompt($db)];
+    $selectedDate = $input['selected_date'] ?? '';
+    $almanac = $input['almanac'] ?? [];
+    $messages = [get_system_prompt($db, $selectedDate, $almanac)];
 
     if ($action === 'confirm') {
         // Restore conversation history + confirmed tool results

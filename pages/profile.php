@@ -22,14 +22,6 @@ $page_content = <<<'HTML'
     </div>
     <div class="form-group"><label>出生地</label><input class="form-input" id="pfBirthPlace" placeholder="如: 北京"></div>
 
-    <h3 style="margin-top:16px;">🎂 生辰八字</h3>
-    <div class="form-row-4">
-        <div class="form-group"><label>年柱</label><input class="form-input bazi-input" id="pfYear" placeholder="丙午" maxlength="2"></div>
-        <div class="form-group"><label>月柱</label><input class="form-input bazi-input" id="pfMonth" placeholder="甲午" maxlength="2"></div>
-        <div class="form-group"><label>日柱</label><input class="form-input bazi-input" id="pfDay" placeholder="戊辰" maxlength="2"></div>
-        <div class="form-group"><label>时柱</label><input class="form-input bazi-input" id="pfTime" placeholder="壬子" maxlength="2"></div>
-    </div>
-
     <h3 style="margin-top:16px;">📝 个人背景</h3>
     <div class="form-group">
         <label>简历 PDF <button class="btn btn-ghost btn-sm" id="btnAiExtract" onclick="aiExtractResume()" style="margin-left:8px;">🤖 AI 提取</button></label>
@@ -50,7 +42,15 @@ $page_content = <<<'HTML'
 
 <!-- 右栏：命盘文件 -->
 <div class="profile-panel">
-    <h3>🔮 八字命盘</h3>
+    <h3>🎂 生辰八字</h3>
+    <div class="bazi-row">
+        <div class="bazi-col"><label>年柱</label><input class="form-input bazi-input" id="pfYear" placeholder="丙午" maxlength="2"></div>
+        <div class="bazi-col"><label>月柱</label><input class="form-input bazi-input" id="pfMonth" placeholder="甲午" maxlength="2"></div>
+        <div class="bazi-col"><label>日柱</label><input class="form-input bazi-input" id="pfDay" placeholder="戊辰" maxlength="2"></div>
+        <div class="bazi-col"><label>时柱</label><input class="form-input bazi-input" id="pfTime" placeholder="壬子" maxlength="2"></div>
+    </div>
+
+    <h3 style="margin-top:16px;">🔮 八字命盘</h3>
     <div class="file-card" id="baziCard">
         <div class="file-placeholder" id="baziPlaceholder">📄 上传八字命盘文件 (.txt)</div>
         <div class="file-info" id="baziInfo" style="display:none">
@@ -100,6 +100,10 @@ $page_content = <<<'HTML'
 .file-name { font-weight: 600; font-size: 0.85rem; }
 .file-size { font-size: 0.75rem; color: var(--color-text-secondary); }
 .file-input { display: none; }
+.bazi-row { display: flex; gap: 8px; }
+.bazi-col { flex: 1; text-align: center; }
+.bazi-col label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 4px; color: var(--color-text-secondary); }
+.bazi-input { font-size: 1.15rem; font-weight: 700; text-align: center; letter-spacing: 2px; width: 100%; box-sizing: border-box; }
 .upload-btn { flex-shrink: 0; }
 .file-preview { max-height: 200px; overflow-y: auto; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.78rem; font-family: monospace; white-space: pre-wrap; line-height: 1.5; margin-bottom: 20px; }
 @media (max-width: 768px) { .profile-layout { flex-direction: column; } }

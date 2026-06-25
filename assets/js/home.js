@@ -58,6 +58,186 @@ function renderAlmanac(dateStr) {
     }
 }
 
+// ===== BAZI PILLARS =====
+let baziProfile = null;
+
+async function loadBaziProfile() {
+    if (baziProfile) return baziProfile;
+    try {
+        const res = await API.get('/profile');
+        const p = res.data || {};
+        if (p.bazi_year && p.bazi_day && p.birth_date) {
+            baziProfile = p;
+        }
+    } catch(e) {}
+    return baziProfile;
+}
+
+function getShiShenLabel(dayGan, targetGan) {
+    const map = {
+        '甲甲':'比肩','甲乙':'劫财','甲丙':'食神','甲丁':'伤官','甲戊':'偏财','甲己':'正财','甲庚':'七杀','甲辛':'正官','甲壬':'偏印','甲癸':'正印',
+        '乙甲':'劫财','乙乙':'比肩','乙丙':'伤官','乙丁':'食神','乙戊':'正财','乙己':'偏财','乙庚':'正官','乙辛':'七杀','乙壬':'正印','乙癸':'偏印',
+        '丙甲':'偏印','丙乙':'正印','丙丙':'比肩','丙丁':'劫财','丙戊':'食神','丙己':'伤官','丙庚':'偏财','丙辛':'正财','丙壬':'七杀','丙癸':'正官',
+        '丁甲':'正印','丁乙':'偏印','丁丙':'劫财','丁丁':'比肩','丁戊':'伤官','丁己':'食神','丁庚':'正财','丁辛':'偏财','丁壬':'正官','丁癸':'七杀',
+        '戊甲':'七杀','戊乙':'正官','戊丙':'偏印','戊丁':'正印','戊戊':'比肩','戊己':'劫财','戊庚':'食神','戊辛':'伤官','戊壬':'偏财','戊癸':'正财',
+        '己甲':'正官','己乙':'七杀','己丙':'正印','己丁':'偏印','己戊':'劫财','己己':'比肩','己庚':'伤官','己辛':'食神','己壬':'正财','己癸':'偏财',
+        '庚甲':'偏财','庚乙':'正财','庚丙':'七杀','庚丁':'正官','庚戊':'偏印','庚己':'正印','庚庚':'比肩','庚辛':'劫财','庚壬':'食神','庚癸':'伤官',
+        '辛甲':'正财','辛乙':'偏财','辛丙':'正官','辛丁':'七杀','辛戊':'正印','辛己':'偏印','辛庚':'劫财','辛辛':'比肩','辛壬':'伤官','辛癸':'食神',
+        '壬甲':'食神','壬乙':'伤官','壬丙':'偏财','壬丁':'正财','壬戊':'七杀','壬己':'正官','壬庚':'偏印','壬辛':'正印','壬壬':'比肩','壬癸':'劫财',
+        '癸甲':'伤官','癸乙':'食神','癸丙':'正财','癸丁':'偏财','癸戊':'正官','癸己':'七杀','癸庚':'正印','癸辛':'偏印','癸壬':'劫财','癸癸':'比肩',
+    };
+    return map[dayGan + targetGan] || '';
+}
+
+const WX2 = {'木':'#38a169','火':'#e53e3e','土':'#d97706','金':'#ddb100','水':'#3182ce'};
+const WX_GAN = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
+const WX_ZHI = {子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'};
+
+function gzSpan(g, z) {
+    return `<span style="color:${WX2[WX_GAN[g]]}">${g}</span><span style="color:${WX2[WX_ZHI[z]]}">${z}</span>`;
+}
+
+async function renderBaziPillars(dateStr) {
+    const grid = document.getElementById('baziPillarsGrid');
+    const dateLabel = document.getElementById('baziPillarsDate');
+    if (!grid) return;
+    dateLabel.textContent = dateStr;
+
+    const p = await loadBaziProfile();
+    if (!p) {
+        grid.innerHTML = '<div class="no-daily-data">请先在<a href="/profile">个人侧写</a>中设置生辰八字</div>';
+        return;
+    }
+
+    // Parse user's BaZi
+    const dayGan = p.bazi_day ? p.bazi_day[0] : '';
+    const bd = new Date(p.birth_date + 'T12:00:00');
+    const bt = p.birth_time !== '' ? (parseInt(p.birth_time) * 2 + 1) % 24 : 12;
+    bd.setHours(bt, 0, 0, 0);
+
+    const birthLunar = Lunar.fromDate(bd);
+    const birthEc = birthLunar.getEightChar();
+    const gender = p.gender === '女' ? 0 : 1;
+    const yun = birthEc.getYun(gender);
+
+    // Selected date
+    const selDate = new Date(dateStr + 'T12:00:00');
+    const selLunar = Lunar.fromDate(selDate);
+    const selEc = selLunar.getEightChar();
+
+    // Calculate age at selected date
+    const ageYears = (selDate - bd) / (365.25 * 24 * 3600 * 1000);
+    const startAge = yun.getStartAge();
+
+    // Find current 大运
+    let daYunIdx = -1;
+    for (let i = 0; i < 10; i++) {
+        const dy = yun.getDaYun(i);
+        const dyStart = startAge + i * 10;
+        const dyEnd = dyStart + 10;
+        if (ageYears >= dyStart && ageYears < dyEnd) { daYunIdx = i; break; }
+    }
+    if (daYunIdx < 0) daYunIdx = 0;
+    const daYun = yun.getDaYun(daYunIdx);
+    const daYunGz = daYun.getGanZhi();
+
+    // Find current 流年 within this 大运
+    let liuNianIdx = -1;
+    for (let i = 0; i < 10; i++) {
+        const ln = daYun.getLiuNian(i);
+        if (ln.getYear() === selDate.getFullYear()) { liuNianIdx = i; break; }
+    }
+    if (liuNianIdx < 0) liuNianIdx = Math.max(0, Math.min(9, Math.floor(ageYears - daYunIdx * 10 - startAge)));
+    const liuNian = daYun.getLiuNian(liuNianIdx);
+    const liuNianGz = liuNian.getGanZhi();
+
+    // 流月
+    const liuYueArr = liuNian.getLiuYue();
+    const selMonth = selDate.getMonth() + 1;
+    const liuYue = liuYueArr[selMonth - 1];
+    const liuYueGz = liuYue ? liuYue.getGanZhi() : '';
+
+    // 流日 (from selected date's day pillar)
+    const liuRiGz = selEc.getDayGan() + selEc.getDayZhi();
+
+    // ShiShen calculations
+    const dyG = daYunGz[0], dyZ = daYunGz[1];
+    const lnG = liuNianGz[0], lnZ = liuNianGz[1];
+    const lyG = liuYueGz[0]||'', lyZ = liuYueGz[1]||'';
+    const lrG = liuRiGz[0], lrZ = liuRiGz[1];
+    const dayG = dayGan;
+
+    const dySS = getShiShenLabel(dayG, dyG);
+    const lnSS = getShiShenLabel(dayG, lnG);
+    const lySS = getShiShenLabel(dayG, lyG);
+    const lrSS = getShiShenLabel(dayG, lrG);
+
+    // Fetch existing analyses
+    let analyses = {};
+    try {
+        const res = await API.get('/bazi_analysis?date=' + dateStr);
+        (res.data || []).forEach(a => { analyses[a.type] = a; });
+    } catch(e) {}
+
+    // Build cards
+    const cards = [
+        { type:'dayun',     label:'大运', gz:daYunGz, ss:dySS, period: daYunGz + ' (' + Math.floor(daYunIdx*10+startAge) + '-' + Math.floor(daYunIdx*10+startAge+10) + '岁)', icon:'🔟' },
+        { type:'liunian',   label:'流年', gz:liuNianGz, ss:lnSS, period: liuNianGz + ' (' + selDate.getFullYear() + '年)', icon:'📅' },
+        { type:'liuyue',    label:'流月', gz:liuYueGz, ss:lySS, period: liuYueGz + ' (' + selDate.getFullYear() + '年' + selMonth + '月)', icon:'🌙' },
+    ];
+
+    grid.innerHTML = cards.map(c => {
+        const existing = analyses[c.type];
+        const g = c.gz[0], z = c.gz[1];
+        return `<div class="bazi-pillar-card">
+            <div class="bazi-card-header">
+                <span class="bazi-card-icon">${c.icon}</span>
+                <strong>${c.label}</strong>
+                <span class="bazi-card-period">${c.period}</span>
+            </div>
+            <div class="bazi-card-ganzhi">${gzSpan(g, z)} ${c.ss ? '<span class="bazi-card-shishen">'+c.ss+'</span>' : ''}</div>
+            ${existing && existing.analysis
+                ? `<div class="bazi-card-analysis">${escapeHtml(existing.analysis)}<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','${c.type}','${c.label}','${c.gz}','${c.ss}')" style="margin-top:4px;">🔄 重新分析</button></div>`
+                : `<button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','${c.type}','${c.label}','${c.gz}','${c.ss}')">🤖 AI 解析</button>`}
+        </div>`;
+    }).join('');
+
+    // Render 流日 in daily status
+    renderLiuriCard(dateStr, liuRiGz, lrSS, analyses['liuri']);
+}
+
+function renderLiuriCard(dateStr, gz, ss, existing) {
+    const container = document.getElementById('dailyLiuri');
+    if (!container) return;
+    const g = gz[0], z = gz[1];
+    container.innerHTML = `<div class="liuri-card">
+        <div class="liuri-header">📆 流日 <span class="liuri-ganzhi">${gzSpan(g, z)}</span> ${ss ? '<span class="bazi-card-shishen">'+ss+'</span>' : ''}</div>
+        ${existing && existing.analysis
+            ? `<div class="liuri-analysis">${escapeHtml(existing.analysis)}<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','liuri','流日','${gz}','${ss}')" style="margin-top:4px;font-size:0.7rem;">🔄 重新分析</button></div>`
+            : `<button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','liuri','流日','${gz}','${ss}')">🤖 AI 解析</button>`}
+    </div>`;
+}
+
+async function analyzeBazi(dateStr, type, label, gz, ss) {
+    const p = await loadBaziProfile();
+    if (!p) return;
+    Toast.success('AI 解析中...');
+    try {
+        const prompt = type === 'liuri'
+            ? `用户八字: 年${p.bazi_year} 月${p.bazi_month} 日${p.bazi_day} 时${p.bazi_time}。当前${label}: ${gz}，十神: ${ss}。请结合用户八字和当前${label}，用不超过100字简短分析今日能量特点和建议重点工作方向。`
+            : `用户八字: 年${p.bazi_year} 月${p.bazi_month} 日${p.bazi_day} 时${p.bazi_time}。简历: ${p.resume||'无'}。目标: ${p.goals||'无'}。当前${label}: ${gz}，十神: ${ss}。请结合用户八字和${label}，用100-200字分析此阶段的能量特点，并给出重点工作方向的建议。`;
+
+        const res = await API.post('/ai/chat', { messages: [{ role: 'user', content: prompt }] });
+        if (res.data.type === 'text') {
+            await API.post('/bazi_analysis', {
+                date_key: dateStr, type: type, period_label: label, gan_zhi: gz, shi_shen: ss, analysis: res.data.content
+            });
+            renderBaziPillars(dateStr);
+            Toast.success(label + '解析完成');
+        }
+    } catch(e) { Toast.error('解析失败: ' + e.message); }
+}
+
 async function loadRightPanel() {
     const panel = document.getElementById('rightPanelBody');
     if (!panel) return;
@@ -305,6 +485,7 @@ async function loadDailyStatus(date) {
 
     dateDisplay.textContent = formatDate(date);
     renderAlmanac(date);
+    renderBaziPillars(date);
 
     try {
         const res = await API.stats.daily(date);

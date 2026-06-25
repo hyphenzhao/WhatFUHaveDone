@@ -18,6 +18,7 @@ $page_content = <<<HTML
         <div class="daily-cards" id="dailyStatusCards">
             <div class="no-daily-data">加载中...</div>
         </div>
+        <div class="daily-liuri" id="dailyLiuri"></div>
     </div>
 </div>
 
@@ -33,6 +34,20 @@ $page_content = <<<HTML
         </div>
     </div>
     <div class="calendar-grid" id="calendarGrid"></div>
+</div>
+
+<!-- BaZi Time Pillars -->
+<div class="bazi-pillars-section" id="baziPillarsSection">
+    <div class="bazi-pillars-header" onclick="document.getElementById('baziPillarsBody').classList.toggle('collapsed'); this.querySelector('.toggle-arrow').classList.toggle('rotated')">
+        <span class="toggle-arrow">▼</span>
+        <h3>🔮 八字大运流年</h3>
+        <span id="baziPillarsDate" style="font-size:0.85rem;color:var(--color-text-secondary);margin-left:12px;"></span>
+    </div>
+    <div class="bazi-pillars-body" id="baziPillarsBody">
+        <div class="bazi-pillars-grid" id="baziPillarsGrid">
+            <div class="no-daily-data">请先在个人侧写中设置生辰八字</div>
+        </div>
+    </div>
 </div>
 
 <!-- Leaderboards -->

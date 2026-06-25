@@ -523,6 +523,16 @@ async function showResultsDetail(tagId, tagName) {
     }
 }
 
+async function cancelWorklog(taskId, date) {
+    try { await API.worklogs.toggle(taskId, date); refreshAll(); } catch(e) { Toast.error('取消失败'); }
+}
+async function cancelResultLog(logId) {
+    try { await API.resultLogs.remove(logId); refreshAll(); } catch(e) { Toast.error('取消失败'); }
+}
+async function cancelPlan(planId) {
+    try { await API.plans.remove(planId); refreshAll(); } catch(e) { Toast.error('取消失败'); }
+}
+
 async function loadDailyStatus(date) {
     const container = document.getElementById('dailyStatusCards');
     const dateDisplay = document.getElementById('dailyDateDisplay');
@@ -547,17 +557,17 @@ async function loadDailyStatus(date) {
 
         workTasks.forEach(t => {
             const tags = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${tg.color}">${tg.name}</span>`).join('');
-            html += `<div class="daily-card"><h4>💪 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">工作量 +1</div></div>`;
+            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>💪 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">工作量 +1</div></div><button class="daily-card-close" onclick="cancelWorklog(${t.id},'${date}')" title="取消">✕</button></div></div>`;
         });
 
         resultTasks.forEach(t => {
             const tags = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${tg.color}">${tg.name}</span>`).join('');
-            html += `<div class="daily-card"><h4>🏆 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">产出: ${escapeHtml(t.result_name || '')}</div></div>`;
+            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>🏆 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">产出: ${escapeHtml(t.result_name || '')}</div></div><button class="daily-card-close" onclick="cancelResultLog(${t.result_log_id})" title="取消">✕</button></div></div>`;
         });
 
         planTasks.forEach(t => {
             const tags = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${tg.color}">${tg.name}</span>`).join('');
-            html += `<div class="daily-card"><h4>📅 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">计划任务</div></div>`;
+            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>📅 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">计划任务</div></div><button class="daily-card-close" onclick="cancelPlan(${t.plan_id})" title="取消">✕</button></div></div>`;
         });
 
         container.innerHTML = html || '<div class="no-daily-data">📭 当日暂无记录</div>';

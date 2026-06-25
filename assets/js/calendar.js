@@ -136,7 +136,7 @@ const Calendar = {
         // Lunar date
         let lunarHtml = '';
         if (meta.lunar_day) {
-            const lunarText = meta.lunar_day === '初一' ? meta.lunar_month : meta.lunar_day;
+            const lunarText = meta.lunar_day === '初一' ? (meta.lunar_month || '') + '月' : meta.lunar_day;
             lunarHtml = `<span class="lunar-date">${escapeHtml(lunarText)}</span>`;
         }
 

@@ -16,6 +16,17 @@ function md(text) {
     html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
     html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
     html = html.replace(/^---$/gm, '<hr>');
+    html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+    // Tables
+    html = html.replace(/((?:^\|.+\|\n?)+)/gm, function(match) {
+        const lines = match.trim().split('\n');
+        if (lines.length < 2) return match;
+        const rows = lines.filter(l => !/^\|[\s\-:]+\|/.test(l));
+        if (rows.length === 0) return match;
+        const thead = '<thead><tr>' + rows[0].split('|').filter(c => c.trim()).map(c => '<th>' + c.trim() + '</th>').join('') + '</tr></thead>';
+        const tbody = rows.length > 1 ? '<tbody>' + rows.slice(1).map(row => '<tr>' + row.split('|').filter(c => c.trim()).map(c => '<td>' + c.trim() + '</td>').join('') + '</tr>').join('') + '</tbody>' : '';
+        return '<table>' + thead + tbody + '</table>';
+    });
     html = html.replace(/\n\n/g, '</p><p>');
     html = html.replace(/\n/g, '<br>');
     html = '<p>' + html + '</p>';

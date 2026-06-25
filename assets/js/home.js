@@ -45,7 +45,7 @@ function renderAlmanac(dateStr) {
                 <div class="almanac-lunar">
                     <span>农历</span>
                     <span class="almanac-lunar-text">${escapeHtml(meta.lunar_month || lunar.getMonthInChinese())}月${escapeHtml(meta.lunar_day || lunar.getDayInChinese())}</span>
-                    ${meta.solar_term ? `<span class="almanac-term">${escapeHtml(meta.solar_term)}</span>` : ''}
+                    ${(meta.solar_term || lunar.getJieQi()) ? `<span class="almanac-term">${escapeHtml(meta.solar_term || lunar.getJieQi())}</span>` : ''}
                 </div>
                 <div class="almanac-ganzhi">
                     <div class="almanac-gz-row"><span class="almanac-gz-label">年柱</span>${gz(yGan, yZhi)}<span class="almanac-gz-sx">${escapeHtml(shengXiao)}</span></div>

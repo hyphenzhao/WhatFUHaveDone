@@ -617,9 +617,45 @@ if ($action === 'config' && $parts[3] === 'test' && $method === 'POST') {
 
 // ===== SYSTEM PROMPT =====
 
-function get_system_prompt(): array {
+function get_system_prompt(PDO $db): array {
     $today = today();
-    return ['role' => 'system', 'content' => <<<PROMPT
+
+    // Load user profile
+    $profile = '';
+    $stmt = $db->query('SELECT * FROM user_profile WHERE id = 1');
+    $p = $stmt->fetch();
+    if ($p && !empty($p['name'])) {
+        $profile = "=== USER PROFILE ===\n";
+        $profile .= "Name: {$p['name']}\n";
+        if ($p['gender']) $profile .= "Gender: {$p['gender']}\n";
+        if ($p['birth_date']) $profile .= "Birth: {$p['birth_date']}" . ($p['birth_time'] !== '' ? " {$p['birth_time']}时" : "") . ($p['birth_place'] ? " ({$p['birth_place']})" : "") . "\n";
+        if ($p['bazi_year']) $profile .= "BaZi: 年{$p['bazi_year']} 月{$p['bazi_month']} 日{$p['bazi_day']} 时{$p['bazi_time']}\n";
+        if ($p['shengxiao']) $profile .= "ShengXiao: {$p['shengxiao']}\n";
+        if ($p['nayin']) {
+            $ny = json_decode($p['nayin'], true);
+            if ($ny) $profile .= "NaYin: 年{$ny['year']} 月{$ny['month']} 日{$ny['day']} 时{$ny['time']}\n";
+        }
+        if ($p['shishen']) {
+            $ss = json_decode($p['shishen'], true);
+            if ($ss) $profile .= "ShiShen: 年{$ss['year']} 月{$ss['month']} 日{$ss['day']} 时{$ss['time']}\n";
+        }
+        if ($p['resume']) $profile .= "Resume: {$p['resume']}\n";
+        if ($p['goals']) $profile .= "Goals: {$p['goals']}\n";
+        $profile .= "\n";
+    }
+
+    // Load enabled skills
+    $skills = '';
+    $stmt2 = $db->query('SELECT name, content FROM ai_skills WHERE enabled = 1 ORDER BY name');
+    $enabledSkills = $stmt2->fetchAll();
+    if ($enabledSkills) {
+        $skills = "=== ENABLED SKILLS ===\n";
+        foreach ($enabledSkills as $s) {
+            $skills .= "--- SKILL: {$s['name']} ---\n{$s['content']}\n\n";
+        }
+    }
+
+    $prompt = <<<PROMPT
 You are an intelligent assistant for the WorkLog (工作日志) application. You help users manage their tasks, people, tags, results, work logs, and plans.
 
 Current date: $today
@@ -634,7 +670,10 @@ RULES:
 3. When the user wants to create/update/delete, explain what you're about to do, then use the write tool. The system will ask for user confirmation before executing.
 4. Be concise but thorough. Answer in Chinese.
 5. If you need multiple pieces of information, chain your tool calls efficiently.
-PROMPT];
+6. If the user asks about fate analysis, task prioritization, or calendar compatibility, use the user's BaZi profile and enabled skills for reference.
+PROMPT;
+
+    return ['role' => 'system', 'content' => $prompt . ($profile ? "\n" . $profile : '') . $skills];
 }
 
 // ===== CHAT ENDPOINT =====
@@ -713,7 +752,7 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
     }, $allTools);
 
     // Build messages
-    $messages = [get_system_prompt()];
+    $messages = [get_system_prompt($db)];
 
     if ($action === 'confirm') {
         // Restore conversation history + confirmed tool results

@@ -55,6 +55,8 @@ $page_map = [
     'relationships' => 'relationships',
     'calendar-admin' => 'calendar-admin',
     'ai-admin' => 'ai-admin',
+    'profile' => 'profile',
+    'skills' => 'skills',
 ];
 
 $page = $page_map[$uri] ?? null;

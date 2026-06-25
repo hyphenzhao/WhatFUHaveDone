@@ -47,6 +47,12 @@ $current_page = $current_page ?? 'home';
                 <a href="/ai-admin" class="sidebar-link <?= $current_page === 'ai-admin' ? 'active' : '' ?>">
                     <span class="nav-icon">🤖</span> AI 配置
                 </a>
+                <a href="/profile" class="sidebar-link <?= $current_page === 'profile' ? 'active' : '' ?>">
+                    <span class="nav-icon">👤</span> 个人侧写
+                </a>
+                <a href="/skills" class="sidebar-link <?= $current_page === 'skills' ? 'active' : '' ?>">
+                    <span class="nav-icon">🛠️</span> 技能管理
+                </a>
             </nav>
         </aside>
 

@@ -23,7 +23,20 @@ $page_content = <<<'HTML'
     <div class="form-group"><label>出生地</label><input class="form-input" id="pfBirthPlace" placeholder="如: 北京"></div>
 
     <h3 style="margin-top:16px;">📝 个人背景</h3>
-    <div class="form-group"><label>个人简历/背景</label><textarea class="form-textarea" id="pfResume" rows="5" placeholder="教育背景、工作经历、研究方向、兴趣爱好等"></textarea></div>
+    <div class="form-group">
+        <label>简历 PDF <button class="btn btn-ghost btn-sm" id="btnAiExtract" onclick="aiExtractResume()" style="margin-left:8px;">🤖 AI 提取</button></label>
+        <div class="file-card" id="resumeCard">
+            <div class="file-placeholder">📄 上传简历 PDF（自动提取文字）</div>
+            <div class="file-info" style="display:none">
+                <span class="file-name" id="resumeFileName"></span>
+                <span class="file-size" id="resumeFileSize"></span>
+                <button class="btn btn-ghost btn-sm" onclick="deleteFile('resume')">🗑️</button>
+            </div>
+            <input type="file" accept=".pdf" class="file-input" id="resumeFileInput" onchange="uploadFile('resume', this)">
+            <button class="btn btn-ghost btn-sm upload-btn" onclick="document.getElementById('resumeFileInput').click()">📤 上传</button>
+        </div>
+    </div>
+    <div class="form-group"><label>个人简历/背景</label><textarea class="form-textarea" id="pfResume" rows="5" placeholder="教育背景、工作经历、研究方向、兴趣爱好等（上传PDF后点 AI 提取 可自动填充）"></textarea></div>
     <div class="form-group"><label>当前阶段目标</label><textarea class="form-textarea" id="pfGoals" rows="4" placeholder="近期目标、中期规划、远期愿景等"></textarea></div>
 </div>
 
@@ -86,7 +99,7 @@ $page_content = <<<'HTML'
 
 <script>
 // State
-let baziContent = '', baziFileName = '', ziweiContent = '', ziweiFileName = '';
+let baziContent = '', baziFileName = '', ziweiContent = '', ziweiFileName = '', resumeContent = '', resumeFileName = '';
 
 async function uploadFile(type, input) {
     const file = input.files[0];
@@ -98,7 +111,8 @@ async function uploadFile(type, input) {
         if (data.error) { Toast.error(data.message); return; }
         const d = data.data;
         if (type === 'bazi') { baziContent = d.content; baziFileName = d.name; showFile('bazi', d.name, d.size, d.content); }
-        else { ziweiContent = d.content; ziweiFileName = d.name; showFile('ziwei', d.name, d.size, d.content); }
+        else if (type === 'ziwei') { ziweiContent = d.content; ziweiFileName = d.name; showFile('ziwei', d.name, d.size, d.content); }
+        else if (type === 'resume') { resumeContent = d.content; resumeFileName = d.name; showFile('resume', d.name, d.size, d.content.substring(0,500)); Toast.success('PDF已解析，点击"AI 提取"自动填充简历'); }
     } catch(e) { Toast.error('上传失败'); }
     input.value = '';
 }
@@ -118,11 +132,28 @@ function deleteFile(type) {
     card.classList.remove('has-file');
     document.getElementById(type + 'Preview').style.display = 'none';
     if (type === 'bazi') { baziContent = ''; baziFileName = ''; }
-    else { ziweiContent = ''; ziweiFileName = ''; }
+    else if (type === 'ziwei') { ziweiContent = ''; ziweiFileName = ''; }
+    else if (type === 'resume') { resumeContent = ''; resumeFileName = ''; }
     Toast.success('已删除');
 }
 
 function formatSize(bytes) { return bytes < 1024 ? bytes+'B' : bytes < 1048576 ? (bytes/1024).toFixed(1)+'KB' : (bytes/1048576).toFixed(1)+'MB'; }
+
+async function aiExtractResume() {
+    if (!resumeContent) { Toast.error('请先上传简历 PDF'); return; }
+    const btn = document.getElementById('btnAiExtract');
+    btn.disabled = true; btn.textContent = '⏳ 提取中...';
+    try {
+        const res = await API.post('/ai/chat', { messages: [
+            { role: 'user', content: '请从以下简历文本中提取关键信息，用中文简要总结：姓名、性别、出生日期、学历、工作经历、研究方向、技能特长。用 2-3 段简洁文字总结。\n\n' + resumeContent }
+        ]});
+        if (res.data.type === 'text') {
+            document.getElementById('pfResume').value = res.data.content;
+            Toast.success('简历信息已提取');
+        }
+    } catch(e) { Toast.error('提取失败: ' + e.message); }
+    finally { btn.disabled = false; btn.textContent = '🤖 AI 提取'; }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -149,7 +180,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 birth_time: document.getElementById('pfBirthTime').value,
                 birth_place: document.getElementById('pfBirthPlace').value.trim(),
                 shengxiao: document.getElementById('pfShengXiao').value.trim(),
-                resume: document.getElementById('pfResume').value.trim(),
+                resume: document.getElementById('pfResume').value.trim() || resumeContent,
                 goals: document.getElementById('pfGoals').value.trim(),
                 shishen: baziContent,
                 dayun: ziweiContent,

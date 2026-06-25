@@ -2,7 +2,8 @@
 /**
  * File Upload API
  *
- * POST /api/upload — upload a text file, returns its content
+ * POST /api/upload — upload a file, returns extracted text content
+ *   Supports: .txt, .md, .json (direct read), .pdf (pdftotext extraction)
  */
 
 require_once __DIR__ . '/../includes/response.php';
@@ -16,19 +17,34 @@ if ($method === 'POST') {
     $file = $_FILES['file'];
     if ($file['error'] !== UPLOAD_ERR_OK) json_error('Upload error: ' . $file['error']);
 
-    // Read text content
-    $content = file_get_contents($file['tmp_name']);
-    if ($content === false) json_error('Failed to read file');
-
-    // Limit to 100KB
-    if (strlen($content) > 102400) json_error('File too large (max 100KB)');
-
     $name = $file['name'];
     $size = $file['size'];
+    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+    $content = '';
+
+    if ($ext === 'pdf') {
+        // Extract text using pdftotext
+        $tmpPath = $file['tmp_name'];
+        $content = shell_exec('pdftotext ' . escapeshellarg($tmpPath) . ' - 2>/dev/null');
+        if ($content === null || trim($content) === '') {
+            json_error('Failed to extract text from PDF. Ensure pdftotext is installed.');
+        }
+    } else {
+        // Direct read for text files
+        $content = file_get_contents($file['tmp_name']);
+        if ($content === false) json_error('Failed to read file');
+    }
+
+    // Limit to 200KB for PDFs, 100KB for text
+    $limit = $ext === 'pdf' ? 204800 : 102400;
+    if (strlen($content) > $limit) {
+        $content = substr($content, 0, $limit) . "\n...(truncated)";
+    }
 
     json_success([
         'name' => $name,
         'size' => $size,
+        'ext' => $ext,
         'content' => $content,
     ], 'File uploaded');
 }

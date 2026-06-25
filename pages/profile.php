@@ -22,6 +22,14 @@ $page_content = <<<'HTML'
     </div>
     <div class="form-group"><label>出生地</label><input class="form-input" id="pfBirthPlace" placeholder="如: 北京"></div>
 
+    <h3 style="margin-top:16px;">🎂 生辰八字</h3>
+    <div class="form-row-4">
+        <div class="form-group"><label>年柱</label><input class="form-input bazi-input" id="pfYear" placeholder="丙午" maxlength="2"></div>
+        <div class="form-group"><label>月柱</label><input class="form-input bazi-input" id="pfMonth" placeholder="甲午" maxlength="2"></div>
+        <div class="form-group"><label>日柱</label><input class="form-input bazi-input" id="pfDay" placeholder="戊辰" maxlength="2"></div>
+        <div class="form-group"><label>时柱</label><input class="form-input bazi-input" id="pfTime" placeholder="壬子" maxlength="2"></div>
+    </div>
+
     <h3 style="margin-top:16px;">📝 个人背景</h3>
     <div class="form-group">
         <label>简历 PDF <button class="btn btn-ghost btn-sm" id="btnAiExtract" onclick="aiExtractResume()" style="margin-left:8px;">🤖 AI 提取</button></label>
@@ -166,6 +174,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('pfShengXiao').value = p.shengxiao || '';
         document.getElementById('pfResume').value = p.resume || '';
         document.getElementById('pfGoals').value = p.goals || '';
+        // Restore BaZi pillars
+        if (p.bazi_year) document.getElementById('pfYear').value = p.bazi_year;
+        if (p.bazi_month) document.getElementById('pfMonth').value = p.bazi_month;
+        if (p.bazi_day) document.getElementById('pfDay').value = p.bazi_day;
+        if (p.bazi_time) document.getElementById('pfTime').value = p.bazi_time;
         // Restore files: bazi stored in shishen key, ziwei in dayun key
         if (p.shishen && p.shishen.length > 10) { baziContent = p.shishen; baziFileName = '八字命盘.txt'; showFile('bazi', baziFileName, new Blob([baziContent]).size, baziContent); }
         if (p.dayun && p.dayun.length > 10) { ziweiContent = p.dayun; ziweiFileName = '紫微命盘.txt'; showFile('ziwei', ziweiFileName, new Blob([ziweiContent]).size, ziweiContent); }
@@ -180,6 +193,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 birth_time: document.getElementById('pfBirthTime').value,
                 birth_place: document.getElementById('pfBirthPlace').value.trim(),
                 shengxiao: document.getElementById('pfShengXiao').value.trim(),
+                bazi_year: document.getElementById('pfYear').value.trim(),
+                bazi_month: document.getElementById('pfMonth').value.trim(),
+                bazi_day: document.getElementById('pfDay').value.trim(),
+                bazi_time: document.getElementById('pfTime').value.trim(),
                 resume: document.getElementById('pfResume').value.trim() || resumeContent,
                 goals: document.getElementById('pfGoals').value.trim(),
                 shishen: baziContent,

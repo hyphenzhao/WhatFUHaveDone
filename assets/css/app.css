@@ -633,6 +633,25 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     padding-top: 8px;
     margin-top: 4px;
 }
+.bazi-card-analysis p { margin: 0 0 4px; }
+.bazi-card-analysis strong { font-weight: 700; color: var(--color-text); }
+.bazi-card-analysis em { font-style: italic; }
+.bazi-card-analysis ul, .bazi-card-analysis ol { margin: 2px 0; padding-left: 16px; }
+.bazi-card-analysis li { margin: 1px 0; }
+.bazi-card-analysis h3, .bazi-card-analysis h4 { margin: 4px 0; font-weight: 700; }
+.bazi-card-analysis code { font-size: 0.75rem; background: rgba(0,0,0,0.06); padding: 1px 3px; border-radius: 3px; }
+
+.liuri-analysis {
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+    margin-top: 4px;
+}
+.liuri-analysis p { margin: 0 0 4px; }
+.liuri-analysis strong { font-weight: 700; color: var(--color-text); }
+.liuri-analysis em { font-style: italic; }
+    margin-top: 4px;
+}
 /* Liuri card in daily status */
 .daily-liuri { width: 220px; flex-shrink: 0; padding: 0 0 8px; }
 @media (max-width: 768px) { .daily-liuri { width: 100%; } }

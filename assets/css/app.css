@@ -613,7 +613,9 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .bazi-card-icon { font-size: 1rem; }
 .bazi-card-header strong { font-size: 0.85rem; }
 .bazi-card-period { font-size: 0.72rem; color: var(--color-text-secondary); }
-.bazi-card-ganzhi { font-size: 1.1rem; font-weight: 700; letter-spacing: 2px; margin-bottom: 6px; }
+.bazi-card-pillars { margin-bottom: 6px; }
+.bazi-card-pillar-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
+.bazi-card-gan { font-size: 1.1rem; font-weight: 700; letter-spacing: 2px; }
 .bazi-card-shishen {
     font-size: 0.75rem;
     color: var(--color-primary);

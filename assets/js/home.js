@@ -117,18 +117,33 @@ async function renderBaziPillars(dateStr) {
     const selLunar = Lunar.fromDate(selDate);
     const selEc = selLunar.getEightChar();
 
-    // 流日 (from selected date's day pillar)
-    const liuRiGz = selEc.getDayGan() + selEc.getDayZhi();
-    const lrG = liuRiGz[0], lrZ = liuRiGz[1];
-    const lrSS = getShiShenLabel(dayGan, lrG);
+    // 流日/流月/流年 — use the selected date's own pillars (same as almanac)
+    const lrGz = selEc.getDayGan() + selEc.getDayZhi();
+    const lrG = lrGz[0], lrZ = lrGz[1];
+    const lrSS_G = getShiShenLabel(dayGan, lrG);
+    const lrSS_Z = getShiShenLabel(dayGan, lrZ);
 
-    let daYunGz = '', lnGz = '', lyGz = '';
-    let dySS = '', lnSS = '', lySS = '';
-    let daYunPeriod = '', lnPeriod = '', lyPeriod = '';
+    const lnGz = selEc.getYearGan() + selEc.getYearZhi();
+    const lnG = lnGz[0], lnZ = lnGz[1];
+    const lnSS_G = getShiShenLabel(dayGan, lnG);
+    const lnSS_Z = getShiShenLabel(dayGan, lnZ);
+
+    const lyGz = selEc.getMonthGan() + selEc.getMonthZhi();
+    const lyG = lyGz[0], lyZ = lyGz[1];
+    const lySS_G = getShiShenLabel(dayGan, lyG);
+    const lySS_Z = getShiShenLabel(dayGan, lyZ);
+
+    const selMonth = selDate.getMonth() + 1;
+    const lnPeriod = lnGz + ' (' + selDate.getFullYear() + '年)';
+    const lyPeriod = lyGz + ' (' + selDate.getFullYear() + '年' + selMonth + '月)';
+
+    let daYunGz = '', daYunPeriod = '';
+    let dySS_G = '', dySS_Z = '';
+    let dyG = '', dyZ = '';
     let hasYun = false;
 
-    // Compute 大运/流年/流月 (requires birth_date)
-    if (p.birth_date) {
+    // Compute 大运 (requires birth_date + gender)
+    if (p.birth_date && p.gender) {
         const bd = new Date(p.birth_date + 'T12:00:00');
         const bt = p.birth_time !== '' ? (parseInt(p.birth_time) * 2 + 1) % 24 : 12;
         bd.setHours(bt, 0, 0, 0);
@@ -136,43 +151,25 @@ async function renderBaziPillars(dateStr) {
         const birthEc = birthLunar.getEightChar();
         const gender = p.gender === '女' ? 0 : 1;
         const yun = birthEc.getYun(gender);
-        const ageYears = (selDate - bd) / (365.25 * 24 * 3600 * 1000);
-        const startSolar = yun.getStartSolar();
-        const startDate = new Date(startSolar.getYear(), startSolar.getMonth() - 1, startSolar.getDay());
-        const startAge = (startDate - bd) / (365.25 * 24 * 3600 * 1000);
+
+        // 虚岁: current year - birth year + 1
+        const xuAge = selDate.getFullYear() - bd.getFullYear() + 1;
 
         const daYuns = yun.getDaYun();
         let daYunIdx = -1;
         for (let i = 0; i < daYuns.length; i++) {
             const dyStart = daYuns[i].getStartAge();
-            if (ageYears >= dyStart && ageYears < dyStart + 10) { daYunIdx = i; break; }
+            const dyEnd = daYuns[i].getEndAge();
+            if (xuAge >= dyStart && xuAge < dyEnd) { daYunIdx = i; break; }
         }
-        if (daYunIdx < 0) daYunIdx = Math.min(daYuns.length - 1, Math.max(0, Math.floor((ageYears - daYuns[0].getStartAge()) / 10)));
+        if (daYunIdx < 0) daYunIdx = daYuns.length - 1;
         const daYun = daYuns[daYunIdx];
         daYunGz = daYun.getGanZhi();
-        daYunPeriod = daYunGz + ' (' + Math.floor(daYun.getStartAge()) + '-' + Math.floor(daYun.getEndAge()) + '岁)';
-        dySS = getShiShenLabel(dayGan, daYunGz[0]);
+        dyG = daYunGz[0]; dyZ = daYunGz[1];
+        dySS_G = getShiShenLabel(dayGan, dyG);
+        dySS_Z = getShiShenLabel(dayGan, dyZ);
+        daYunPeriod = daYunGz + ' (' + Math.floor(daYun.getStartAge()) + '-' + Math.floor(daYun.getEndAge()) + '虚岁)';
         hasYun = true;
-
-        const liuNians = daYun.getLiuNian();
-        let liuNianIdx = -1;
-        for (let i = 0; i < liuNians.length; i++) {
-            if (liuNians[i].getYear() === selDate.getFullYear()) { liuNianIdx = i; break; }
-        }
-        if (liuNianIdx < 0) liuNianIdx = Math.max(0, Math.floor(ageYears - daYun.getStartAge()));
-        const liuNian = liuNians[liuNianIdx];
-        lnGz = liuNian.getGanZhi();
-        lnPeriod = lnGz + ' (' + selDate.getFullYear() + '年)';
-        lnSS = getShiShenLabel(dayGan, lnGz[0]);
-
-        const liuYues = liuNian.getLiuYue();
-        const selMonth = selDate.getMonth() + 1;
-        const liuYue = liuYues[selMonth - 1];
-        if (liuYue) {
-            lyGz = liuYue.getGanZhi();
-            lyPeriod = lyGz + ' (' + selDate.getFullYear() + '年' + selMonth + '月)';
-            lySS = getShiShenLabel(dayGan, lyGz[0]);
-        }
     }
 
     // Fetch existing analyses
@@ -182,43 +179,47 @@ async function renderBaziPillars(dateStr) {
         (res.data || []).forEach(a => { analyses[a.type] = a; });
     } catch(e) {}
 
-    // Build cards
-    const cards = [];
-    if (hasYun) {
-        cards.push({ type:'dayun',   label:'大运', gz:daYunGz, ss:dySS, period: daYunPeriod, icon:'🔟' });
-        cards.push({ type:'liunian', label:'流年', gz:lnGz, ss:lnSS, period: lnPeriod, icon:'📅' });
-        if (lyGz) cards.push({ type:'liuyue', label:'流月', gz:lyGz, ss:lySS, period: lyPeriod, icon:'🌙' });
-    }
-
-    grid.innerHTML = cards.map(c => {
-        const existing = analyses[c.type];
-        const g = c.gz[0], z = c.gz[1];
+    // Helper: render pillar card with dual 十神
+    function pillarCard(type, label, icon, period, g, z, ss_g, ss_z, existing, dateStr) {
+        const gz = g + z;
+        const ssLabel = [ss_g, ss_z].filter(Boolean).join(' / ');
         return `<div class="bazi-pillar-card">
             <div class="bazi-card-header">
-                <span class="bazi-card-icon">${c.icon}</span>
-                <strong>${c.label}</strong>
-                <span class="bazi-card-period">${c.period}</span>
+                <span class="bazi-card-icon">${icon}</span>
+                <strong>${label}</strong>
+                <span class="bazi-card-period">${period}</span>
             </div>
-            <div class="bazi-card-ganzhi">${gzSpan(g, z)} ${c.ss ? '<span class="bazi-card-shishen">'+c.ss+'</span>' : ''}</div>
+            <div class="bazi-card-pillars">
+                <div class="bazi-card-pillar-row"><span class="bazi-card-gan">${gzSpan(g, z)}</span><span class="bazi-card-shishen">${ssLabel || ''}</span></div>
+            </div>
             ${existing && existing.analysis
-                ? `<div class="bazi-card-analysis">${escapeHtml(existing.analysis)}<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','${c.type}','${c.label}','${c.gz}','${c.ss}')" style="margin-top:4px;">🔄 重新分析</button></div>`
-                : `<button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','${c.type}','${c.label}','${c.gz}','${c.ss}')">🤖 AI 解析</button>`}
+                ? `<div class="bazi-card-analysis">${escapeHtml(existing.analysis)}<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','${type}','${label}','${gz}','${ssLabel}')" style="margin-top:4px;">🔄 重新分析</button></div>`
+                : `<button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','${type}','${label}','${gz}','${ssLabel}')">🤖 AI 解析</button>`}
         </div>`;
-    }).join('');
+    }
+
+    // Build cards
+    let html = '';
+    if (hasYun) {
+        html += pillarCard('dayun', '大运', '🔟', daYunPeriod, dyG, dyZ, dySS_G, dySS_Z, analyses['dayun'], dateStr);
+    }
+    html += pillarCard('liunian', '流年', '📅', lnPeriod, lnG, lnZ, lnSS_G, lnSS_Z, analyses['liunian'], dateStr);
+    if (lyGz) html += pillarCard('liuyue', '流月', '🌙', lyPeriod, lyG, lyZ, lySS_G, lySS_Z, analyses['liuyue'], dateStr);
+    grid.innerHTML = html;
 
     // Render 流日 in daily status
-    renderLiuriCard(dateStr, liuRiGz, lrSS, analyses['liuri']);
+    renderLiuriCard(dateStr, lrGz, lrG, lrZ, lrSS_G, lrSS_Z, analyses['liuri']);
 }
 
-function renderLiuriCard(dateStr, gz, ss, existing) {
+function renderLiuriCard(dateStr, gz, g, z, ss_g, ss_z, existing) {
     const container = document.getElementById('dailyLiuri');
     if (!container) return;
-    const g = gz[0], z = gz[1];
+    const ssLabel = [ss_g, ss_z].filter(Boolean).join(' / ');
     container.innerHTML = `<div class="liuri-card">
-        <div class="liuri-header">📆 流日 <span class="liuri-ganzhi">${gzSpan(g, z)}</span> ${ss ? '<span class="bazi-card-shishen">'+ss+'</span>' : ''}</div>
+        <div class="liuri-header">📆 流日 <span class="liuri-ganzhi">${gzSpan(g, z)}</span> <span class="bazi-card-shishen">${ssLabel || ''}</span></div>
         ${existing && existing.analysis
-            ? `<div class="liuri-analysis">${escapeHtml(existing.analysis)}<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','liuri','流日','${gz}','${ss}')" style="margin-top:4px;font-size:0.7rem;">🔄 重新分析</button></div>`
-            : `<button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','liuri','流日','${gz}','${ss}')">🤖 AI 解析</button>`}
+            ? `<div class="liuri-analysis">${escapeHtml(existing.analysis)}<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','liuri','流日','${gz}','${ssLabel}')" style="margin-top:4px;font-size:0.7rem;">🔄 重新分析</button></div>`
+            : `<button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','liuri','流日','${gz}','${ssLabel}')">🤖 AI 解析</button>`}
     </div>`;
 }
 

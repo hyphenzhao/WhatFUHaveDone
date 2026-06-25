@@ -137,7 +137,7 @@ async function renderBaziPillars(dateStr) {
         const gender = p.gender === '女' ? 0 : 1;
         const yun = birthEc.getYun(gender);
         const ageYears = (selDate - bd) / (365.25 * 24 * 3600 * 1000);
-        const startAge = yun.getStartAge();
+        const startAge = yun.getStart();
 
         let daYunIdx = -1;
         for (let i = 0; i < 10; i++) {

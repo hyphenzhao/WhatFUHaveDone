@@ -2,6 +2,27 @@
  * Home page — orchestrates right panel, leaderboards, daily status, calendar
  */
 
+// Shared Markdown renderer (same as AiChat._md)
+function md(text) {
+    if (!text) return '';
+    let html = escapeHtml(text);
+    html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+    html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
+    html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+    html = html.replace(/^---$/gm, '<hr>');
+    html = html.replace(/\n\n/g, '</p><p>');
+    html = html.replace(/\n/g, '<br>');
+    html = '<p>' + html + '</p>';
+    html = html.replace(/<p><\/p>/g, '');
+    return html;
+}
+
 // Five Elements (五行) data
 const WU_XING = {
     // 天干五行
@@ -201,7 +222,7 @@ async function renderBaziPillars(dateStr) {
                 <div class="bazi-card-pillar-row"><span class="bazi-card-gan">${gzSpan(g, z)}</span><span class="bazi-card-shishen">${ssLabel || ''}</span></div>
             </div>
             ${existing && existing.analysis
-                ? `<div class="bazi-card-analysis">${escapeHtml(existing.analysis)}<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','${type}','${label}','${gz}','${ssLabel}')" style="margin-top:4px;">🔄 重新分析</button></div>`
+                ? `<div class="bazi-card-analysis">${md(existing.analysis)}<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','${type}','${label}','${gz}','${ssLabel}')" style="margin-top:4px;">🔄 重新分析</button></div>`
                 : `<button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','${type}','${label}','${gz}','${ssLabel}')">🤖 AI 解析</button>`}
         </div>`;
     }
@@ -226,7 +247,7 @@ function renderLiuriCard(dateStr, gz, g, z, ss_g, ss_z, existing) {
     container.innerHTML = `<div class="liuri-card">
         <div class="liuri-header">📆 流日 <span class="liuri-ganzhi">${gzSpan(g, z)}</span> <span class="bazi-card-shishen">${ssLabel || ''}</span></div>
         ${existing && existing.analysis
-            ? `<div class="liuri-analysis">${escapeHtml(existing.analysis)}<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','liuri','流日','${gz}','${ssLabel}')" style="margin-top:4px;font-size:0.7rem;">🔄 重新分析</button></div>`
+            ? `<div class="liuri-analysis">${md(existing.analysis)}<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','liuri','流日','${gz}','${ssLabel}')" style="margin-top:4px;font-size:0.7rem;">🔄 重新分析</button></div>`
             : `<button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','liuri','流日','${gz}','${ssLabel}')">🤖 AI 解析</button>`}
     </div>`;
 }

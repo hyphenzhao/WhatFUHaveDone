@@ -640,6 +640,7 @@ PROMPT];
 // ===== CHAT ENDPOINT =====
 
 if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
+    try {
     $input = get_json_input();
     $config = load_ai_config($db);
 
@@ -730,6 +731,10 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
     }
 
     json_success(['type' => 'text', 'content' => '抱歉，请求步骤过多，请简化后重试。', 'message' => null]);
+
+    } catch (Exception $e) {
+        json_error('AI error: ' . $e->getMessage(), 500);
+    }
 }
 
 json_error('Method not allowed or unknown action', 405);

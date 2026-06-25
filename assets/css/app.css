@@ -634,7 +634,8 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     margin-top: 4px;
 }
 /* Liuri card in daily status */
-.daily-liuri { margin-top: 0; padding: 0 8px 8px; }
+.daily-liuri { width: 220px; flex-shrink: 0; padding: 0 0 8px; }
+@media (max-width: 768px) { .daily-liuri { width: 100%; } }
 .liuri-card {
     background: linear-gradient(135deg, #fefce8, #fffbeb);
     border: 1px solid #eab308;

@@ -6,7 +6,7 @@
 :root {
     --sidebar-width: 220px;
     --sidebar-collapsed: 56px;
-    --right-panel-width: 380px;
+    --right-panel-width: 480px;
     --right-panel-collapsed: 36px;
 
     --color-bg: #f1f5f9;
@@ -261,6 +261,32 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 }
 .ai-message-user .ai-bubble { background: var(--color-primary); color: #fff; }
 .ai-bubble strong { font-weight: 700; }
+.ai-bubble em { font-style: italic; }
+.ai-bubble h2, .ai-bubble h3, .ai-bubble h4 { margin: 8px 0 4px; font-weight: 700; }
+.ai-bubble h2 { font-size: 1rem; }
+.ai-bubble h3 { font-size: 0.92rem; }
+.ai-bubble h4 { font-size: 0.85rem; }
+.ai-bubble ul, .ai-bubble ol { margin: 4px 0; padding-left: 18px; }
+.ai-bubble li { margin: 2px 0; }
+.ai-bubble code {
+    background: rgba(0,0,0,0.08); padding: 1px 4px;
+    border-radius: 3px; font-size: 0.78rem; font-family: monospace;
+}
+.ai-bubble pre {
+    background: rgba(0,0,0,0.06); padding: 8px 10px;
+    border-radius: var(--radius-sm); overflow-x: auto;
+    margin: 6px 0; font-size: 0.76rem;
+}
+.ai-bubble pre code { background: none; padding: 0; }
+.ai-bubble blockquote {
+    border-left: 3px solid var(--color-primary);
+    padding: 4px 10px; margin: 6px 0;
+    color: var(--color-text-secondary); font-size: 0.8rem;
+}
+.ai-bubble hr { border: none; border-top: 1px solid var(--color-border); margin: 8px 0; }
+.ai-message-user .ai-bubble code { background: rgba(255,255,255,0.2); }
+.ai-message-user .ai-bubble pre { background: rgba(255,255,255,0.1); }
+.ai-message-user .ai-bubble blockquote { border-left-color: rgba(255,255,255,0.5); color: rgba(255,255,255,0.85); }
 
 /* Typing animation */
 .ai-typing .ai-bubble { display: flex; gap: 3px; align-items: center; padding: 12px 16px; }

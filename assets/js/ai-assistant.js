@@ -124,16 +124,48 @@ const AiChat = {
         const div = document.createElement('div');
         div.className = `ai-message ai-message-${role}`;
         div.innerHTML = `<div class="ai-avatar">${role === 'user' ? '👤' : '🤖'}</div>
-            <div class="ai-bubble">${this._renderContent(content)}</div>`;
+            <div class="ai-bubble">${this._md(content)}</div>`;
         this.messagesEl.appendChild(div);
         this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
     },
 
-    _renderContent(text) {
+    _md(text) {
         if (!text) return '';
-        return escapeHtml(text)
-            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\n/g, '<br>');
+        // Escape HTML first, then convert Markdown
+        let html = escapeHtml(text);
+
+        // Code blocks (```...```)
+        html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+        // Inline code (`...`)
+        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+        // Bold (**...**)
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        // Italic (*...*)
+        html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        // Headers (### ..., ## ..., # ...)
+        html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+        html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+        html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
+        // Unordered lists (- ... or * ...)
+        html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+        html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+        // Ordered lists (1. ...)
+        html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+        // Horizontal rule
+        html = html.replace(/^---$/gm, '<hr>');
+        // Blockquote
+        html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+        // Newlines to <br> (but not inside pre/code/ul/ol/li)
+        html = html.replace(/\n\n/g, '</p><p>');
+        html = html.replace(/\n/g, '<br>');
+        // Wrap in paragraphs
+        html = '<p>' + html + '</p>';
+        // Clean up empty paragraphs and nested issues
+        html = html.replace(/<p><\/p>/g, '');
+        html = html.replace(/<p>(<[huol])/g, '$1');
+        html = html.replace(/(<\/[huol]>|<\/li>)<\/p>/g, '$1');
+
+        return html;
     },
 
     _showTyping() {

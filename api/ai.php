@@ -59,7 +59,7 @@ function call_llm(array $config, array $messages, array $tools): array {
         CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE),
         CURLOPT_HTTPHEADER => $headers,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 120,
+        CURLOPT_TIMEOUT => 180,
         CURLOPT_CONNECTTIMEOUT => 10,
     ]);
 

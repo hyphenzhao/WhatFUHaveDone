@@ -123,8 +123,25 @@ const AiChat = {
         this.sendBtn.disabled = true;
         this._showTyping();
 
+        // Add a thinking indicator step
+        const thinkingStep = document.createElement('div');
+        thinkingStep.className = 'ai-step';
+        thinkingStep.innerHTML = '<span class="ai-step-icon">🤔</span> <span>AI 分析中，请稍候…</span>';
+        this.messagesEl.appendChild(thinkingStep);
+        this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+
         try {
-            const res = await API.post('/ai/chat', { messages: this.messages });
+            const ctrl = new AbortController();
+            const timeout = setTimeout(() => ctrl.abort(), 120000); // 2 min timeout
+            const res = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: this.messages }),
+                signal: ctrl.signal,
+            }).then(r => r.json());
+            clearTimeout(timeout);
+            if (thinkingStep.parentNode) thinkingStep.remove();
+            if (res.error) throw new Error(res.message);
             this._hideTyping();
 
             if (res.data.type === 'text' || res.data.type === 'steps') {
@@ -153,8 +170,10 @@ const AiChat = {
                 this._showConfirmation(res.data.pending_calls);
             }
         } catch (e) {
+            if (thinkingStep.parentNode) thinkingStep.remove();
             this._hideTyping();
-            this._addMsg('assistant', '⚠️ 请求失败: ' + (e.message || '未知错误'), true);
+            const msg = e.name === 'AbortError' ? '请求超时，AI 响应时间过长。请尝试简化问题或检查 API 配置。' : '⚠️ 请求失败: ' + (e.message || '未知错误');
+            this._addMsg('assistant', msg, true);
         } finally {
             this.isWaiting = false;
             this.sendBtn.disabled = false;

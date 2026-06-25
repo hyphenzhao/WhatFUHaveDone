@@ -73,6 +73,14 @@ async function loadBaziProfile() {
     return baziProfile;
 }
 
+// 地支藏干本气: zhi -> primary gan
+const ZHI_GAN = { 子:'癸',丑:'己',寅:'甲',卯:'乙',辰:'戊',巳:'丙',午:'丁',未:'己',申:'庚',酉:'辛',戌:'戊',亥:'壬' };
+
+function getZhiShiShen(dayGan, zhi) {
+    const gan = ZHI_GAN[zhi] || zhi;
+    return getShiShenLabel(dayGan, gan);
+}
+
 function getShiShenLabel(dayGan, targetGan) {
     const map = {
         '甲甲':'比肩','甲乙':'劫财','甲丙':'食神','甲丁':'伤官','甲戊':'偏财','甲己':'正财','甲庚':'七杀','甲辛':'正官','甲壬':'偏印','甲癸':'正印',
@@ -121,17 +129,17 @@ async function renderBaziPillars(dateStr) {
     const lrGz = selEc.getDayGan() + selEc.getDayZhi();
     const lrG = lrGz[0], lrZ = lrGz[1];
     const lrSS_G = getShiShenLabel(dayGan, lrG);
-    const lrSS_Z = getShiShenLabel(dayGan, lrZ);
+    const lrSS_Z = getZhiShiShen(dayGan, lrZ);
 
     const lnGz = selEc.getYearGan() + selEc.getYearZhi();
     const lnG = lnGz[0], lnZ = lnGz[1];
     const lnSS_G = getShiShenLabel(dayGan, lnG);
-    const lnSS_Z = getShiShenLabel(dayGan, lnZ);
+    const lnSS_Z = getZhiShiShen(dayGan, lnZ);
 
     const lyGz = selEc.getMonthGan() + selEc.getMonthZhi();
     const lyG = lyGz[0], lyZ = lyGz[1];
     const lySS_G = getShiShenLabel(dayGan, lyG);
-    const lySS_Z = getShiShenLabel(dayGan, lyZ);
+    const lySS_Z = getZhiShiShen(dayGan, lyZ);
 
     const selMonth = selDate.getMonth() + 1;
     const lnPeriod = lnGz + ' (' + selDate.getFullYear() + '年)';
@@ -167,7 +175,7 @@ async function renderBaziPillars(dateStr) {
         daYunGz = daYun.getGanZhi();
         dyG = daYunGz[0]; dyZ = daYunGz[1];
         dySS_G = getShiShenLabel(dayGan, dyG);
-        dySS_Z = getShiShenLabel(dayGan, dyZ);
+        dySS_Z = getZhiShiShen(dayGan, dyZ);
         daYunPeriod = daYunGz + ' (' + Math.floor(daYun.getStartAge()) + '-' + Math.floor(daYun.getEndAge()) + '虚岁)';
         hasYun = true;
     }

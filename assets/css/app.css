@@ -789,7 +789,18 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     font-size: 0.9rem;
     color: var(--color-text-secondary);
 }
+.daily-body {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+.daily-almanac {
+    width: 220px;
+    flex-shrink: 0;
+}
 .daily-cards {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
@@ -807,6 +818,33 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     font-size: 0.75rem;
     color: var(--color-text-secondary);
 }
+/* Almanac (黄历) card */
+.almanac-card {
+    background: linear-gradient(135deg, #fefce8, #fef9c3);
+    border: 1px solid #eab308;
+    border-radius: var(--radius);
+    padding: 12px;
+    font-size: 0.85rem;
+    line-height: 1.8;
+}
+.almanac-solar { text-align: center; margin-bottom: 6px; }
+.almanac-year { font-size: 1.1rem; font-weight: 700; }
+.almanac-month { font-size: 1.1rem; font-weight: 700; }
+.almanac-day { font-size: 1.4rem; font-weight: 800; color: #e53e3e; }
+.almanac-sep { font-size: 0.75rem; color: var(--color-text-secondary); margin: 0 2px; }
+.almanac-weekday { font-size: 0.85rem; font-weight: 600; margin-left: 6px; }
+.almanac-lunar { text-align: center; margin-bottom: 8px; font-size: 0.82rem; }
+.almanac-lunar-text { font-weight: 600; margin: 0 4px; }
+.almanac-term { color: #38a169; font-weight: 700; font-size: 0.78rem; }
+.almanac-ganzhi { font-size: 0.8rem; }
+.almanac-gz-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.almanac-gz-label { width: 32px; font-size: 0.72rem; color: var(--color-text-secondary); }
+.almanac-gz-sx { font-size: 0.72rem; color: var(--color-text-secondary); margin-left: 4px; }
+@media (max-width: 768px) {
+    .daily-body { flex-direction: column; }
+    .daily-almanac { width: 100%; }
+}
+
 .no-daily-data {
     color: var(--color-text-secondary);
     font-size: 0.9rem;

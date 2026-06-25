@@ -2,6 +2,62 @@
  * Home page — orchestrates right panel, leaderboards, daily status, calendar
  */
 
+// Five Elements (五行) data
+const WU_XING = {
+    // 天干五行
+    gan: { 甲:'木', 乙:'木', 丙:'火', 丁:'火', 戊:'土', 己:'土', 庚:'金', 辛:'金', 壬:'水', 癸:'水' },
+    // 地支五行
+    zhi: { 子:'水', 丑:'土', 寅:'木', 卯:'木', 辰:'土', 巳:'火', 午:'火', 未:'土', 申:'金', 酉:'金', 戌:'土', 亥:'水' },
+    // 五行颜色
+    color: { 木:'#38a169', 火:'#e53e3e', 土:'#d97706', 金:'#ddb100', 水:'#3182ce' },
+};
+
+function renderAlmanac(dateStr) {
+    const container = document.getElementById('dailyAlmanac');
+    if (!container) return;
+
+    try {
+        const d = new Date(dateStr + 'T12:00:00');
+        const lunar = Lunar.fromDate(d);
+        const meta = Calendar.calendarMeta[dateStr] || {};
+
+        const yGan = lunar.getYearGan(), yZhi = lunar.getYearZhi();
+        const mGan = lunar.getMonthGan(), mZhi = lunar.getMonthZhi();
+        const dGan = lunar.getDayGan(), dZhi = lunar.getDayZhi();
+        const shengXiao = lunar.getYearShengXiao ? lunar.getYearShengXiao() : '';
+
+        const gz = (g, z) => {
+            const ge = WU_XING.gan[g] || '', ze = WU_XING.zhi[z] || '';
+            return `<span style="color:${WU_XING.color[ge]||'#333'}">${g}</span><span style="color:${WU_XING.color[ze]||'#333'}">${z}</span>`;
+        };
+
+        const [y, m, day] = dateStr.split('-');
+        const weekNames = ['日','一','二','三','四','五','六'];
+
+        container.innerHTML = `
+            <div class="almanac-card">
+                <div class="almanac-solar">
+                    <span class="almanac-year">${y}</span><span class="almanac-sep">年</span>
+                    <span class="almanac-month">${parseInt(m)}</span><span class="almanac-sep">月</span>
+                    <span class="almanac-day">${parseInt(day)}</span><span class="almanac-sep">日</span>
+                    <span class="almanac-weekday">星期${weekNames[d.getDay()]}</span>
+                </div>
+                <div class="almanac-lunar">
+                    <span>农历</span>
+                    <span class="almanac-lunar-text">${escapeHtml(meta.lunar_month || lunar.getMonthInChinese())}${escapeHtml(meta.lunar_day || lunar.getDayInChinese())}</span>
+                    ${meta.solar_term ? `<span class="almanac-term">${escapeHtml(meta.solar_term)}</span>` : ''}
+                </div>
+                <div class="almanac-ganzhi">
+                    <div class="almanac-gz-row"><span class="almanac-gz-label">年柱</span>${gz(yGan, yZhi)}<span class="almanac-gz-sx">${escapeHtml(shengXiao)}</span></div>
+                    <div class="almanac-gz-row"><span class="almanac-gz-label">月柱</span>${gz(mGan, mZhi)}</div>
+                    <div class="almanac-gz-row"><span class="almanac-gz-label">日柱</span>${gz(dGan, dZhi)}</div>
+                </div>
+            </div>`;
+    } catch (e) {
+        container.innerHTML = '<div class="almanac-card"><div class="no-daily-data">黄历数据加载失败</div></div>';
+    }
+}
+
 async function loadRightPanel() {
     const panel = document.getElementById('rightPanelBody');
     if (!panel) return;
@@ -248,6 +304,7 @@ async function loadDailyStatus(date) {
     if (!container) return;
 
     dateDisplay.textContent = formatDate(date);
+    renderAlmanac(date);
 
     try {
         const res = await API.stats.daily(date);

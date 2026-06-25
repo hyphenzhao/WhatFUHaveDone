@@ -95,6 +95,7 @@ $current_page = $current_page ?? 'home';
     <script src="/assets/js/modal.js"></script>
     <script src="/assets/js/app.js"></script>
     <?php if ($current_page === 'home'): ?>
+    <script src="/assets/js/lunar.js"></script>
     <script src="/assets/js/task-card.js"></script>
     <script src="/assets/js/calendar.js"></script>
     <script src="/assets/js/ai-assistant.js"></script>

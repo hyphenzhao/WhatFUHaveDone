@@ -645,10 +645,17 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
     $config = load_ai_config($db);
 
     $allTools = get_tool_definitions();
-    $toolSchemas = array_map(fn($t) => [
-        'type' => 'function',
-        'function' => ['name' => $t['name'], 'description' => $t['description'], 'parameters' => $t['parameters']],
-    ], $allTools);
+    $toolSchemas = array_map(function($t) {
+        $params = $t['parameters'];
+        // Ensure empty properties is an object {}, not array []
+        if (isset($params['properties']) && empty($params['properties'])) {
+            $params['properties'] = new stdClass();
+        }
+        return [
+            'type' => 'function',
+            'function' => ['name' => $t['name'], 'description' => $t['description'], 'parameters' => $params],
+        ];
+    }, $allTools);
 
     // Build messages
     $messages = [get_system_prompt()];

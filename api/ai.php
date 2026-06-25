@@ -635,10 +635,8 @@ function get_system_prompt(PDO $db): array {
             $ny = json_decode($p['nayin'], true);
             if ($ny) $profile .= "NaYin: 年{$ny['year']} 月{$ny['month']} 日{$ny['day']} 时{$ny['time']}\n";
         }
-        if ($p['shishen']) {
-            $ss = json_decode($p['shishen'], true);
-            if ($ss) $profile .= "ShiShen: 年{$ss['year']} 月{$ss['month']} 日{$ss['day']} 时{$ss['time']}\n";
-        }
+        if ($p['shishen']) $profile .= "ShiShen: {$p['shishen']}\n";
+        if ($p['dayun']) $profile .= "Ziwei: {$p['dayun']}\n";
         if ($p['resume']) $profile .= "Resume: {$p['resume']}\n";
         if ($p['goals']) $profile .= "Goals: {$p['goals']}\n";
         $profile .= "\n";

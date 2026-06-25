@@ -74,6 +74,7 @@ if ($type === 'calendar') {
         $stmt2->execute([$e['id']]);
         $e['tag'] = $stmt2->fetch();
     }
+    unset($e); // break the reference to avoid corrupting the last element in the next foreach
 
     // Group by date
     $calendar = [];
@@ -143,4 +144,52 @@ if ($type === 'daily') {
     ]);
 }
 
-json_error('Invalid type parameter. Use: workload, results, calendar, daily');
+// Workload detail by tag — returns per-task breakdown
+if ($type === 'workload_detail') {
+    $tag_id = (int)($_GET['tag_id'] ?? 0);
+    if (!$tag_id) json_error('tag_id required');
+
+    $sql = "SELECT t.id, t.name, COUNT(wl.id) as work_days,
+                   GROUP_CONCAT(DISTINCT p.name ORDER BY p.name SEPARATOR ', ') as people_names
+            FROM tasks t
+            JOIN task_tags tt ON t.id = tt.task_id
+            JOIN work_logs wl ON t.id = wl.task_id
+            LEFT JOIN task_people tp ON t.id = tp.task_id
+            LEFT JOIN people p ON tp.people_id = p.id
+            WHERE tt.tag_id = ? AND t.archived = 0
+            GROUP BY t.id, t.name
+            ORDER BY work_days DESC";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([$tag_id]);
+    $tasks = $stmt->fetchAll();
+
+    json_success([
+        'tag_id' => $tag_id,
+        'tasks' => $tasks,
+    ]);
+}
+
+// Results detail by tag — returns per-result breakdown
+if ($type === 'results_detail') {
+    $tag_id = (int)($_GET['tag_id'] ?? 0);
+    if (!$tag_id) json_error('tag_id required');
+
+    $sql = "SELECT r.id, r.name, r.level, r.quantity, t.name as task_name,
+                   rl.log_date, rl.id as log_id
+            FROM result_logs rl
+            JOIN results r ON rl.result_id = r.id
+            JOIN tasks t ON rl.task_id = t.id
+            JOIN task_tags tt ON t.id = tt.task_id
+            WHERE tt.tag_id = ?
+            ORDER BY r.level ASC, r.name ASC";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([$tag_id]);
+    $results = $stmt->fetchAll();
+
+    json_success([
+        'tag_id' => $tag_id,
+        'results' => $results,
+    ]);
+}
+
+json_error('Invalid type parameter. Use: workload, results, calendar, daily, workload_detail, results_detail');

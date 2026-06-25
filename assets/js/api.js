@@ -94,6 +94,8 @@ const API = {
         results() { return API.get('/stats?type=results'); },
         calendar(month) { return API.get(`/stats?type=calendar&month=${month}`); },
         daily(date) { return API.get(`/stats?type=daily&date=${date}`); },
+        workloadDetail(tagId) { return API.get(`/stats?type=workload_detail&tag_id=${tagId}`); },
+        resultsDetail(tagId) { return API.get(`/stats?type=results_detail&tag_id=${tagId}`); },
     },
 
     // --- Relationships ---

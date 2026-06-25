@@ -68,25 +68,54 @@ const TaskCard = {
 
     _renderStageCompleteActions(task) {
         return `
-            <button class="btn-plan" onclick="TaskCard.addPlan(${task.id})">📅 添加计划</button>
-            <button class="btn-primary btn-sm" onclick="TaskCard.nextStage(${task.id})">
-                下一阶段 ▶
-            </button>
+            <div class="task-card-actions-left">
+                <button class="btn-plan" onclick="TaskCard.addPlan(${task.id})" title="添加计划">📅 计划</button>
+            </div>
+            <div class="task-card-actions-right">
+                <select class="stage-select" onchange="TaskCard.changeStage(${task.id}, this.value)" title="移动到">
+                    <option value="">↳</option>
+                    <option value="in_progress">🔄 进行中</option>
+                    <option value="completed">🎉 已完成</option>
+                    <option value="failed">❌ 失败/放弃</option>
+                </select>
+                <button class="btn-primary btn-sm" onclick="TaskCard.nextStage(${task.id})">
+                    下一阶段 ▶
+                </button>
+            </div>
         `;
     },
 
     _renderCompletedActions(task) {
         return `
-            <button class="btn-continue" onclick="TaskCard.continueTask(${task.id})">
-                🔄 继续任务
-            </button>
+            <div class="task-card-actions-left">
+                <button class="btn-continue" onclick="TaskCard.continueTask(${task.id})">
+                    🔄 继续任务
+                </button>
+            </div>
+            <div class="task-card-actions-right">
+                <select class="stage-select" onchange="TaskCard.changeStage(${task.id}, this.value)" title="移动到">
+                    <option value="">↳</option>
+                    <option value="in_progress">🔄 进行中</option>
+                    <option value="stage_complete">✅ 阶段性完成</option>
+                    <option value="failed">❌ 失败/放弃</option>
+                </select>
+            </div>
         `;
     },
 
     _renderFailedActions(task) {
         return `
-            <span style="font-size:0.75rem;color:var(--color-text-secondary);">已放弃</span>
-            <button class="btn-ghost btn-sm" onclick="TaskCard.changeStage(${task.id}, 'in_progress')">重新开始</button>
+            <div class="task-card-actions-left">
+                <button class="btn-ghost btn-sm" onclick="TaskCard.changeStage(${task.id}, 'in_progress')">重新开始</button>
+            </div>
+            <div class="task-card-actions-right">
+                <select class="stage-select" onchange="TaskCard.changeStage(${task.id}, this.value)" title="移动到">
+                    <option value="">↳</option>
+                    <option value="in_progress">🔄 进行中</option>
+                    <option value="stage_complete">✅ 阶段性完成</option>
+                    <option value="completed">🎉 已完成</option>
+                </select>
+            </div>
         `;
     },
 
@@ -96,7 +125,7 @@ const TaskCard = {
         try {
             const res = await API.worklogs.toggle(taskId, date);
             // Refresh the right panel and daily status
-            if (typeof refreshAll === 'function') refreshAll();
+            if (typeof refreshAll === 'function') await refreshAll();
             Toast.success(res.data.active ? '已记录工作量 +1' : '已取消工作量');
         } catch (e) {
             Toast.error('操作失败: ' + e.message);
@@ -113,7 +142,7 @@ const TaskCard = {
                 data.stage_number = task.data.stage_number + 1;
             }
             await API.tasks.update(taskId, data);
-            if (typeof refreshAll === 'function') refreshAll();
+            if (typeof refreshAll === 'function') await refreshAll();
             Toast.success('状态已更新');
         } catch (e) {
             Toast.error('操作失败: ' + e.message);
@@ -128,7 +157,7 @@ const TaskCard = {
                 stage: 'in_progress',
                 stage_number: task.data.stage_number + 1,
             });
-            if (typeof refreshAll === 'function') refreshAll();
+            if (typeof refreshAll === 'function') await refreshAll();
             Toast.success('已进入下一阶段');
         } catch (e) {
             Toast.error('操作失败: ' + e.message);
@@ -155,7 +184,7 @@ const TaskCard = {
                     stage_number: 1,
                 });
                 Modal.close();
-                if (typeof refreshAll === 'function') refreshAll();
+                if (typeof refreshAll === 'function') await refreshAll();
                 Toast.success('任务已重新开始');
             } catch (e) { Toast.error('操作失败: ' + e.message); }
         });
@@ -168,7 +197,7 @@ const TaskCard = {
                     stage_number: task.data.stage_number,
                 });
                 Modal.close();
-                if (typeof refreshAll === 'function') refreshAll();
+                if (typeof refreshAll === 'function') await refreshAll();
                 Toast.success('任务已继续');
             } catch (e) { Toast.error('操作失败: ' + e.message); }
         });
@@ -194,7 +223,7 @@ const TaskCard = {
             try {
                 await API.plans.add(taskId, plannedDate);
                 Modal.close();
-                if (typeof refreshAll === 'function') refreshAll();
+                if (typeof refreshAll === 'function') await refreshAll();
                 Toast.success('计划已添加');
             } catch (e) { Toast.error('操作失败: ' + e.message); }
         });
@@ -276,7 +305,7 @@ const TaskCard = {
                 });
 
                 Modal.close();
-                if (typeof refreshAll === 'function') refreshAll();
+                if (typeof refreshAll === 'function') await refreshAll();
                 Toast.success('成果已记录');
             } catch (e) {
                 Toast.error('操作失败: ' + e.message);

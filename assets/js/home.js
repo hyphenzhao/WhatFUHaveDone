@@ -2,17 +2,6 @@
  * Home page — orchestrates right panel, leaderboards, daily status, calendar
  */
 
-// Global refresh function called by task-card actions
-async function refreshAll() {
-    await Promise.all([
-        loadRightPanel(),
-        loadLeaderboards(),
-        loadDailyStatus(App.selectedDate),
-    ]);
-    await Calendar.loadMonth();
-    Calendar.render();
-}
-
 async function loadRightPanel() {
     const panel = document.getElementById('rightPanelBody');
     if (!panel) return;
@@ -79,25 +68,26 @@ async function loadLeaderboards() {
             API.stats.results(),
         ]);
 
-        renderLeaderboard('workloadLeaderboard', '💪 工作量排行', workload.data || []);
-        renderLeaderboard('resultsLeaderboard', '🏆 成果排行', results.data || []);
+        renderLeaderboard('workloadLeaderboard', '💪 工作量排行', workload.data || [], true);
+        renderLeaderboard('resultsLeaderboard', '🏆 成果排行', results.data || [], false);
     } catch (e) {
         console.error('Leaderboard load failed:', e);
     }
 }
 
-function renderLeaderboard(containerId, title, items) {
+function renderLeaderboard(containerId, title, items, isWorkload) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
     const maxVal = items.length > 0 ? Math.max(...items.map(i => i.total_workload || i.total_results || 0)) : 1;
+    const type = isWorkload ? 'workload' : 'results';
 
     const html = items.map((item, idx) => {
         const count = item.total_workload || item.total_results || 0;
         const pct = maxVal > 0 ? (count / maxVal * 100) : 0;
         const color = item.color || '#3B82F6';
         return `
-            <div class="leaderboard-item">
+            <div class="leaderboard-item" data-detail-type="${type}" data-tag-id="${item.id}" data-tag-name="${escapeHtml(item.name)}" data-tag-color="${color}" title="点击查看详情">
                 <span class="leaderboard-rank">#${idx + 1}</span>
                 <span class="leaderboard-tag">
                     <span class="leaderboard-tag-color" style="background:${color}"></span>
@@ -112,6 +102,144 @@ function renderLeaderboard(containerId, title, items) {
     }).join('') || '<div class="no-daily-data">暂无数据</div>';
 
     container.innerHTML = `<h3>${title}</h3>${html}`;
+
+    // Delegated click handler
+    container.querySelectorAll('.leaderboard-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const tagId = parseInt(el.dataset.tagId);
+            const tagName = el.dataset.tagName;
+            const tagColor = el.dataset.tagColor;
+            if (el.dataset.detailType === 'workload') {
+                showWorkloadDetail(tagId, tagName, tagColor);
+            } else {
+                showResultsDetail(tagId, tagName);
+            }
+        });
+    });
+}
+
+// --- Leaderboard Detail Modals ---
+
+function lightenColor(hex, factor) {
+    // Convert hex to HSL, increase lightness, return hex
+    let r = parseInt(hex.slice(1, 3), 16);
+    let g = parseInt(hex.slice(3, 5), 16);
+    let b = parseInt(hex.slice(5, 7), 16);
+    r = Math.min(255, Math.round(r + (255 - r) * factor));
+    g = Math.min(255, Math.round(g + (255 - g) * factor));
+    b = Math.min(255, Math.round(b + (255 - b) * factor));
+    return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+}
+
+function renderPieChart(tasks, baseColor) {
+    const total = tasks.reduce((s, t) => s + parseInt(t.work_days), 0);
+    if (total === 0) return '<div style="text-align:center;color:var(--color-text-secondary);">无数据</div>';
+
+    const r = 80;
+    const circ = 2 * Math.PI * r; // ~502.65
+    let offset = 0;
+    const slices = tasks.map((t, i) => {
+        const pct = parseInt(t.work_days) / total;
+        const dashLen = pct * circ;
+        const color = tasks.length === 1 ? baseColor : lightenColor(baseColor, i * 0.7 / (tasks.length - 1 || 1));
+        const slice = `<circle r="${r}" cx="100" cy="100" fill="none"
+            stroke="${color}" stroke-width="30"
+            stroke-dasharray="${dashLen} ${circ - dashLen}"
+            stroke-dashoffset="${-offset}"
+            transform="rotate(-90 100 100)" />`;
+        offset += dashLen;
+        return { html: slice, color, pct, name: t.name, days: t.work_days };
+    });
+
+    const svg = `<svg viewBox="0 0 200 200" width="200" height="200">
+        ${slices.map(s => s.html).join('')}
+        <text x="100" y="95" text-anchor="middle" font-size="22" font-weight="700" fill="var(--color-text)">${total}</text>
+        <text x="100" y="114" text-anchor="middle" font-size="11" fill="var(--color-text-secondary)">总天数</text>
+    </svg>`;
+
+    const legend = slices.map(s => `
+        <div class="pie-legend-item">
+            <span class="pie-legend-swatch" style="background:${s.color}"></span>
+            <span class="pie-legend-label" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</span>
+            <span class="pie-legend-pct">${Math.round(s.pct * 100)}%</span>
+        </div>
+    `).join('');
+
+    return `
+        ${svg}
+        <div class="pie-legend">${legend}</div>
+    `;
+}
+
+async function showWorkloadDetail(tagId, tagName, tagColor) {
+    Modal.open({
+        title: `💪 ${tagName} — 工作量详情`,
+        body: '<div style="text-align:center;padding:20px;">加载中...</div>',
+    });
+    try {
+        const res = await API.stats.workloadDetail(tagId);
+        const tasks = res.data?.tasks || [];
+
+        let taskListHtml;
+        if (tasks.length === 0) {
+            taskListHtml = '<div class="no-daily-data">暂无任务数据</div>';
+        } else {
+            taskListHtml = tasks.map(t => `
+                <div class="detail-task-row">
+                    <div class="detail-task-info">
+                        <div class="detail-task-name">${escapeHtml(t.name)}</div>
+                        <div class="detail-task-people">${escapeHtml(t.people_names || '无受益人')}</div>
+                    </div>
+                    <span class="detail-task-days">${t.work_days} 天</span>
+                </div>
+            `).join('');
+        }
+
+        Modal.setBody(`
+            <div class="detail-layout">
+                <div class="detail-task-list">
+                    <h4>📋 任务列表</h4>
+                    ${taskListHtml}
+                </div>
+                <div class="detail-pie">
+                    <h4 style="margin-bottom:10px;">📊 占比</h4>
+                    ${tasks.length > 0 ? renderPieChart(tasks, tagColor) : '<div class="no-daily-data">无数据</div>'}
+                </div>
+            </div>
+        `);
+    } catch (e) {
+        Modal.setBody('<div class="no-daily-data" style="color:var(--color-danger);">加载失败: ' + escapeHtml(e.message) + '</div>');
+    }
+}
+
+async function showResultsDetail(tagId, tagName) {
+    Modal.open({
+        title: `🏆 ${tagName} — 成果详情`,
+        body: '<div style="text-align:center;padding:20px;">加载中...</div>',
+    });
+    try {
+        const res = await API.stats.resultsDetail(tagId);
+        const results = res.data?.results || [];
+
+        let html;
+        if (results.length === 0) {
+            html = '<div class="no-daily-data">暂无成果数据</div>';
+        } else {
+            html = `<div class="detail-results-list"><h4>📋 成果列表（按等级升序）</h4>`;
+            html += results.map(r => `
+                <div class="detail-result-row">
+                    <span class="detail-result-level">${escapeHtml(r.level || '-')}</span>
+                    <span class="detail-result-name">${escapeHtml(r.name)}</span>
+                    <span class="detail-result-meta">${escapeHtml(r.task_name)} · ${r.quantity || 1}个 · ${r.log_date}</span>
+                </div>
+            `).join('');
+            html += '</div>';
+        }
+
+        Modal.setBody(html);
+    } catch (e) {
+        Modal.setBody('<div class="no-daily-data" style="color:var(--color-danger);">加载失败: ' + escapeHtml(e.message) + '</div>');
+    }
 }
 
 async function loadDailyStatus(date) {
@@ -308,8 +436,33 @@ async function showQuickAddTag() {
 }
 
 // --- Init ---
-let calendarInitialized = false;
+let _refreshing = false;
+let _refreshPending = false;
+
+// Global refresh with lock — queues a re-refresh if called while busy
+async function refreshAll() {
+    if (_refreshing) {
+        _refreshPending = true;
+        return;
+    }
+    _refreshing = true;
+    try {
+        do {
+            _refreshPending = false;
+            await Promise.all([
+                loadRightPanel(),
+                loadLeaderboards(),
+                loadDailyStatus(App.selectedDate),
+            ]);
+            await Calendar.loadMonth();
+            Calendar.render();
+        } while (_refreshPending);
+    } finally {
+        _refreshing = false;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-    Calendar.init(); // bind events once
+    await Calendar.init(); // wait for initial calendar load before refreshing
     await refreshAll();
 });

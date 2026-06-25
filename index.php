@@ -25,6 +25,12 @@ $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = trim($uri, '/');
 $parts = $uri ? explode('/', $uri) : [];
 
+// AI routes (handles sub-paths: /api/ai/chat, /api/ai/config, etc.)
+if ($parts[0] === 'api' && ($parts[1] ?? '') === 'ai') {
+    require __DIR__ . '/api/ai.php';
+    exit;
+}
+
 // API routes
 if (isset($parts[0]) && $parts[0] === 'api' && isset($parts[1])) {
     $api_file = __DIR__ . '/api/' . $parts[1] . '.php';
@@ -48,6 +54,7 @@ $page_map = [
     'tags'          => 'tags',
     'relationships' => 'relationships',
     'calendar-admin' => 'calendar-admin',
+    'ai-admin' => 'ai-admin',
 ];
 
 $page = $page_map[$uri] ?? null;

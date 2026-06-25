@@ -133,3 +133,16 @@ CREATE TABLE IF NOT EXISTS calendar_meta (
     is_workday TINYINT(1) DEFAULT 0,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 13. AI 配置 (AI Assistant Configuration)
+CREATE TABLE IF NOT EXISTS ai_config (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    provider VARCHAR(32) NOT NULL DEFAULT 'ollama',
+    endpoint VARCHAR(512) NOT NULL DEFAULT 'http://localhost:11434/v1',
+    api_key VARCHAR(512) NOT NULL DEFAULT '',
+    model VARCHAR(128) NOT NULL DEFAULT 'qwen2.5:7b',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO ai_config (id, provider, endpoint, api_key, model) VALUES (1, 'ollama', 'http://localhost:11434/v1', '', 'qwen2.5:7b');

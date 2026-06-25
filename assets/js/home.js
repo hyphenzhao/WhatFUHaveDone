@@ -462,7 +462,33 @@ async function refreshAll() {
     }
 }
 
+// --- Right panel tab switching ---
+function initPanelTabs() {
+    document.querySelectorAll('.rp-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.dataset.tab;
+            document.querySelectorAll('.rp-tab').forEach(t => t.classList.remove('rp-tab-active'));
+            tab.classList.add('rp-tab-active');
+
+            const taskBody = document.getElementById('rightPanelBody');
+            const aiBody = document.getElementById('rightPanelAi');
+            if (tabName === 'tasklist') {
+                taskBody.classList.remove('rp-hidden');
+                if (aiBody) aiBody.classList.add('rp-hidden');
+            } else {
+                taskBody.classList.add('rp-hidden');
+                if (aiBody) aiBody.classList.remove('rp-hidden');
+                if (!window._aiChatInit) {
+                    AiChat.init(aiBody);
+                    window._aiChatInit = true;
+                }
+            }
+        });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     await Calendar.init(); // wait for initial calendar load before refreshing
     await refreshAll();
+    initPanelTabs();
 });

@@ -44,6 +44,9 @@ $current_page = $current_page ?? 'home';
                 <a href="/calendar-admin" class="sidebar-link <?= $current_page === 'calendar-admin' ? 'active' : '' ?>">
                     <span class="nav-icon">📅</span> 日历管理
                 </a>
+                <a href="/ai-admin" class="sidebar-link <?= $current_page === 'ai-admin' ? 'active' : '' ?>">
+                    <span class="nav-icon">🤖</span> AI 配置
+                </a>
             </nav>
         </aside>
 
@@ -56,11 +59,17 @@ $current_page = $current_page ?? 'home';
         <?php if ($current_page === 'home'): ?>
         <aside class="right-panel" id="rightPanel">
             <div class="right-panel-header">
-                <h2>📋 任务列表</h2>
+                <div class="right-panel-tabs">
+                    <button class="rp-tab rp-tab-active" data-tab="tasklist">📋 任务列表</button>
+                    <button class="rp-tab" data-tab="ai-assistant">🤖 智能助手</button>
+                </div>
                 <button class="panel-toggle" id="rightPanelToggle">▶</button>
             </div>
             <div class="right-panel-body" id="rightPanelBody">
                 <!-- Task cards rendered by JS -->
+            </div>
+            <div class="right-panel-body rp-hidden" id="rightPanelAi">
+                <!-- AI Assistant rendered by JS -->
             </div>
         </aside>
         <?php endif; ?>
@@ -88,6 +97,7 @@ $current_page = $current_page ?? 'home';
     <?php if ($current_page === 'home'): ?>
     <script src="/assets/js/task-card.js"></script>
     <script src="/assets/js/calendar.js"></script>
+    <script src="/assets/js/ai-assistant.js"></script>
     <script src="/assets/js/home.js"></script>
     <?php elseif ($current_page === 'people'): ?>
     <script src="/assets/js/people.js"></script>

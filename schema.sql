@@ -146,3 +146,12 @@ CREATE TABLE IF NOT EXISTS ai_config (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT IGNORE INTO ai_config (id, provider, endpoint, api_key, model) VALUES (1, 'ollama', 'http://localhost:11434/v1', '', 'qwen2.5:7b');
+
+-- 14. AI 对话记录 (AI Conversations)
+CREATE TABLE IF NOT EXISTS ai_conversations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) NOT NULL DEFAULT '新对话',
+    messages_json LONGTEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

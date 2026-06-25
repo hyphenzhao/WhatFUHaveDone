@@ -228,6 +228,33 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     flex-direction: column;
     height: 100%;
 }
+
+/* Conversation bar */
+.ai-conv-bar {
+    display: flex; gap: 4px; padding: 6px 8px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+}
+.ai-conv-select {
+    flex: 1; padding: 4px 6px; border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm); font-size: 0.78rem;
+    background: var(--color-surface); color: var(--color-text);
+    max-width: calc(100% - 40px);
+}
+.ai-conv-del {
+    padding: 4px 8px; border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm); background: var(--color-surface);
+    cursor: pointer; font-size: 0.85rem;
+}
+.ai-conv-del:hover { background: #fef2f2; border-color: #e53e3e; }
+
+/* Typing cursor */
+.typing-cursor {
+    animation: blink 0.8s infinite;
+    color: var(--color-primary);
+    font-weight: 700;
+}
+@keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
 .ai-messages {
     flex: 1;
     overflow-y: auto;

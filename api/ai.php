@@ -639,6 +639,61 @@ PROMPT];
 
 // ===== CHAT ENDPOINT =====
 
+// ===== CONVERSATION ENDPOINTS =====
+
+if ($action === 'conversations' && $method === 'GET') {
+    $id = isset($parts[3]) ? (int)$parts[3] : null;
+    if ($id) {
+        $stmt = $db->prepare('SELECT * FROM ai_conversations WHERE id = ?');
+        $stmt->execute([$id]);
+        $conv = $stmt->fetch();
+        if (!$conv) json_error('Not found', 404);
+        $conv['messages'] = json_decode($conv['messages_json'], true) ?? [];
+        unset($conv['messages_json']);
+        json_success($conv);
+    } else {
+        $stmt = $db->query('SELECT id, title, updated_at FROM ai_conversations ORDER BY updated_at DESC');
+        json_success($stmt->fetchAll());
+    }
+}
+
+if ($action === 'conversations' && $method === 'POST') {
+    $data = get_json_input();
+    $title = optional_string($data, 'title', '新对话');
+    $messages = json_encode($data['messages'] ?? [], JSON_UNESCAPED_UNICODE);
+    $stmt = $db->prepare('INSERT INTO ai_conversations (title, messages_json) VALUES (?, ?)');
+    $stmt->execute([$title, $messages]);
+    json_success(['id' => (int)$db->lastInsertId(), 'title' => $title]);
+}
+
+if ($action === 'conversations' && $method === 'PUT') {
+    $id = (int)($parts[3] ?? 0);
+    if (!$id) json_error('ID required');
+    $data = get_json_input();
+    $title = optional_string($data, 'title');
+    $messages = isset($data['messages']) ? json_encode($data['messages'], JSON_UNESCAPED_UNICODE) : null;
+    if ($title && $messages !== null) {
+        $stmt = $db->prepare('UPDATE ai_conversations SET title=?, messages_json=? WHERE id=?');
+        $stmt->execute([$title, $messages, $id]);
+    } elseif ($title) {
+        $stmt = $db->prepare('UPDATE ai_conversations SET title=? WHERE id=?');
+        $stmt->execute([$title, $id]);
+    } elseif ($messages !== null) {
+        $stmt = $db->prepare('UPDATE ai_conversations SET messages_json=? WHERE id=?');
+        $stmt->execute([$messages, $id]);
+    }
+    json_success(null, 'Conversation updated');
+}
+
+if ($action === 'conversations' && $method === 'DELETE') {
+    $id = (int)($parts[3] ?? 0);
+    if (!$id) json_error('ID required');
+    $db->prepare('DELETE FROM ai_conversations WHERE id=?')->execute([$id]);
+    json_success(null, 'Conversation deleted');
+}
+
+// ===== CHAT / CONFIRM =====
+
 if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
     try {
     $input = get_json_input();

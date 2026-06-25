@@ -77,11 +77,14 @@ function call_llm(array $config, array $messages, array $tools): array {
 
     $data = json_decode($response, true);
     $choice = $data['choices'][0]['message'] ?? [];
-    return [
+    $msg = [
         'role' => 'assistant',
         'content' => $choice['content'] ?? '',
-        'tool_calls' => $choice['tool_calls'] ?? [],
     ];
+    if (!empty($choice['tool_calls'])) {
+        $msg['tool_calls'] = $choice['tool_calls'];
+    }
+    return $msg;
 }
 
 // --- Tool system ---
@@ -819,6 +822,14 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
         $userMessages = $input['messages'] ?? [];
         $messages = array_merge($messages, $userMessages);
     }
+
+    // Sanitize messages: strip empty tool_calls arrays which DeepSeek rejects
+    foreach ($messages as &$m) {
+        if (($m['role'] ?? '') === 'assistant' && isset($m['tool_calls']) && empty($m['tool_calls'])) {
+            unset($m['tool_calls']);
+        }
+    }
+    unset($m);
 
     // LLM loop — collect all steps for frontend display
     $maxIter = 10;

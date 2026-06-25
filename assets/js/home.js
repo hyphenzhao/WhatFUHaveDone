@@ -66,7 +66,7 @@ async function loadBaziProfile() {
     try {
         const res = await API.get('/profile');
         const p = res.data || {};
-        if (p.bazi_year && p.bazi_day && p.birth_date) {
+        if (p.bazi_year && p.bazi_day) {
             baziProfile = p;
         }
     } catch(e) {}
@@ -111,66 +111,66 @@ async function renderBaziPillars(dateStr) {
 
     // Parse user's BaZi
     const dayGan = p.bazi_day ? p.bazi_day[0] : '';
-    const bd = new Date(p.birth_date + 'T12:00:00');
-    const bt = p.birth_time !== '' ? (parseInt(p.birth_time) * 2 + 1) % 24 : 12;
-    bd.setHours(bt, 0, 0, 0);
-
-    const birthLunar = Lunar.fromDate(bd);
-    const birthEc = birthLunar.getEightChar();
-    const gender = p.gender === '女' ? 0 : 1;
-    const yun = birthEc.getYun(gender);
 
     // Selected date
     const selDate = new Date(dateStr + 'T12:00:00');
     const selLunar = Lunar.fromDate(selDate);
     const selEc = selLunar.getEightChar();
 
-    // Calculate age at selected date
-    const ageYears = (selDate - bd) / (365.25 * 24 * 3600 * 1000);
-    const startAge = yun.getStartAge();
-
-    // Find current 大运
-    let daYunIdx = -1;
-    for (let i = 0; i < 10; i++) {
-        const dy = yun.getDaYun(i);
-        const dyStart = startAge + i * 10;
-        const dyEnd = dyStart + 10;
-        if (ageYears >= dyStart && ageYears < dyEnd) { daYunIdx = i; break; }
-    }
-    if (daYunIdx < 0) daYunIdx = 0;
-    const daYun = yun.getDaYun(daYunIdx);
-    const daYunGz = daYun.getGanZhi();
-
-    // Find current 流年 within this 大运
-    let liuNianIdx = -1;
-    for (let i = 0; i < 10; i++) {
-        const ln = daYun.getLiuNian(i);
-        if (ln.getYear() === selDate.getFullYear()) { liuNianIdx = i; break; }
-    }
-    if (liuNianIdx < 0) liuNianIdx = Math.max(0, Math.min(9, Math.floor(ageYears - daYunIdx * 10 - startAge)));
-    const liuNian = daYun.getLiuNian(liuNianIdx);
-    const liuNianGz = liuNian.getGanZhi();
-
-    // 流月
-    const liuYueArr = liuNian.getLiuYue();
-    const selMonth = selDate.getMonth() + 1;
-    const liuYue = liuYueArr[selMonth - 1];
-    const liuYueGz = liuYue ? liuYue.getGanZhi() : '';
-
     // 流日 (from selected date's day pillar)
     const liuRiGz = selEc.getDayGan() + selEc.getDayZhi();
-
-    // ShiShen calculations
-    const dyG = daYunGz[0], dyZ = daYunGz[1];
-    const lnG = liuNianGz[0], lnZ = liuNianGz[1];
-    const lyG = liuYueGz[0]||'', lyZ = liuYueGz[1]||'';
     const lrG = liuRiGz[0], lrZ = liuRiGz[1];
-    const dayG = dayGan;
+    const lrSS = getShiShenLabel(dayGan, lrG);
 
-    const dySS = getShiShenLabel(dayG, dyG);
-    const lnSS = getShiShenLabel(dayG, lnG);
-    const lySS = getShiShenLabel(dayG, lyG);
-    const lrSS = getShiShenLabel(dayG, lrG);
+    let daYunGz = '', lnGz = '', lyGz = '';
+    let dySS = '', lnSS = '', lySS = '';
+    let daYunPeriod = '', lnPeriod = '', lyPeriod = '';
+    let hasYun = false;
+
+    // Compute 大运/流年/流月 (requires birth_date)
+    if (p.birth_date) {
+        const bd = new Date(p.birth_date + 'T12:00:00');
+        const bt = p.birth_time !== '' ? (parseInt(p.birth_time) * 2 + 1) % 24 : 12;
+        bd.setHours(bt, 0, 0, 0);
+        const birthLunar = Lunar.fromDate(bd);
+        const birthEc = birthLunar.getEightChar();
+        const gender = p.gender === '女' ? 0 : 1;
+        const yun = birthEc.getYun(gender);
+        const ageYears = (selDate - bd) / (365.25 * 24 * 3600 * 1000);
+        const startAge = yun.getStartAge();
+
+        let daYunIdx = -1;
+        for (let i = 0; i < 10; i++) {
+            const dy = yun.getDaYun(i);
+            const dyStart = startAge + i * 10;
+            if (ageYears >= dyStart && ageYears < dyStart + 10) { daYunIdx = i; break; }
+        }
+        if (daYunIdx < 0) daYunIdx = 0;
+        const daYun = yun.getDaYun(daYunIdx);
+        daYunGz = daYun.getGanZhi();
+        daYunPeriod = daYunGz + ' (' + Math.floor(daYunIdx*10+startAge) + '-' + Math.floor(daYunIdx*10+startAge+10) + '岁)';
+        dySS = getShiShenLabel(dayGan, daYunGz[0]);
+        hasYun = true;
+
+        let liuNianIdx = -1;
+        for (let i = 0; i < 10; i++) {
+            if (daYun.getLiuNian(i).getYear() === selDate.getFullYear()) { liuNianIdx = i; break; }
+        }
+        if (liuNianIdx < 0) liuNianIdx = Math.max(0, Math.min(9, Math.floor(ageYears - daYunIdx * 10 - startAge)));
+        const liuNian = daYun.getLiuNian(liuNianIdx);
+        lnGz = liuNian.getGanZhi();
+        lnPeriod = lnGz + ' (' + selDate.getFullYear() + '年)';
+        lnSS = getShiShenLabel(dayGan, lnGz[0]);
+
+        const liuYueArr = liuNian.getLiuYue();
+        const selMonth = selDate.getMonth() + 1;
+        const liuYue = liuYueArr[selMonth - 1];
+        if (liuYue) {
+            lyGz = liuYue.getGanZhi();
+            lyPeriod = lyGz + ' (' + selDate.getFullYear() + '年' + selMonth + '月)';
+            lySS = getShiShenLabel(dayGan, lyGz[0]);
+        }
+    }
 
     // Fetch existing analyses
     let analyses = {};
@@ -180,11 +180,12 @@ async function renderBaziPillars(dateStr) {
     } catch(e) {}
 
     // Build cards
-    const cards = [
-        { type:'dayun',     label:'大运', gz:daYunGz, ss:dySS, period: daYunGz + ' (' + Math.floor(daYunIdx*10+startAge) + '-' + Math.floor(daYunIdx*10+startAge+10) + '岁)', icon:'🔟' },
-        { type:'liunian',   label:'流年', gz:liuNianGz, ss:lnSS, period: liuNianGz + ' (' + selDate.getFullYear() + '年)', icon:'📅' },
-        { type:'liuyue',    label:'流月', gz:liuYueGz, ss:lySS, period: liuYueGz + ' (' + selDate.getFullYear() + '年' + selMonth + '月)', icon:'🌙' },
-    ];
+    const cards = [];
+    if (hasYun) {
+        cards.push({ type:'dayun',   label:'大运', gz:daYunGz, ss:dySS, period: daYunPeriod, icon:'🔟' });
+        cards.push({ type:'liunian', label:'流年', gz:lnGz, ss:lnSS, period: lnPeriod, icon:'📅' });
+        if (lyGz) cards.push({ type:'liuyue', label:'流月', gz:lyGz, ss:lySS, period: lyPeriod, icon:'🌙' });
+    }
 
     grid.innerHTML = cards.map(c => {
         const existing = analyses[c.type];

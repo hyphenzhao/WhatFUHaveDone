@@ -804,13 +804,25 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
         $messages = array_merge($messages, $userMessages);
     }
 
-    // LLM loop
+    // LLM loop — collect all steps for frontend display
     $maxIter = 10;
+    $steps = [];
     for ($i = 0; $i < $maxIter; $i++) {
         $response = call_llm($config, $messages, $toolSchemas);
 
+        // Collect AI's text as a plan/thinking step if present
+        if (!empty($response['content'])) {
+            $steps[] = ['type' => 'think', 'content' => $response['content']];
+        }
+
         if (empty($response['tool_calls'])) {
-            json_success(['type' => 'text', 'content' => $response['content'], 'message' => $response]);
+            // Final text response — return all steps
+            json_success([
+                'type' => 'steps',
+                'steps' => $steps,
+                'content' => $response['content'],
+                'message' => $response,
+            ]);
         }
 
         $pendingWrites = [];
@@ -821,8 +833,11 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
             foreach ($allTools as $t) { if ($t['name'] === $call['function']['name']) { $tool = $t; break; } }
             if (!$tool) {
                 $toolResults[] = ['role' => 'tool', 'tool_call_id' => $call['id'], 'content' => json_encode(['error' => 'Unknown tool'])];
+                $steps[] = ['type' => 'tool', 'name' => $call['function']['name'], 'status' => 'error'];
                 continue;
             }
+
+            $steps[] = ['type' => 'tool', 'name' => $call['function']['name'], 'status' => 'running'];
 
             if ($tool['requires_confirmation']) {
                 $args = json_decode($call['function']['arguments'], true) ?? [];
@@ -831,26 +846,39 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
                     'name' => $call['function']['name'],
                     'arguments' => $args,
                 ];
+                $steps[count($steps)-1]['status'] = 'confirm';
             } else {
                 try {
                     $args = json_decode($call['function']['arguments'], true) ?? [];
                     $result = $tool['handler']($db, $args);
                     $toolResults[] = ['role' => 'tool', 'tool_call_id' => $call['id'], 'content' => json_encode($result, JSON_UNESCAPED_UNICODE)];
+                    $steps[count($steps)-1]['status'] = 'done';
                 } catch (Exception $e) {
                     $toolResults[] = ['role' => 'tool', 'tool_call_id' => $call['id'], 'content' => json_encode(['error' => $e->getMessage()])];
+                    $steps[count($steps)-1]['status'] = 'error';
                 }
             }
         }
 
         if (!empty($pendingWrites)) {
-            json_success(['type' => 'confirmation', 'pending_calls' => $pendingWrites, 'message' => $response]);
+            json_success([
+                'type' => 'confirmation',
+                'steps' => $steps,
+                'pending_calls' => $pendingWrites,
+                'message' => $response,
+            ]);
         }
 
         $messages[] = $response;
         $messages = array_merge($messages, $toolResults);
     }
 
-    json_success(['type' => 'text', 'content' => '抱歉，请求步骤过多，请简化后重试。', 'message' => null]);
+    json_success([
+        'type' => 'steps',
+        'steps' => $steps,
+        'content' => '抱歉，请求步骤过多，请简化后重试。',
+        'message' => null,
+    ]);
 
     } catch (Exception $e) {
         json_error('AI error: ' . $e->getMessage(), 500);

@@ -358,6 +358,21 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .ai-send-btn:hover { opacity: 0.9; }
 .ai-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Step indicators */
+.ai-step {
+    display: flex; align-items: center; gap: 6px;
+    padding: 3px 10px; font-size: 0.76rem;
+    color: var(--color-text-secondary);
+    animation: fadeIn 0.2s ease;
+}
+.ai-step-icon { font-size: 0.85rem; flex-shrink: 0; }
+.ai-step-tool {
+    background: rgba(59,130,246,0.06);
+    border-radius: var(--radius-sm);
+    margin: 1px 8px;
+    padding: 4px 10px;
+}
+
 /* Tool call indicator */
 .ai-tool-call {
     display: flex; align-items: center; gap: 6px;

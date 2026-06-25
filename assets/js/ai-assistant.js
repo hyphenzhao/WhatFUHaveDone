@@ -127,10 +127,15 @@ const AiChat = {
             const res = await API.post('/ai/chat', { messages: this.messages });
             this._hideTyping();
 
-            if (res.data.type === 'text') {
+            if (res.data.type === 'text' || res.data.type === 'steps') {
+                const steps = res.data.steps || [];
+                // Show each step with delay
+                for (const step of steps) {
+                    await this._showStep(step);
+                    await new Promise(r => setTimeout(r, 200));
+                }
                 this.messages.push(res.data.message || { role: 'assistant', content: res.data.content });
                 await this._typeText(res.data.content);
-                // Auto-save + generate title on first exchange
                 const title = this.messages.length <= 2
                     ? this._genTitle(this.messages[0].content)
                     : undefined;
@@ -138,6 +143,12 @@ const AiChat = {
             } else if (res.data.type === 'confirmation') {
                 this.pendingCalls = res.data.pending_calls;
                 this.messages.push(res.data.message);
+                // Show plan steps if any
+                const steps = res.data.steps || [];
+                for (const step of steps) {
+                    await this._showStep(step);
+                    await new Promise(r => setTimeout(r, 100));
+                }
                 this._showToolCalls(res.data.pending_calls);
                 this._showConfirmation(res.data.pending_calls);
             }
@@ -217,7 +228,12 @@ const AiChat = {
                 confirmations: this.pendingCalls.map(c => ({ id: c.id, action: approved ? 'confirm' : 'reject' })),
             });
             this._hideTyping();
-            if (res.data.type === 'text') {
+            if (res.data.type === 'text' || res.data.type === 'steps') {
+                const steps = res.data.steps || [];
+                for (const step of steps) {
+                    await this._showStep(step);
+                    await new Promise(r => setTimeout(r, 150));
+                }
                 this.messages.push(res.data.message || { role: 'assistant', content: res.data.content });
                 await this._typeText(res.data.content);
                 if (approved && typeof refreshAll === 'function') refreshAll();
@@ -231,6 +247,27 @@ const AiChat = {
             this.pendingCalls = null;
             this.sendBtn.disabled = false;
         }
+    },
+
+    // ===== STEP DISPLAY =====
+    async _showStep(step) {
+        const div = document.createElement('div');
+        div.className = 'ai-step';
+        const names = { list_tasks:'拉取任务列表', get_task:'获取任务详情', list_people:'拉取人员信息', list_tags:'拉取标签',
+            list_results:'拉取成果', get_worklogs_by_date:'拉取工作量', get_workload_stats:'拉取工作量统计',
+            get_results_stats:'拉取成果统计', get_calendar_data:'拉取日历数据', get_daily_status:'拉取当日状态',
+            get_relationships:'拉取人际关系', create_task:'创建任务', update_task:'更新任务', toggle_worklog:'记录工作量',
+            add_plan:'添加计划', add_result_log:'记录成果' };
+        if (step.type === 'think') {
+            div.innerHTML = `<span class="ai-step-icon">💭</span> <span>${escapeHtml(step.content)}</span>`;
+        } else if (step.type === 'tool') {
+            const statusIcon = step.status === 'done' ? '✅' : step.status === 'error' ? '❌' : step.status === 'confirm' ? '⏳' : '⏳';
+            const label = names[step.name] || step.name;
+            div.innerHTML = `<span class="ai-step-icon">${statusIcon}</span> <span>${escapeHtml(label)}</span>`;
+            div.className += ' ai-step-tool';
+        }
+        this.messagesEl.appendChild(div);
+        this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
     },
 
     // ===== UI HELPERS =====

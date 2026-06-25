@@ -5,6 +5,7 @@ const Calendar = {
     currentYear: new Date().getFullYear(),
     currentMonth: new Date().getMonth() + 1, // 1-12
     calendarData: {}, // date -> [events]
+    calendarMeta: {}, // date -> { lunar_month, lunar_day, solar_term, holiday_name, is_holiday, is_workday }
     _eventsBound: false,
 
     async init() {
@@ -19,11 +20,16 @@ const Calendar = {
     async loadMonth() {
         const monthStr = `${this.currentYear}-${String(this.currentMonth).padStart(2, '0')}`;
         try {
-            const res = await API.stats.calendar(monthStr);
-            this.calendarData = res.data?.days || {};
+            const [calRes, metaRes] = await Promise.all([
+                API.stats.calendar(monthStr),
+                API.calendarMeta.month(monthStr),
+            ]);
+            this.calendarData = calRes.data?.days || {};
+            this.calendarMeta = metaRes.data?.days || {};
             App.currentMonth = monthStr;
         } catch (e) {
             this.calendarData = {};
+            this.calendarMeta = {};
             console.error('Failed to load calendar:', e);
         }
     },
@@ -46,29 +52,32 @@ const Calendar = {
 
         // Day headers
         const dayHeaders = ['日', '一', '二', '三', '四', '五', '六'];
-        let html = dayHeaders.map(d => `<div class="calendar-day-header">${d}</div>`).join('');
+        let html = dayHeaders.map((hdr, i) => `<div class="calendar-day-header${i === 0 || i === 6 ? ' weekend-header' : ''}">${hdr}</div>`).join('');
 
         // Previous month fill
         const prevLastDay = new Date(year, month - 1, 0).getDate();
         for (let i = startDow - 1; i >= 0; i--) {
             const d = prevLastDay - i;
+            const dow = startDow - 1 - i;
             const dateStr = `${year}-${String(month - 1 || 12).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            html += this._renderDay(d, dateStr, true);
+            html += this._renderDay(d, dateStr, true, dow);
         }
 
         // Current month
         for (let d = 1; d <= daysInMonth; d++) {
+            const dow = (startDow + d - 1) % 7;
             const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            html += this._renderDay(d, dateStr, false);
+            html += this._renderDay(d, dateStr, false, dow);
         }
 
         // Next month fill
         const remaining = 42 - (startDow + daysInMonth); // 6 rows × 7 cols
         for (let d = 1; d <= remaining; d++) {
+            const dow = (startDow + daysInMonth + d - 1) % 7;
             const nextMonth = month === 12 ? 1 : month + 1;
             const nextYear = month === 12 ? year + 1 : year;
             const dateStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            html += this._renderDay(d, dateStr, true);
+            html += this._renderDay(d, dateStr, true, dow);
         }
 
         document.getElementById('calendarGrid').innerHTML = html;
@@ -94,9 +103,12 @@ const Calendar = {
         if (selectedEl) selectedEl.classList.add('selected');
     },
 
-    _renderDay(dayNum, dateStr, isOtherMonth) {
+    _renderDay(dayNum, dateStr, isOtherMonth, dow) {
         const otherClass = isOtherMonth ? ' other-month' : ' current-month';
+        const weekendClass = (dow === 0 || dow === 6) ? ' weekend' : '';
+        const sundayClass = (dow === 0) ? ' sunday' : '';
         const events = this.calendarData[dateStr] || [];
+        const meta = this.calendarMeta[dateStr] || {};
 
         // Deduplicate by task id
         const seen = new Set();
@@ -121,9 +133,42 @@ const Calendar = {
         let bgStyle = '';
         if (hasWork && hasResult) bgStyle = 'background:linear-gradient(135deg, rgba(59,130,246,0.08), rgba(245,158,11,0.08));';
 
+        // Lunar date
+        let lunarHtml = '';
+        if (meta.lunar_day) {
+            const lunarText = meta.lunar_day === '初一' ? meta.lunar_month : meta.lunar_day;
+            lunarHtml = `<span class="lunar-date">${escapeHtml(lunarText)}</span>`;
+        }
+
+        // Solar term badge
+        let termHtml = '';
+        if (meta.solar_term) {
+            termHtml = `<div class="solar-term">${escapeHtml(meta.solar_term)}</div>`;
+        }
+
+        // Holiday / festival badge
+        let holidayHtml = '';
+        if (meta.is_holiday || meta.holiday_name) {
+            const label = meta.is_holiday ? '【假期】' : '';
+            const name = meta.holiday_name || '';
+            holidayHtml = `<div class="holiday-badge">${label}${escapeHtml(name)}</div>`;
+        }
+
+        // Adjusted workday badge
+        let workdayHtml = '';
+        if (meta.is_workday) {
+            workdayHtml = '<div class="workday-badge">【班】</div>';
+        }
+
         return `
-            <div class="calendar-day${otherClass}" data-date="${dateStr}" style="${bgStyle}">
-                <div class="day-number">${dayNum}</div>
+            <div class="calendar-day${otherClass}${weekendClass}${sundayClass}" data-date="${dateStr}" style="${bgStyle}">
+                <div class="day-row">
+                    <span class="day-number">${dayNum}</span>
+                    ${lunarHtml}
+                </div>
+                ${termHtml}
+                ${holidayHtml}
+                ${workdayHtml}
                 <div class="calendar-dots">${dotsHtml}</div>
             </div>
         `;

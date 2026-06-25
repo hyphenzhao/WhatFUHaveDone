@@ -98,6 +98,12 @@ const API = {
         resultsDetail(tagId) { return API.get(`/stats?type=results_detail&tag_id=${tagId}`); },
     },
 
+    // --- Calendar Meta ---
+    calendarMeta: {
+        month(month) { return API.get(`/calendar_meta?month=${month}`); },
+        save(dates) { return API.post('/calendar_meta', { dates }); },
+    },
+
     // --- Relationships ---
     relationships: {
         get() { return API.get('/relationships'); },

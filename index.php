@@ -47,6 +47,7 @@ $page_map = [
     'results'       => 'results',
     'tags'          => 'tags',
     'relationships' => 'relationships',
+    'calendar-admin' => 'calendar-admin',
 ];
 
 $page = $page_map[$uri] ?? null;

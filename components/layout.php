@@ -41,6 +41,9 @@ $current_page = $current_page ?? 'home';
                 <a href="/relationships" class="sidebar-link <?= $current_page === 'relationships' ? 'active' : '' ?>">
                     <span class="nav-icon">🔗</span> 人际关系
                 </a>
+                <a href="/calendar-admin" class="sidebar-link <?= $current_page === 'calendar-admin' ? 'active' : '' ?>">
+                    <span class="nav-icon">📅</span> 日历管理
+                </a>
             </nav>
         </aside>
 

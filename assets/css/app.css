@@ -681,10 +681,15 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .calendar-day.today { border-color: var(--color-primary); background: rgba(59,130,246,0.05); }
 .calendar-day.selected { background: rgba(59,130,246,0.1); border-color: var(--color-primary); }
 .calendar-day.other-month { color: var(--color-text-secondary); opacity: 0.4; }
+.calendar-day .day-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1px;
+}
 .calendar-day .day-number {
     font-size: 0.8rem;
     font-weight: 500;
-    margin-bottom: 2px;
 }
 .calendar-dots {
     display: flex;
@@ -699,6 +704,44 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     transition: transform var(--transition);
 }
 .calendar-dot:hover { transform: scale(1.5); }
+
+/* Weekend & lunar styles */
+.calendar-day-header.weekend-header { color: #e53e3e; }
+.calendar-day.weekend .day-number { color: #3182ce; }
+.calendar-day.weekend.sunday .day-number { color: #e53e3e; }
+.lunar-date {
+    font-size: 0.7rem;
+    color: var(--color-text-secondary);
+    line-height: 1.2;
+    white-space: nowrap;
+}
+.solar-term {
+    font-size: 0.68rem;
+    color: #38a169;
+    font-weight: 600;
+    line-height: 1.2;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.holiday-badge {
+    font-size: 0.68rem;
+    color: #2563eb;
+    font-weight: 600;
+    line-height: 1.2;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.workday-badge {
+    font-size: 0.68rem;
+    color: #e53e3e;
+    font-weight: 600;
+    line-height: 1.2;
+    margin-top: 1px;
+}
 
 /* ============ MODAL ============ */
 .modal-overlay {

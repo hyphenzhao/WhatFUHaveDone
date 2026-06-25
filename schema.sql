@@ -121,3 +121,15 @@ CREATE INDEX idx_result_logs_date ON result_logs(log_date);
 CREATE INDEX idx_plans_date ON plans(planned_date);
 CREATE INDEX idx_tasks_stage ON tasks(stage);
 CREATE INDEX idx_tasks_archived ON tasks(archived);
+
+-- 12. 日历元数据 (Calendar Meta — lunar dates, solar terms, holidays)
+CREATE TABLE IF NOT EXISTS calendar_meta (
+    date DATE PRIMARY KEY,
+    lunar_month VARCHAR(10) DEFAULT '',
+    lunar_day VARCHAR(10) DEFAULT '',
+    solar_term VARCHAR(20) DEFAULT '',
+    holiday_name VARCHAR(50) DEFAULT '',
+    is_holiday TINYINT(1) DEFAULT 0,
+    is_workday TINYINT(1) DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

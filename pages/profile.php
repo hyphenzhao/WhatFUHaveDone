@@ -2,7 +2,7 @@
 $page_title = '个人侧写';
 $current_page = 'profile';
 $page_content = <<<'HTML'
-<div class="page-header"><h2>👤 个人侧写</h2><p style="color:var(--color-text-secondary);margin-top:4px;">配置你的基本信息和命盘，AI 将据此提供个性化分析</p></div>
+<div class="page-header"><h2>👤 个人侧写</h2><p style="color:var(--color-text-secondary);margin-top:4px;">配置你的基本信息和命盘文件，AI 将据此提供个性化分析</p></div>
 
 <div class="profile-layout">
 <!-- 左栏：基本信息 -->
@@ -27,23 +27,33 @@ $page_content = <<<'HTML'
     <div class="form-group"><label>当前阶段目标</label><textarea class="form-textarea" id="pfGoals" rows="4" placeholder="近期目标、中期规划、远期愿景等"></textarea></div>
 </div>
 
-<!-- 右栏：命盘 -->
+<!-- 右栏：命盘文件 -->
 <div class="profile-panel">
-    <h3>🔮 八字命盘 <button class="btn btn-ghost btn-sm" onclick="autoCompute()" title="根据生日时辰自动推算">🧮 推算</button></h3>
-    <div class="form-row-4">
-        <div class="form-group"><label>年柱</label><input class="form-input bazi-input" id="pfYear" placeholder="丙午" maxlength="4"></div>
-        <div class="form-group"><label>月柱</label><input class="form-input bazi-input" id="pfMonth" placeholder="甲午" maxlength="4"></div>
-        <div class="form-group"><label>日柱</label><input class="form-input bazi-input" id="pfDay" placeholder="戊辰" maxlength="4"></div>
-        <div class="form-group"><label>时柱</label><input class="form-input bazi-input" id="pfTime" placeholder="壬子" maxlength="4"></div>
+    <h3>🔮 八字命盘</h3>
+    <div class="file-card" id="baziCard">
+        <div class="file-placeholder" id="baziPlaceholder">📄 上传八字命盘文件 (.txt)</div>
+        <div class="file-info" id="baziInfo" style="display:none">
+            <span class="file-name" id="baziFileName"></span>
+            <span class="file-size" id="baziFileSize"></span>
+            <button class="btn btn-ghost btn-sm" onclick="deleteFile('bazi')">🗑️ 删除</button>
+        </div>
+        <input type="file" accept=".txt,.md,.json" class="file-input" id="baziFileInput" onchange="uploadFile('bazi', this)">
+        <button class="btn btn-ghost btn-sm upload-btn" onclick="document.getElementById('baziFileInput').click()">📤 上传</button>
     </div>
-    <div class="form-row-2">
-        <div class="form-group"><label>十神 (年/月/日/时)</label><input class="form-input" id="pfShiShen" placeholder="劫财 / 食神 / 日主 / 正财"></div>
-        <div class="form-group"><label>纳音 (年/月/日/时)</label><input class="form-input" id="pfNaYin" placeholder="天河水 / 沙中金 / 大林木 / 桑柘木"></div>
-    </div>
-    <div class="form-group"><label>胎元 / 命宫</label><input class="form-input" id="pfTaiYuan" placeholder="如: 乙酉 / 丙子"></div>
+    <div class="file-preview" id="baziPreview" style="display:none"></div>
 
     <h3 style="margin-top:16px;">🌟 紫微命盘</h3>
-    <div class="form-group"><label>从排盘软件复制粘贴</label><textarea class="form-textarea" id="pfZiwei" rows="8" placeholder="粘贴紫微斗数命盘内容，如：&#10;命宫-天机[禄]  兄弟宫-天梁  夫妻宫-太阳&#10;子女宫-武曲[权]  财帛宫-天同  疾厄宫-廉贞&#10;迁移宫-破军  交友宫-天府  官禄宫-太阴&#10;田宅宫-紫微  福德宫-巨门  父母宫-贪狼"></textarea></div>
+    <div class="file-card" id="ziweiCard">
+        <div class="file-placeholder" id="ziweiPlaceholder">📄 上传紫微命盘文件 (.txt)</div>
+        <div class="file-info" id="ziweiInfo" style="display:none">
+            <span class="file-name" id="ziweiFileName"></span>
+            <span class="file-size" id="ziweiFileSize"></span>
+            <button class="btn btn-ghost btn-sm" onclick="deleteFile('ziwei')">🗑️ 删除</button>
+        </div>
+        <input type="file" accept=".txt,.md,.json" class="file-input" id="ziweiFileInput" onchange="uploadFile('ziwei', this)">
+        <button class="btn btn-ghost btn-sm upload-btn" onclick="document.getElementById('ziweiFileInput').click()">📤 上传</button>
+    </div>
+    <div class="file-preview" id="ziweiPreview" style="display:none"></div>
 </div>
 </div>
 
@@ -57,53 +67,92 @@ $page_content = <<<'HTML'
 .profile-panel h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 12px; }
 .form-row-2 { display: flex; gap: 12px; }
 .form-row-2 .form-group { flex: 1; }
-.form-row-4 { display: flex; gap: 10px; }
-.form-row-4 .form-group { flex: 1; }
-.bazi-input { font-size: 1.15rem; font-weight: 700; text-align: center; letter-spacing: 4px; }
 .form-group { margin-bottom: 12px; }
 .form-group label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: var(--color-text-secondary); }
+.file-card { display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--color-bg); border: 2px dashed var(--color-border); border-radius: var(--radius); margin-bottom: 8px; transition: border-color var(--transition); }
+.file-card:hover { border-color: var(--color-primary); }
+.file-card.has-file { border-style: solid; border-color: var(--color-border); background: #f0fdf4; }
+.file-placeholder { flex: 1; font-size: 0.82rem; color: var(--color-text-secondary); }
+.file-info { flex: 1; display: none; align-items: center; gap: 8px; }
+.file-card.has-file .file-placeholder { display: none; }
+.file-card.has-file .file-info { display: flex; }
+.file-name { font-weight: 600; font-size: 0.85rem; }
+.file-size { font-size: 0.75rem; color: var(--color-text-secondary); }
+.file-input { display: none; }
+.upload-btn { flex-shrink: 0; }
+.file-preview { max-height: 200px; overflow-y: auto; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.78rem; font-family: monospace; white-space: pre-wrap; line-height: 1.5; margin-bottom: 20px; }
 @media (max-width: 768px) { .profile-layout { flex-direction: column; } }
 </style>
 
-<script src="/assets/js/lunar.js"></script>
 <script>
-function autoCompute() {
-    const date = document.getElementById('pfBirthDate').value;
-    if (!date) { Toast.error('请先在左侧填写阳历生日'); return; }
-    const timeIdx = document.getElementById('pfBirthTime').value;
-    const hour = timeIdx !== '' ? (parseInt(timeIdx) * 2 + 1) % 24 : 12;
-    const d = new Date(date + 'T12:00:00'); d.setHours(hour, 0, 0, 0);
-    const lunar = Lunar.fromDate(d);
-    const ec = lunar.getEightChar();
-    document.getElementById('pfYear').value = ec.getYearGan() + ec.getYearZhi();
-    document.getElementById('pfMonth').value = ec.getMonthGan() + ec.getMonthZhi();
-    document.getElementById('pfDay').value = ec.getDayGan() + ec.getDayZhi();
-    document.getElementById('pfTime').value = ec.getTimeGan() + ec.getTimeZhi();
-    document.getElementById('pfShiShen').value = [ec.getYearShiShenGan(), ec.getMonthShiShenGan(), ec.getDayShiShenGan(), ec.getTimeShiShenGan()].join(' / ');
-    document.getElementById('pfNaYin').value = [ec.getYearNaYin(), ec.getMonthNaYin(), ec.getDayNaYin(), ec.getTimeNaYin()].join(' / ');
-    if (!document.getElementById('pfShengXiao').value) document.getElementById('pfShengXiao').value = lunar.getYearShengXiao ? lunar.getYearShengXiao() : '';
-    document.getElementById('pfTaiYuan').value = (ec.getTaiYuan()||'') + ' / ' + (ec.getMingGong()||'');
-    Toast.success('已推算，请核对修正后保存');
+// State
+let baziContent = '', baziFileName = '', ziweiContent = '', ziweiFileName = '';
+
+async function uploadFile(type, input) {
+    const file = input.files[0];
+    if (!file) return;
+    const form = new FormData(); form.append('file', file);
+    try {
+        const res = await fetch('/api/upload', { method: 'POST', body: form });
+        const data = await res.json();
+        if (data.error) { Toast.error(data.message); return; }
+        const d = data.data;
+        if (type === 'bazi') { baziContent = d.content; baziFileName = d.name; showFile('bazi', d.name, d.size, d.content); }
+        else { ziweiContent = d.content; ziweiFileName = d.name; showFile('ziwei', d.name, d.size, d.content); }
+    } catch(e) { Toast.error('上传失败'); }
+    input.value = '';
 }
 
-function gv(id) { return document.getElementById(id).value.trim(); }
+function showFile(type, name, size, content) {
+    const card = document.getElementById(type + 'Card');
+    card.querySelector('.file-name').textContent = name;
+    card.querySelector('.file-size').textContent = formatSize(size);
+    card.classList.add('has-file');
+    const preview = document.getElementById(type + 'Preview');
+    preview.textContent = content.length > 2000 ? content.substring(0,2000)+'\n...(truncated)' : content;
+    preview.style.display = 'block';
+}
+
+function deleteFile(type) {
+    const card = document.getElementById(type + 'Card');
+    card.classList.remove('has-file');
+    document.getElementById(type + 'Preview').style.display = 'none';
+    if (type === 'bazi') { baziContent = ''; baziFileName = ''; }
+    else { ziweiContent = ''; ziweiFileName = ''; }
+    Toast.success('已删除');
+}
+
+function formatSize(bytes) { return bytes < 1024 ? bytes+'B' : bytes < 1048576 ? (bytes/1024).toFixed(1)+'KB' : (bytes/1048576).toFixed(1)+'MB'; }
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const res = await API.get('/profile'); const p = res.data || {};
-        const m = { pfName:'name',pfGender:'gender',pfBirthDate:'birth_date',pfBirthTime:'birth_time',pfBirthPlace:'birth_place',pfShengXiao:'shengxiao',pfResume:'resume',pfGoals:'goals',pfYear:'bazi_year',pfMonth:'bazi_month',pfDay:'bazi_day',pfTime:'bazi_time',pfShiShen:'shishen',pfNaYin:'nayin',pfZiwei:'dayun',pfTaiYuan:'dayun' };
-        Object.entries(m).forEach(([id,key]) => { if (p[key] && key !== 'dayun') document.getElementById(id).value = p[key]; });
-        if (p.dayun && p.dayun.length < 200) document.getElementById('pfTaiYuan').value = p.dayun;
-        else if (p.dayun) document.getElementById('pfZiwei').value = p.dayun;
+        document.getElementById('pfName').value = p.name || '';
+        document.getElementById('pfGender').value = p.gender || '';
+        document.getElementById('pfBirthDate').value = p.birth_date || '';
+        document.getElementById('pfBirthTime').value = p.birth_time || '';
+        document.getElementById('pfBirthPlace').value = p.birth_place || '';
+        document.getElementById('pfShengXiao').value = p.shengxiao || '';
+        document.getElementById('pfResume').value = p.resume || '';
+        document.getElementById('pfGoals').value = p.goals || '';
+        // Restore files: bazi stored in shishen key, ziwei in dayun key
+        if (p.shishen && p.shishen.length > 10) { baziContent = p.shishen; baziFileName = '八字命盘.txt'; showFile('bazi', baziFileName, new Blob([baziContent]).size, baziContent); }
+        if (p.dayun && p.dayun.length > 10) { ziweiContent = p.dayun; ziweiFileName = '紫微命盘.txt'; showFile('ziwei', ziweiFileName, new Blob([ziweiContent]).size, ziweiContent); }
     } catch(e) {}
 
     document.getElementById('pfSave').addEventListener('click', async () => {
         try {
             await API.put('/profile', {
-                name: gv('pfName'), gender: gv('pfGender'), birth_date: gv('pfBirthDate'), birth_time: gv('pfBirthTime'), birth_place: gv('pfBirthPlace'),
-                bazi_year: gv('pfYear'), bazi_month: gv('pfMonth'), bazi_day: gv('pfDay'), bazi_time: gv('pfTime'),
-                shishen: gv('pfShiShen'), nayin: gv('pfNaYin'), dayun: gv('pfZiwei'), shengxiao: gv('pfShengXiao'),
-                resume: gv('pfResume'), goals: gv('pfGoals'),
+                name: document.getElementById('pfName').value.trim(),
+                gender: document.getElementById('pfGender').value,
+                birth_date: document.getElementById('pfBirthDate').value,
+                birth_time: document.getElementById('pfBirthTime').value,
+                birth_place: document.getElementById('pfBirthPlace').value.trim(),
+                shengxiao: document.getElementById('pfShengXiao').value.trim(),
+                resume: document.getElementById('pfResume').value.trim(),
+                goals: document.getElementById('pfGoals').value.trim(),
+                shishen: baziContent,
+                dayun: ziweiContent,
             });
             Toast.success('侧写已保存');
         } catch(e) { Toast.error('保存失败: ' + e.message); }

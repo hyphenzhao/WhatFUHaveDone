@@ -266,21 +266,46 @@ function renderLiuriCard(dateStr, gz, g, z, ss_g, ss_z, existing) {
 async function analyzeBazi(dateStr, type, label, gz, ss) {
     const p = await loadBaziProfile();
     if (!p) return;
-    Toast.success('AI 解析中...');
+
+    // Find the card and show progress
+    const grid = document.getElementById('baziPillarsGrid');
+    const liuriEl = document.getElementById('dailyLiuri');
+    const targetEl = type === 'liuri' ? liuriEl : grid;
+    if (!targetEl) return;
+
+    // Replace card content with progress area
+    const progressId = 'bazi-progress-' + type;
+    const oldHtml = targetEl.innerHTML;
+    targetEl.innerHTML = '<div id="' + progressId + '" class="bazi-progress"><span class="ai-step-icon">🤔</span> 解析中...</div>';
+
     try {
         const prompt = type === 'liuri'
             ? `用户八字: 年${p.bazi_year} 月${p.bazi_month} 日${p.bazi_day} 时${p.bazi_time}。当前${label}: ${gz}，十神: ${ss}。请结合用户八字和当前${label}，用不超过100字简短分析今日能量特点和建议重点工作方向。`
             : `用户八字: 年${p.bazi_year} 月${p.bazi_month} 日${p.bazi_day} 时${p.bazi_time}。简历: ${p.resume||'无'}。目标: ${p.goals||'无'}。当前${label}: ${gz}，十神: ${ss}。请结合用户八字和${label}，用100-200字分析此阶段的能量特点，并给出重点工作方向的建议。`;
 
         const res = await API.post('/ai/chat', { messages: [{ role: 'user', content: prompt }] });
-        if (res.data.type === 'text') {
-            await API.post('/bazi_analysis', {
-                date_key: dateStr, type: type, period_label: label, gan_zhi: gz, shi_shen: ss, analysis: res.data.content
-            });
-            renderBaziPillars(dateStr);
-            Toast.success(label + '解析完成');
+        const data = res.data || {};
+        const progressEl = document.getElementById(progressId);
+
+        // Show steps if available
+        if (data.steps && progressEl) {
+            for (const step of data.steps) {
+                const icon = step.type === 'think' ? '💭' : step.status === 'done' ? '✅' : '⏳';
+                const txt = step.type === 'think' ? step.content : (step.name || '');
+                progressEl.innerHTML += `<div class="ai-step"><span class="ai-step-icon">${icon}</span> ${escapeHtml(txt)}</div>`;
+                await new Promise(r => setTimeout(r, 150));
+            }
         }
-    } catch(e) { Toast.error('解析失败: ' + e.message); }
+
+        if (data.content) {
+            // Save analysis
+            await API.post('/bazi_analysis', {
+                date_key: dateStr, type: type, period_label: label, gan_zhi: gz, shi_shen: ss, analysis: data.content
+            });
+            // Re-render the cards
+            renderBaziPillars(dateStr);
+        }
+    } catch(e) { Toast.error('解析失败: ' + e.message); renderBaziPillars(dateStr); }
 }
 
 async function loadRightPanel() {

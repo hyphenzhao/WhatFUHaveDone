@@ -657,6 +657,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .bazi-card-analysis code { font-size: 0.75rem; background: rgba(0,0,0,0.06); padding: 1px 3px; border-radius: 3px; }
 .bazi-progress { padding: 8px 0; font-size: 0.78rem; color: var(--color-text-secondary); }
 .bazi-progress .ai-step { padding: 2px 0; margin: 0; }
+.bazi-typing { font-size: 0.82rem; line-height: 1.6; }
 .bazi-card-analysis table { width: 100%; border-collapse: collapse; margin: 4px 0; font-size: 0.73rem; }
 .bazi-card-analysis th, .bazi-card-analysis td { border: 1px solid var(--color-border); padding: 3px 6px; text-align: left; }
 .bazi-card-analysis th { background: var(--color-bg); font-weight: 700; }

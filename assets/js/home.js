@@ -267,15 +267,12 @@ async function analyzeBazi(dateStr, type, label, gz, ss) {
     const p = await loadBaziProfile();
     if (!p) return;
 
-    // Find the card and show progress
     const grid = document.getElementById('baziPillarsGrid');
     const liuriEl = document.getElementById('dailyLiuri');
     const targetEl = type === 'liuri' ? liuriEl : grid;
     if (!targetEl) return;
 
-    // Replace card content with progress area
     const progressId = 'bazi-progress-' + type;
-    const oldHtml = targetEl.innerHTML;
     targetEl.innerHTML = '<div id="' + progressId + '" class="bazi-progress"><span class="ai-step-icon">🤔</span> 解析中...</div>';
 
     try {
@@ -286,9 +283,10 @@ async function analyzeBazi(dateStr, type, label, gz, ss) {
         const res = await API.post('/ai/chat', { messages: [{ role: 'user', content: prompt }] });
         const data = res.data || {};
         const progressEl = document.getElementById(progressId);
+        if (!progressEl) return;
 
-        // Show steps if available
-        if (data.steps && progressEl) {
+        // Show thinking steps
+        if (data.steps) {
             for (const step of data.steps) {
                 const icon = step.type === 'think' ? '💭' : step.status === 'done' ? '✅' : '⏳';
                 const txt = step.type === 'think' ? step.content : (step.name || '');
@@ -297,15 +295,35 @@ async function analyzeBazi(dateStr, type, label, gz, ss) {
             }
         }
 
+        // Clear progress, type out result
         if (data.content) {
-            // Save analysis
+            progressEl.innerHTML = '<div class="bazi-typing" id="bazi-typing-' + type + '"><span class="typing-cursor">|</span></div>';
+            const typeEl = document.getElementById('bazi-typing-' + type);
+            const text = data.content;
+            let i = 0;
+            await new Promise(resolve => {
+                const tick = () => {
+                    if (i >= text.length) { resolve(); return; }
+                    i = Math.min(i + 3, text.length);
+                    typeEl.innerHTML = md(text.substring(0, i)) + '<span class="typing-cursor">|</span>';
+                    setTimeout(tick, 15);
+                };
+                tick();
+            });
+            typeEl.querySelector('.typing-cursor')?.remove();
+
+            // Save
             await API.post('/bazi_analysis', {
                 date_key: dateStr, type: type, period_label: label, gan_zhi: gz, shi_shen: ss, analysis: data.content
             });
-            // Re-render the cards
+            // Final render with proper Markdown
             renderBaziPillars(dateStr);
         }
-    } catch(e) { Toast.error('解析失败: ' + e.message); renderBaziPillars(dateStr); }
+    } catch(e) {
+        const progressEl = document.getElementById(progressId);
+        if (progressEl) progressEl.innerHTML = '<span style="color:#e53e3e;">❌ 解析失败: ' + escapeHtml(e.message || '未知错误') + '</span>';
+        setTimeout(() => renderBaziPillars(dateStr), 1500);
+    }
 }
 
 async function loadRightPanel() {

@@ -338,8 +338,7 @@ async function analyzeBazi(dateStr, type, label, gz, ss) {
         console.error('BaZi analysis error:', e);
         const progressEl = document.getElementById(progressId);
         const msg = e.message || (typeof e === 'string' ? e : JSON.stringify(e).substring(0, 200));
-        if (progressEl) progressEl.innerHTML = '<span style="color:#e53e3e;">❌ 解析失败: ' + escapeHtml(msg || '未知错误') + '</span>';
-        setTimeout(() => renderBaziPillars(dateStr), 3000);
+        if (progressEl) progressEl.innerHTML = '<span style="color:#e53e3e;">❌ 解析失败: ' + escapeHtml(msg || '未知错误') + ' <button class="btn btn-ghost btn-sm" onclick="renderBaziPillars(\'' + dateStr + '\')" style="margin-left:8px;">重试</button></span>';
     }
 }
 

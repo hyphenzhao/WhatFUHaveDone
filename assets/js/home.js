@@ -212,11 +212,26 @@ async function renderBaziPillars(dateStr) {
         hasYun = true;
     }
 
-    // Fetch existing analyses
+    // Fetch existing analyses — search nearby dates for same pillars
     let analyses = {};
     try {
+        // Get analyses for current date, plus look back 30 days for matching 大运/流年/流月
         const res = await API.get('/bazi_analysis?date=' + dateStr);
         (res.data || []).forEach(a => { analyses[a.type] = a; });
+
+        // For 大运/流年/流月, search nearby dates if not found for today
+        if (!analyses['dayun'] || !analyses['liunian'] || !analyses['liuyue']) {
+            const base = new Date(dateStr + 'T12:00:00');
+            for (let back = 1; back <= 31; back++) {
+                const prev = new Date(base); prev.setDate(base.getDate() - back);
+                const prevStr = prev.toISOString().split('T')[0];
+                const prevRes = await API.get('/bazi_analysis?date=' + prevStr);
+                for (const a of (prevRes.data || [])) {
+                    if (a.type !== 'liuri' && !analyses[a.type]) analyses[a.type] = a;
+                }
+                if (analyses['dayun'] && analyses['liunian'] && analyses['liuyue']) break;
+            }
+        }
     } catch(e) {}
 
     // Helper: render pillar card with dual 十神

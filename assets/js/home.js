@@ -44,6 +44,45 @@ const WU_XING = {
     color: { 木:'#38a169', 火:'#e53e3e', 土:'#d97706', 金:'#ddb100', 水:'#3182ce' },
 };
 
+async function renderWeather(dateStr) {
+    const container = document.getElementById('dailyWeather');
+    if (!container) return;
+
+    const lat = 39.9042, lon = 116.4074, city = 'Beijing';
+
+    try {
+        const res = await API.weather.get(dateStr, city, lat, lon);
+        const w = res.data;
+        if (!w) {
+            const isToday = dateStr === new Date().toISOString().split('T')[0];
+            container.innerHTML = `<div class="weather-card" style="background:linear-gradient(135deg,#f0f4f8,#e2e8f0)">
+                <div class="weather-emoji">📭</div><div class="weather-desc">${isToday?'天气加载失败':'无天气数据'}</div>
+                ${!isToday ? '<button class="btn btn-ghost btn-sm" onclick="fetchWeather(\''+dateStr+'\')" style="margin-top:4px;">📡 获取天气</button>' : ''}
+            </div>`;
+            return;
+        }
+        container.innerHTML = `<div class="weather-card" style="background:linear-gradient(135deg,${w.gradient})">
+            <div class="weather-emoji">${w.emoji}</div>
+            <div class="weather-temp">${Math.round(w.temp_max)}°<span class="weather-temp-lo">/${Math.round(w.temp_min)}°</span></div>
+            <div class="weather-desc">${w.desc}</div>
+            <div class="weather-detail">💧${w.humidity}% 🌬️${Math.round(w.wind)}km/h ${w.rain>0?'🌧️'+w.rain+'mm':''}</div>
+            ${dateStr !== new Date().toISOString().split('T')[0] ? '<button class="btn btn-ghost btn-sm" onclick="fetchWeather(\''+dateStr+'\')" style="margin-top:4px;font-size:0.7rem;">🔄 刷新</button>' : '<div style="font-size:0.6rem;color:rgba(255,255,255,0.6);margin-top:4px;">自动更新</div>'}
+        </div>`;
+    } catch(e) {
+        container.innerHTML = `<div class="weather-card" style="background:linear-gradient(135deg,#f0f4f8,#e2e8f0)"><div class="weather-desc" style="font-size:0.7rem;">加载失败</div></div>`;
+    }
+}
+
+async function fetchWeather(dateStr) {
+    const container = document.getElementById('dailyWeather');
+    if (container) container.innerHTML = '<div class="weather-card" style="background:linear-gradient(135deg,#f0f4f8,#e2e8f0)"><div class="weather-desc">⏳</div></div>';
+    const lat = 39.9042, lon = 116.4074, city = 'Beijing';
+    try {
+        await API.weather.fetch(dateStr, city, lat, lon);
+        await renderWeather(dateStr);
+    } catch(e) { Toast.error('获取失败'); renderWeather(dateStr); }
+}
+
 function renderAlmanac(dateStr) {
     const container = document.getElementById('dailyAlmanac');
     if (!container) return;
@@ -627,6 +666,7 @@ async function loadDailyStatus(date) {
     if (!container) return;
 
     dateDisplay.textContent = formatDate(date);
+    renderWeather(date);
     renderAlmanac(date);
     renderBaziPillars(date);
 

@@ -105,6 +105,24 @@ const API = {
         remove(id) { return API.delete(`/worklog_notes/${id}`); },
     },
 
+    // --- Weather ---
+    weather: {
+        get(date, city, lat, lon) {
+            let q = `?date=${date}`;
+            if (city) q += `&city=${encodeURIComponent(city)}`;
+            if (lat) q += `&lat=${lat}`;
+            if (lon) q += `&lon=${lon}`;
+            return API.get(`/weather${q}`);
+        },
+        fetch(date, city, lat, lon) {
+            let q = `?action=fetch&date=${date}`;
+            if (city) q += `&city=${encodeURIComponent(city)}`;
+            if (lat) q += `&lat=${lat}`;
+            if (lon) q += `&lon=${lon}`;
+            return API.post(`/weather${q}`);
+        },
+    },
+
     // --- Calendar Meta ---
     calendarMeta: {
         month(month) { return API.get(`/calendar_meta?month=${month}`); },

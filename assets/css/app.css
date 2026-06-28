@@ -952,6 +952,18 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     border-radius: 50%; flex-shrink: 0; margin-left: 4px;
 }
 .daily-card-close:hover { background: #fef2f2; color: #e53e3e; }
+
+/* Worklog notes */
+.wl-notes { margin-top: 6px; }
+.wl-note { display: flex; align-items: center; gap: 4px; padding: 2px 0; font-size: 0.75rem; }
+.wl-note-text { flex: 1; color: var(--color-text-secondary); line-height: 1.4; }
+.wl-note-del { background: none; border: none; color: #e53e3e; cursor: pointer; font-size: 0.9rem; font-weight: 700; padding: 0 4px; line-height: 1; }
+.wl-note-del:hover { color: #dc2626; }
+.wl-note-add { display: flex; gap: 4px; margin-top: 4px; }
+.wl-note-input { flex: 1; padding: 3px 6px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 0.72rem; background: var(--color-surface); }
+.wl-note-input:focus { outline: none; border-color: var(--color-primary); }
+.wl-note-btn { padding: 3px 8px; border: 1px solid var(--color-primary); border-radius: var(--radius-sm); background: var(--color-primary); color: #fff; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+.wl-note-btn:hover { opacity: 0.9; }
 /* Almanac (黄历) card */
 .almanac-card {
     background: linear-gradient(135deg, #fefce8, #fef9c3);

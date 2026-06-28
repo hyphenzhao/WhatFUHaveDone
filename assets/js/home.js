@@ -592,6 +592,35 @@ async function cancelPlan(planId) {
     try { await API.plans.remove(planId); refreshAll(); } catch(e) { Toast.error('取消失败'); }
 }
 
+async function loadWorklogNotes(wlId) {
+    const el = document.getElementById('wl-notes-' + wlId);
+    if (!el) return;
+    try {
+        const res = await API.worklogNotes.list(wlId);
+        const notes = res.data || [];
+        el.innerHTML = notes.map(n => `
+            <div class="wl-note"><span class="wl-note-text">${escapeHtml(n.content)}</span><button class="wl-note-del" onclick="delWorklogNote(${n.id},${wlId})" title="删除">−</button></div>
+        `).join('');
+    } catch(e) {}
+}
+async function addWorklogNote(wlId) {
+    const input = document.getElementById('wl-input-' + wlId);
+    if (!input) return;
+    const content = input.value.trim();
+    if (!content) return;
+    try {
+        await API.worklogNotes.add(wlId, content);
+        input.value = '';
+        await loadWorklogNotes(wlId);
+    } catch(e) { Toast.error('添加失败'); }
+}
+async function delWorklogNote(noteId, wlId) {
+    try {
+        await API.worklogNotes.remove(noteId);
+        await loadWorklogNotes(wlId);
+    } catch(e) { Toast.error('删除失败'); }
+}
+
 async function loadDailyStatus(date) {
     const container = document.getElementById('dailyStatusCards');
     const dateDisplay = document.getElementById('dailyDateDisplay');
@@ -615,8 +644,12 @@ async function loadDailyStatus(date) {
         }
 
         workTasks.forEach(t => {
+            const wlId = t.work_log_id;
             const tags = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${tg.color}">${tg.name}</span>`).join('');
-            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>💪 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">工作量 +1</div></div><button class="daily-card-close" onclick="cancelWorklog(${t.id},'${date}')" title="取消">✕</button></div></div>`;
+            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>💪 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">工作量 +1</div>
+                <div class="wl-notes" id="wl-notes-${wlId}"></div>
+                <div class="wl-note-add"><input class="wl-note-input" id="wl-input-${wlId}" placeholder="添加备注..." maxlength="200" onkeydown="if(event.key==='Enter')addWorklogNote(${wlId})"><button class="wl-note-btn" onclick="addWorklogNote(${wlId})">+</button></div>
+            </div><button class="daily-card-close" onclick="cancelWorklog(${t.id},'${date}')" title="取消">✕</button></div></div>`;
         });
 
         resultTasks.forEach(t => {
@@ -630,6 +663,12 @@ async function loadDailyStatus(date) {
         });
 
         container.innerHTML = html || '<div class="no-daily-data">📭 当日暂无记录</div>';
+
+        // Load worklog notes
+        document.querySelectorAll('[id^="wl-notes-"]').forEach(el => {
+            const wlId = parseInt(el.id.replace('wl-notes-', ''));
+            loadWorklogNotes(wlId);
+        });
 
     } catch (e) {
         container.innerHTML = '<div class="no-daily-data">加载失败</div>';

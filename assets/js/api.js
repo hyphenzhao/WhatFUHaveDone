@@ -98,6 +98,13 @@ const API = {
         resultsDetail(tagId) { return API.get(`/stats?type=results_detail&tag_id=${tagId}`); },
     },
 
+    // --- Worklog Notes ---
+    worklogNotes: {
+        list(worklogId) { return API.get(`/worklog_notes?worklog_id=${worklogId}`); },
+        add(worklogId, content) { return API.post('/worklog_notes', { worklog_id: worklogId, content }); },
+        remove(id) { return API.delete(`/worklog_notes/${id}`); },
+    },
+
     // --- Calendar Meta ---
     calendarMeta: {
         month(month) { return API.get(`/calendar_meta?month=${month}`); },

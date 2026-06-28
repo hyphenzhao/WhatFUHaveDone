@@ -48,10 +48,8 @@ async function renderWeather(dateStr) {
     const container = document.getElementById('dailyWeather');
     if (!container) return;
 
-    const lat = 39.9042, lon = 116.4074, city = 'Beijing';
-
     try {
-        const res = await API.weather.get(dateStr, city, lat, lon);
+        const res = await API.weather.get(dateStr);
         const w = res.data;
         if (!w) {
             const isToday = dateStr === new Date().toISOString().split('T')[0];
@@ -76,9 +74,8 @@ async function renderWeather(dateStr) {
 async function fetchWeather(dateStr) {
     const container = document.getElementById('dailyWeather');
     if (container) container.innerHTML = '<div class="weather-card" style="background:linear-gradient(135deg,#f0f4f8,#e2e8f0)"><div class="weather-desc">⏳</div></div>';
-    const lat = 39.9042, lon = 116.4074, city = 'Beijing';
     try {
-        await API.weather.fetch(dateStr, city, lat, lon);
+        await API.weather.fetch(dateStr);
         await renderWeather(dateStr);
     } catch(e) { Toast.error('获取失败'); renderWeather(dateStr); }
 }

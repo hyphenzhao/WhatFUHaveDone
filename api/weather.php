@@ -18,10 +18,41 @@ $method = get_method();
 $db = get_db();
 
 $date = $_GET['date'] ?? today();
-$city = $_GET['city'] ?? 'Beijing';
-$lat = (float)($_GET['lat'] ?? 39.9042);
-$lon = (float)($_GET['lon'] ?? 116.4074);
 $action = $_GET['action'] ?? '';
+
+// Get server location (cached in file, auto-detected from server IP)
+function get_server_location(): array {
+    $cacheFile = __DIR__ . '/../data/server_location.json';
+    // Return cached if fresh (< 30 days)
+    if (file_exists($cacheFile)) {
+        $cached = json_decode(file_get_contents($cacheFile), true);
+        if ($cached && time() - ($cached['ts'] ?? 0) < 2592000) {
+            return $cached;
+        }
+    }
+    // Auto-detect from server public IP
+    $loc = ['lat' => 39.9042, 'lon' => 116.4074, 'city' => 'Beijing', 'ts' => time()];
+    try {
+        $ip = file_get_contents('https://api.ipify.org?format=text', false, stream_context_create(['http' => ['timeout' => 3]]));
+        if ($ip) {
+            $geo = file_get_contents("http://ip-api.com/json/{$ip}?fields=city,lat,lon", false, stream_context_create(['http' => ['timeout' => 3]]));
+            if ($geo) {
+                $data = json_decode($geo, true);
+                if ($data && ($data['lat'] ?? 0) != 0) {
+                    $loc = ['lat' => (float)$data['lat'], 'lon' => (float)$data['lon'], 'city' => $data['city'] ?? 'Unknown', 'ts' => time()];
+                }
+            }
+        }
+    } catch (Exception $e) {}
+    @mkdir(dirname($cacheFile), 0755, true);
+    file_put_contents($cacheFile, json_encode($loc, JSON_UNESCAPED_UNICODE));
+    return $loc;
+}
+
+$loc = get_server_location();
+$lat = (float)($_GET['lat'] ?: $loc['lat']);
+$lon = (float)($_GET['lon'] ?: $loc['lon']);
+$city = $_GET['city'] ?: ($loc['city'] ?? 'Beijing');
 
 // Weather code → emoji + description
 function weather_meta(int $code): array {

@@ -32,27 +32,26 @@ function get_server_location(): array {
     }
     // Auto-detect from server public IP
     $loc = ['lat' => 39.9042, 'lon' => 116.4074, 'city' => 'Beijing', 'ts' => time()];
-    try {
-        $ip = file_get_contents('https://api.ipify.org?format=text', false, stream_context_create(['http' => ['timeout' => 3]]));
-        if ($ip) {
-            $geo = file_get_contents("http://ip-api.com/json/{$ip}?fields=city,lat,lon", false, stream_context_create(['http' => ['timeout' => 3]]));
-            if ($geo) {
-                $data = json_decode($geo, true);
-                if ($data && ($data['lat'] ?? 0) != 0) {
-                    $loc = ['lat' => (float)$data['lat'], 'lon' => (float)$data['lon'], 'city' => $data['city'] ?? 'Unknown', 'ts' => time()];
-                }
+    $ctx = stream_context_create(['http' => ['timeout' => 5]]);
+    $ip = @file_get_contents('https://api.ipify.org?format=text', false, $ctx);
+    if ($ip && trim($ip)) {
+        $geo = @file_get_contents("http://ip-api.com/json/" . trim($ip) . "?fields=city,lat,lon", false, $ctx);
+        if ($geo) {
+            $data = json_decode($geo, true);
+            if ($data && !empty($data['lat'])) {
+                $loc = ['lat' => (float)$data['lat'], 'lon' => (float)$data['lon'], 'city' => $data['city'] ?: 'Unknown', 'ts' => time()];
             }
         }
-    } catch (Exception $e) {}
+    }
     @mkdir(dirname($cacheFile), 0755, true);
     file_put_contents($cacheFile, json_encode($loc, JSON_UNESCAPED_UNICODE));
     return $loc;
 }
 
 $loc = get_server_location();
-$lat = (float)($_GET['lat'] ?: $loc['lat']);
-$lon = (float)($_GET['lon'] ?: $loc['lon']);
-$city = $_GET['city'] ?: ($loc['city'] ?? 'Beijing');
+$lat = (float)(!empty($_GET['lat']) ? $_GET['lat'] : ($loc['lat'] ?? 39.9042));
+$lon = (float)(!empty($_GET['lon']) ? $_GET['lon'] : ($loc['lon'] ?? 116.4074));
+$city = !empty($_GET['city']) ? $_GET['city'] : ($loc['city'] ?? 'Beijing');
 
 // Weather code → emoji + description
 function weather_meta(int $code): array {

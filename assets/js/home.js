@@ -60,7 +60,7 @@ async function renderWeather(dateStr) {
             return;
         }
         container.innerHTML = `<div class="weather-card" style="background:linear-gradient(135deg,${w.gradient})">
-            <div class="weather-city">📍 ${escapeHtml(w.city||'')}</div>
+            <div class="weather-city" onclick="changeCity()" title="点击更换城市">📍 ${escapeHtml(w.city||'')} <span style="font-size:0.6rem;">▾</span></div>
             <div class="weather-emoji">${w.emoji}</div>
             <div class="weather-temp">${Math.round(w.temp_max)}°<span class="weather-temp-lo">/${Math.round(w.temp_min)}°</span></div>
             <div class="weather-desc">${w.desc}</div>
@@ -70,6 +70,46 @@ async function renderWeather(dateStr) {
     } catch(e) {
         container.innerHTML = `<div class="weather-card" style="background:linear-gradient(135deg,#f0f4f8,#e2e8f0)"><div class="weather-desc" style="font-size:0.7rem;">加载失败</div></div>`;
     }
+}
+
+async function changeCity() {
+    Modal.open({
+        title: '📍 更换城市',
+        body: `<div class="form-group"><label>搜索城市</label><input class="form-input" id="citySearch" placeholder="输入城市名..." onkeydown="if(event.key==='Enter')searchCity()"><div id="cityResults" style="margin-top:8px;"></div></div>`,
+        footer: '<button class="btn btn-ghost" onclick="Modal.close()">取消</button>',
+    });
+    document.getElementById('citySearch').focus();
+    document.getElementById('citySearch').addEventListener('input', debounce(searchCity, 400));
+}
+
+async function searchCity() {
+    const q = document.getElementById('citySearch').value.trim();
+    const results = document.getElementById('cityResults');
+    if (!q || q.length < 1) { results.innerHTML = ''; return; }
+    results.innerHTML = '<span style="color:var(--color-text-secondary);">搜索中...</span>';
+    try {
+        const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=zh`);
+        const data = await res.json();
+        if (data.results && data.results.length) {
+            results.innerHTML = data.results.map(r => `
+                <div class="city-result" onclick="selectCity('${escapeHtml(r.name)}','${r.latitude}','${r.longitude}','${escapeHtml(r.country||'')}')">
+                    📍 ${escapeHtml(r.name)}${r.admin1?', '+escapeHtml(r.admin1):''}${r.country?', '+escapeHtml(r.country):''}
+                    <span style="font-size:0.7rem;color:var(--color-text-secondary);">${r.latitude.toFixed(2)},${r.longitude.toFixed(2)}</span>
+                </div>`).join('');
+        } else {
+            results.innerHTML = '<span style="color:var(--color-text-secondary);">未找到城市</span>';
+        }
+    } catch(e) { results.innerHTML = '<span style="color:#e53e3e;">搜索失败</span>'; }
+}
+
+async function selectCity(name, lat, lon, country) {
+    Modal.close();
+    try {
+        await API.post('/weather?action=set_location', { city: name, lat, lon });
+        // Clear weather cache for fresh fetch
+        await renderWeather(App.selectedDate || today());
+        Toast.success('已切换到: ' + name);
+    } catch(e) { Toast.error('切换失败'); }
 }
 
 async function fetchWeather(dateStr) {

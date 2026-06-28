@@ -21,8 +21,10 @@ $date = $_GET['date'] ?? today();
 $action = $_GET['action'] ?? '';
 
 // Get server location (cached in file, auto-detected from server IP)
+define('LOCATION_CACHE_FILE', __DIR__ . '/../data/server_location.json');
+
 function get_server_location(): array {
-    $cacheFile = __DIR__ . '/../data/server_location.json';
+    $cacheFile = LOCATION_CACHE_FILE;
     // Return cached if fresh (< 30 days)
     if (file_exists($cacheFile)) {
         $cached = json_decode(file_get_contents($cacheFile), true);
@@ -167,6 +169,18 @@ if ($method === 'POST' && $action === 'fetch') {
     } catch (Exception $e) {
         json_error($e->getMessage());
     }
+}
+
+// POST /api/weather?action=set_location — save location config
+if ($method === 'POST' && $action === 'set_location') {
+    $data = get_json_input();
+    $newCity = $data['city'] ?? $city;
+    $newLat = (float)($data['lat'] ?? $lat);
+    $newLon = (float)($data['lon'] ?? $lon);
+    $loc = ['lat' => $newLat, 'lon' => $newLon, 'city' => $newCity, 'ts' => 9999999999];
+    @mkdir(dirname(LOCATION_CACHE_FILE), 0755, true);
+    file_put_contents(LOCATION_CACHE_FILE, json_encode($loc, JSON_UNESCAPED_UNICODE));
+    json_success($loc, 'Location saved');
 }
 
 json_error('Method not allowed', 405);

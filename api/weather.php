@@ -85,7 +85,7 @@ function weather_meta(int $code): array {
     return $map[$code] ?? ['🌈', '未知', '#B0BEC5,#ECEFF1'];
 }
 
-function fetch_weather(float $lat, float $lon, string $date): array {
+function fetch_weather(float $lat, float $lon, string $date, string $city = ''): array {
     $url = "https://api.open-meteo.com/v1/forecast?latitude={$lat}&longitude={$lon}"
          . "&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_sum,windspeed_10m_max,relative_humidity_2m_max"
          . "&timezone=Asia/Shanghai&start_date={$date}&end_date={$date}";
@@ -110,6 +110,7 @@ function fetch_weather(float $lat, float $lon, string $date): array {
 
     return [
         'date' => $date,
+        'city' => $city,
         'code' => $code,
         'emoji' => $meta[0],
         'desc' => $meta[1],
@@ -135,7 +136,7 @@ if ($method === 'GET') {
 
     if ($isToday && $cacheStale) {
         try {
-            $weather = fetch_weather($lat, $lon, $date);
+            $weather = fetch_weather($lat, $lon, $date, $city);
             $db->prepare('INSERT INTO weather_cache (date, city, data_json) VALUES (?, ?, ?)
                 ON DUPLICATE KEY UPDATE data_json = VALUES(data_json)')
                ->execute([$date, $city, json_encode($weather, JSON_UNESCAPED_UNICODE)]);
@@ -159,7 +160,7 @@ if ($method === 'GET') {
 // POST: force fetch
 if ($method === 'POST' && $action === 'fetch') {
     try {
-        $weather = fetch_weather($lat, $lon, $date);
+        $weather = fetch_weather($lat, $lon, $date, $city);
         $db->prepare('INSERT INTO weather_cache (date, city, data_json) VALUES (?, ?, ?)
             ON DUPLICATE KEY UPDATE data_json = VALUES(data_json)')
            ->execute([$date, $city, json_encode($weather, JSON_UNESCAPED_UNICODE)]);

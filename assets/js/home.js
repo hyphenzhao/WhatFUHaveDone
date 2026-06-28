@@ -60,6 +60,7 @@ async function renderWeather(dateStr) {
             return;
         }
         container.innerHTML = `<div class="weather-card" style="background:linear-gradient(135deg,${w.gradient})">
+            <div class="weather-city">📍 ${escapeHtml(w.city||'')}</div>
             <div class="weather-emoji">${w.emoji}</div>
             <div class="weather-temp">${Math.round(w.temp_max)}°<span class="weather-temp-lo">/${Math.round(w.temp_min)}°</span></div>
             <div class="weather-desc">${w.desc}</div>

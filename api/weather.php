@@ -20,37 +20,25 @@ $db = get_db();
 $date = $_GET['date'] ?? today();
 $action = $_GET['action'] ?? '';
 
-// Get server location (cached in file, auto-detected from server IP)
-define('LOCATION_CACHE_FILE', __DIR__ . '/../data/server_location.json');
-
-function get_server_location(): array {
-    $cacheFile = LOCATION_CACHE_FILE;
-    // Return cached if fresh (< 30 days)
-    if (file_exists($cacheFile)) {
-        $cached = json_decode(file_get_contents($cacheFile), true);
-        if ($cached && time() - ($cached['ts'] ?? 0) < 2592000) {
-            return $cached;
-        }
+// Get server location (cached in DB config table)
+function get_server_location(PDO $db): array {
+    // Try DB config first
+    $stmt = $db->query("SELECT data_json FROM weather_cache WHERE date = '0000-00-00' AND city = '__location__'");
+    $row = $stmt->fetch();
+    if ($row) {
+        $cached = json_decode($row['data_json'], true);
+        if ($cached && !empty($cached['lat'])) return $cached;
     }
-    // Auto-detect from server public IP
-    $loc = ['lat' => 39.9042, 'lon' => 116.4074, 'city' => 'Beijing', 'ts' => time()];
-    $ctx = stream_context_create(['http' => ['timeout' => 5]]);
-    $ip = @file_get_contents('https://api.ipify.org?format=text', false, $ctx);
-    if ($ip && trim($ip)) {
-        $geo = @file_get_contents("http://ip-api.com/json/" . trim($ip) . "?fields=city,lat,lon", false, $ctx);
-        if ($geo) {
-            $data = json_decode($geo, true);
-            if ($data && !empty($data['lat'])) {
-                $loc = ['lat' => (float)$data['lat'], 'lon' => (float)$data['lon'], 'city' => $data['city'] ?: 'Unknown', 'ts' => time()];
-            }
-        }
-    }
-    @mkdir(dirname($cacheFile), 0755, true);
-    file_put_contents($cacheFile, json_encode($loc, JSON_UNESCAPED_UNICODE));
-    return $loc;
+    return ['lat' => 39.9042, 'lon' => 116.4074, 'city' => 'Beijing', 'ts' => time()];
 }
 
-$loc = get_server_location();
+function save_server_location(PDO $db, array $loc): void {
+    $db->prepare("INSERT INTO weather_cache (date, city, data_json) VALUES ('0000-00-00', '__location__', ?)
+        ON DUPLICATE KEY UPDATE data_json = VALUES(data_json)")
+       ->execute([json_encode($loc, JSON_UNESCAPED_UNICODE)]);
+}
+
+$loc = get_server_location($db);
 $lat = (float)(!empty($_GET['lat']) ? $_GET['lat'] : ($loc['lat'] ?? 39.9042));
 $lon = (float)(!empty($_GET['lon']) ? $_GET['lon'] : ($loc['lon'] ?? 116.4074));
 $city = !empty($_GET['city']) ? $_GET['city'] : ($loc['city'] ?? 'Beijing');
@@ -177,9 +165,10 @@ if ($method === 'POST' && $action === 'set_location') {
     $newCity = $data['city'] ?? $city;
     $newLat = (float)($data['lat'] ?? $lat);
     $newLon = (float)($data['lon'] ?? $lon);
-    $loc = ['lat' => $newLat, 'lon' => $newLon, 'city' => $newCity, 'ts' => 9999999999];
-    @mkdir(dirname(LOCATION_CACHE_FILE), 0755, true);
-    file_put_contents(LOCATION_CACHE_FILE, json_encode($loc, JSON_UNESCAPED_UNICODE));
+    $loc = ['lat' => $newLat, 'lon' => $newLon, 'city' => $newCity, 'ts' => time()];
+    save_server_location($db, $loc);
+    // Clear weather cache for new city
+    $db->exec("DELETE FROM weather_cache WHERE date != '0000-00-00'");
     json_success($loc, 'Location saved');
 }
 

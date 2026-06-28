@@ -23,7 +23,7 @@ $action = $_GET['action'] ?? '';
 // Get server location (cached in DB config table)
 function get_server_location(PDO $db): array {
     // Try DB config first
-    $stmt = $db->query("SELECT data_json FROM weather_cache WHERE date = '0000-00-00' AND city = '__location__'");
+    $stmt = $db->query("SELECT data_json FROM weather_cache WHERE date = '2000-01-01' AND city = '__location__'");
     $row = $stmt->fetch();
     if ($row) {
         $cached = json_decode($row['data_json'], true);
@@ -33,7 +33,7 @@ function get_server_location(PDO $db): array {
 }
 
 function save_server_location(PDO $db, array $loc): void {
-    $db->prepare("INSERT INTO weather_cache (date, city, data_json) VALUES ('0000-00-00', '__location__', ?)
+    $db->prepare("INSERT INTO weather_cache (date, city, data_json) VALUES ('2000-01-01', '__location__', ?)
         ON DUPLICATE KEY UPDATE data_json = VALUES(data_json)")
        ->execute([json_encode($loc, JSON_UNESCAPED_UNICODE)]);
 }
@@ -168,7 +168,7 @@ if ($method === 'POST' && $action === 'set_location') {
     $loc = ['lat' => $newLat, 'lon' => $newLon, 'city' => $newCity, 'ts' => time()];
     save_server_location($db, $loc);
     // Clear weather cache for new city
-    $db->exec("DELETE FROM weather_cache WHERE date != '0000-00-00'");
+    $db->exec("DELETE FROM weather_cache WHERE date != '2000-01-01'");
     json_success($loc, 'Location saved');
 }
 

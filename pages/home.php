@@ -10,6 +10,7 @@ $page_content = <<<HTML
     <div class="daily-status-header">
         <h2>📋 当日状态</h2>
         <span class="date-display" id="dailyDateDisplay"></span>
+        <a href="/immersive" class="btn btn-ghost btn-sm" style="margin-left:12px;" title="移动端友好的暗色模式">🕶️ 沉浸模式</a>
     </div>
     <div class="daily-body">
         <div class="daily-left-col" id="dailyLeftCol">

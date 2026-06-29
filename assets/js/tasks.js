@@ -92,8 +92,14 @@ function initDragDrop() {
             if (!draggedRow) return;
             const rows = Array.from(tbody.querySelectorAll('tr.draggable'));
             const ids = rows.map(r => parseInt(r.dataset.id));
+            // Get the priority of the first visible task as baseline
+            const firstPri = tasksData.active.find(t => t.id === ids[0])?.priority || 1;
+            // Build update list: each task gets firstPri + index
+            const updates = ids.map((id, i) => ({ id, priority: firstPri + i }));
             try {
-                await API.tasks.reorder(ids);
+                for (const u of updates) {
+                    await API.tasks.update(u.id, { priority: u.priority });
+                }
                 Toast.success('优先级已更新');
                 loadTasks();
             } catch(e) { Toast.error('更新失败'); }

@@ -114,6 +114,18 @@ if ($method === 'POST') {
     json_success(get_task_full($db, $id), 'Task created');
 }
 
+// PUT /api/tasks/reorder — reorder priorities { ids: [3, 1, 5, ...] }
+if ($method === 'PUT' && ($parts[2] ?? '') === 'reorder') {
+    $data = get_json_input();
+    $ids = $data['ids'] ?? [];
+    if (empty($ids)) json_error('ids array required');
+    $stmt = $db->prepare('UPDATE tasks SET priority = ? WHERE id = ?');
+    foreach ($ids as $i => $id) {
+        $stmt->execute([$i + 1, (int)$id]);
+    }
+    json_success(null, 'Priorities updated');
+}
+
 // PUT /api/tasks/{id} — update (partial updates supported)
 if ($method === 'PUT') {
     $parts = get_path_parts();
@@ -151,18 +163,6 @@ if ($method === 'DELETE') {
 
     $db->prepare('DELETE FROM tasks WHERE id = ?')->execute([$id]);
     json_success(null, 'Task deleted permanently');
-}
-
-// PUT /api/tasks/reorder — reorder priorities { ids: [3, 1, 5, ...] }
-if ($method === 'PUT' && ($parts[2] ?? '') === 'reorder') {
-    $data = get_json_input();
-    $ids = $data['ids'] ?? [];
-    if (empty($ids)) json_error('ids array required');
-    $stmt = $db->prepare('UPDATE tasks SET priority = ? WHERE id = ?');
-    foreach ($ids as $i => $id) {
-        $stmt->execute([$i + 1, (int)$id]);
-    }
-    json_success(null, 'Priorities updated');
 }
 
 json_error('Method not allowed', 405);

@@ -93,14 +93,44 @@ const IM = {
         }).join('') + '</div>';
     },
 
+    async getPillarInfo() {
+        // Compute BaZi pillars for current date, matching renderBaziPillars logic
+        const p = await loadBaziProfile();
+        if (!p) return null;
+        const selDate = new Date(this.date + 'T12:00:00');
+        const selEc = Lunar.fromDate(selDate).getEightChar();
+        const dayGan = p.bazi_day ? p.bazi_day[0] : '';
+        const info = {
+            liuri: { gz: selEc.getDayGan()+selEc.getDayZhi(), ss: '' },
+            liunian: { gz: selEc.getYearGan()+selEc.getYearZhi(), ss: '' },
+            liuyue: { gz: selEc.getMonthGan()+selEc.getMonthZhi(), ss: '' },
+            dayun: { gz: '', ss: '' },
+        };
+        if (p.birth_date && p.gender) {
+            const bd = new Date(p.birth_date + 'T12:00:00');
+            const bt = p.birth_time !== '' ? (parseInt(p.birth_time)*2+1)%24 : 12;
+            bd.setHours(bt,0,0,0);
+            const yun = Lunar.fromDate(bd).getEightChar().getYun(p.gender==='女'?0:1);
+            const xuAge = selDate.getFullYear() - bd.getFullYear() + 1;
+            const daYuns = yun.getDaYun();
+            for (let i=0;i<daYuns.length;i++) { if (xuAge>=daYuns[i].getStartAge()&&xuAge<daYuns[i].getEndAge()){ info.dayun.gz = daYuns[i].getGanZhi(); break; } }
+        }
+        if (dayGan && typeof getShiShenLabel !== 'undefined') {
+            for (const k of Object.keys(info)) {
+                if (info[k].gz) info[k].ss = getShiShenLabel(dayGan, info[k].gz[0]) + ' / ' + getShiShenLabel(dayGan, info[k].gz[1]);
+            }
+        }
+        return info;
+    },
+
     async openBazi(type, label) {
         const btn = document.getElementById('imBazi-' + type);
-        // Reuse full-mode analyzeBazi from home.js
         if (btn) { btn.classList.add('loading'); btn.textContent = '⏳'; }
-        await analyzeBazi(this.date, type, label, '', '');
+        const info = await this.getPillarInfo();
+        const pillar = info ? info[type] : null;
+        await analyzeBazi(this.date, type, label, pillar?.gz || '', pillar?.ss || '');
         this.loadBaziButtons();
 
-        // Re-fetch and show
         let analyses = {};
         try { const res = await API.get('/bazi_analysis?date=' + this.date); (res.data||[]).forEach(a => analyses[a.type]=a); } catch(e) {}
         const a = analyses[type];

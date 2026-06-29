@@ -27,6 +27,8 @@ $current_page = 'immersive';
     <script src="/assets/js/api.js"></script>
     <script src="/assets/js/modal.js"></script>
     <script src="/assets/js/app.js"></script>
+    <script src="/assets/js/calendar.js"></script>
+    <script src="/assets/js/home.js"></script>
     <script src="/assets/js/immersive.js"></script>
 </body>
 </html>

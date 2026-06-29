@@ -1,37 +1,7 @@
 /**
  * Immersive Mode — mobile-first dark theme dashboard
+ * Requires: home.js (for analyzeBazi, md, renderBaziPillars, WX maps)
  */
-
-// Shared helpers (copied from home.js to avoid loading full dashboard)
-function md(text) {
-    if (!text) return ''; let html = escapeHtml(text);
-    html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
-    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
-    html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
-    html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
-    html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
-    html = html.replace(/^---$/gm, '<hr>');
-    html = html.replace(/\n\n/g, '</p><p>'); html = html.replace(/\n/g, '<br>');
-    html = '<p>' + html + '</p>'; html = html.replace(/<p><\/p>/g, '');
-    return html;
-}
-
-async function analyzeBazi(dateStr, type, label, gz, ss) {
-    try {
-        const pRes = await API.get('/profile'); const p = pRes.data || {};
-        const prompt = type === 'liuri'
-            ? `用户八字: 年${p.bazi_year||''} 月${p.bazi_month||''} 日${p.bazi_day||''} 时${p.bazi_time||''}。当前${label}: ${gz||''}，十神: ${ss||''}。请结合用户八字和当前${label}，用不超过100字简短分析今日能量特点和建议重点工作方向。`
-            : `用户八字: 年${p.bazi_year||''} 月${p.bazi_month||''} 日${p.bazi_day||''} 时${p.bazi_time||''}。简历: ${p.resume||'无'}。目标: ${p.goals||'无'}。当前${label}: ${gz||''}，十神: ${ss||''}。请结合用户八字和${label}，用100-200字分析此阶段的能量特点，并给出重点工作方向的建议。`;
-        const res = await API.post('/ai/chat', { messages: [{ role: 'user', content: prompt }] });
-        if (res.data && res.data.content) {
-            await API.post('/bazi_analysis', { date_key: dateStr, type, period_label: label, gan_zhi: gz||'', shi_shen: ss||'', analysis: res.data.content });
-        }
-    } catch(e) { console.error('analyzeBazi error:', e); }
-}
-
 const IM = {
     date: today(),
     clockInterval: null, clockFmt24: false,
@@ -125,20 +95,14 @@ const IM = {
 
     async openBazi(type, label) {
         const btn = document.getElementById('imBazi-' + type);
-        // Check if analysis exists
+        // Reuse full-mode analyzeBazi from home.js
+        if (btn) { btn.classList.add('loading'); btn.textContent = '⏳'; }
+        await analyzeBazi(this.date, type, label, '', '');
+        this.loadBaziButtons();
+
+        // Re-fetch and show
         let analyses = {};
         try { const res = await API.get('/bazi_analysis?date=' + this.date); (res.data||[]).forEach(a => analyses[a.type]=a); } catch(e) {}
-
-        if (!analyses[type]) {
-            // Auto-generate
-            if (btn) { btn.classList.add('loading'); btn.textContent = '⏳'; }
-            await analyzeBazi(this.date, type, label, '', '');
-            // Reload button state
-            this.loadBaziButtons();
-            // Re-fetch analysis
-            try { const res2 = await API.get('/bazi_analysis?date=' + this.date); (res2.data||[]).forEach(a => analyses[a.type]=a); } catch(e) {}
-        }
-
         const a = analyses[type];
         if (a && a.analysis) {
             Modal.open({

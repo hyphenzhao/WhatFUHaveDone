@@ -105,6 +105,15 @@ button { font-family: inherit; cursor: pointer; }
 
 .im-empty { text-align: center; color: var(--im-text-secondary); padding: 20px; font-size: 0.8rem; }
 
+/* Dark modal overrides */
+.modal-container { background: var(--im-surface) !important; color: var(--im-text) !important; }
+.modal-header { border-bottom-color: var(--im-border) !important; }
+.modal-footer { border-top-color: var(--im-border) !important; }
+.modal-body { background: var(--im-surface) !important; }
+.modal-close { color: var(--im-text-secondary) !important; }
+.modal-close:hover { color: var(--im-text) !important; }
+.form-input, .form-select, .form-textarea { background: var(--im-bg); color: var(--im-text); border-color: var(--im-border); }
+
 /* BaZi modal */
 .im-bazi-modal-body { font-size: 0.9rem; line-height: 1.6; }
 .im-bazi-modal-body .bazi-pillar-card { background: var(--im-bg); border-color: var(--im-border); }

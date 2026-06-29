@@ -991,8 +991,11 @@ function initPanelTabs() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    await Calendar.init(); // wait for initial calendar load before refreshing
-    await refreshAll();
-    initPanelTabs();
-});
+// Skip full dashboard init on immersive page
+if (!document.getElementById('imApp')) {
+    document.addEventListener('DOMContentLoaded', async () => {
+        await Calendar.init();
+        await refreshAll();
+        initPanelTabs();
+    });
+}

@@ -103,6 +103,12 @@ button { font-family: inherit; cursor: pointer; }
 .im-btn-worklog.active { background: #166534 !important; border-color: #22c55e !important; }
 .im-stage-select { padding: 2px 4px; font-size: 0.7rem; background: var(--im-bg); color: var(--im-text); border: 1px solid var(--im-border); border-radius: 4px; }
 
+.im-add-task-btn {
+    background: var(--im-primary); color: #fff; border: none;
+    width: 24px; height: 24px; border-radius: 50%; font-size: 1rem;
+    font-weight: 700; cursor: pointer; line-height: 1; margin-left: 6px;
+}
+.im-add-task-btn:hover { opacity: 0.8; }
 .im-empty { text-align: center; color: var(--im-text-secondary); padding: 20px; font-size: 0.8rem; }
 
 /* Dark modal overrides */

@@ -218,7 +218,7 @@ const IM = {
                     html += `<div class="im-card"><div class="im-card-name">📅 ${escapeHtml(t.name)}</div><div class="im-card-tags">${(t.tags||[]).map(tg=>`<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('')}</div></div>`;
                 });
             }
-            html += '</div><div class="im-col"><div class="im-col-title">🔄 进行中</div>';
+            html += '</div><div class="im-col"><div class="im-col-title">🔄 进行中 <button class="im-add-task-btn" onclick="IM.showAddTask()">＋</button></div>';
             if (inProgress.length === 0) {
                 html += '<div class="im-empty">暂无进行中任务</div>';
             } else {
@@ -245,6 +245,15 @@ const IM = {
             try { await API.plans.add(taskId, document.getElementById('imPlanDate').value); Modal.close(); await this.loadTasks(); } catch(e) { Toast.error('失败'); }
         });
     },
+    showAddTask() {
+        // Reuse full-mode showAddTaskModal (same form, same DB)
+        if (typeof showAddTaskModal === 'function') {
+            showAddTaskModal();
+        } else {
+            Toast.error('加载失败，请刷新页面');
+        }
+    },
+
     async addResult(taskId) {
         let resultsList = [];
         try { resultsList = (await API.results.list()).data || []; } catch(e) {}

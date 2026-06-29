@@ -98,9 +98,9 @@ if ($method === 'POST') {
     $nec = optional_int($data, 'necessity', 3);
     $pri = optional_int($data, 'priority', 0);
     if (!$pri) {
-        // Auto-compute priority: insert after highest priority with same or lower score
-        $stmt = $db->prepare('SELECT COALESCE(MAX(priority), 0) + 1 as next_pri FROM tasks WHERE archived = 0 AND priority >= ?');
-        $stmt->execute([floor(($imp + $nec) / 2)]);
+        // Default: max priority + 1 (bottom of list)
+        $stmt = $db->prepare('SELECT COALESCE(MAX(priority), 0) + 1 as next_pri FROM tasks WHERE archived = 0');
+        $stmt->execute();
         $pri = (int)$stmt->fetch()['next_pri'];
     }
     $stmt = $db->prepare('INSERT INTO tasks (name, description, stage, stage_number, priority, importance, necessity) VALUES (?, ?, ?, ?, ?, ?, ?)');

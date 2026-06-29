@@ -114,6 +114,22 @@ button { font-family: inherit; cursor: pointer; }
 .im-add-task-btn:hover { opacity: 0.8; }
 .im-empty { text-align: center; color: var(--im-text-secondary); padding: 20px; font-size: 0.8rem; }
 
+/* Dark chat overrides */
+.ai-chat-container { background: var(--im-bg) !important; }
+.ai-input-area { background: var(--im-surface) !important; border-top-color: var(--im-border) !important; }
+.ai-input { background: var(--im-bg) !important; color: var(--im-text) !important; border-color: var(--im-border) !important; }
+.ai-input:focus { border-color: var(--im-primary) !important; }
+.ai-messages { background: var(--im-bg) !important; }
+.ai-bubble { background: var(--im-surface) !important; color: var(--im-text) !important; }
+.ai-message-user .ai-bubble { background: var(--im-primary) !important; color: #fff !important; }
+.ai-avatar { background: var(--im-border) !important; }
+.ai-conv-bar { background: var(--im-bg) !important; border-bottom-color: var(--im-border) !important; }
+.ai-conv-select { background: var(--im-surface) !important; color: var(--im-text) !important; border-color: var(--im-border) !important; }
+.ai-conv-del { background: var(--im-surface) !important; border-color: var(--im-border) !important; }
+.ai-send-btn { background: var(--im-primary) !important; }
+.ai-tool-call { background: var(--im-bg) !important; }
+.confirm-item { background: var(--im-bg) !important; border-color: var(--im-border) !important; }
+
 /* Dark modal overrides */
 .modal-container { background: var(--im-surface) !important; color: var(--im-text) !important; }
 .modal-header { border-bottom-color: var(--im-border) !important; }

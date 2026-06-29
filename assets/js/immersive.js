@@ -88,7 +88,7 @@ const IM = {
         const now = new Date();
         clk.textContent = this.clockFmt24
             ? now.toLocaleTimeString('en-US', { timeZone: this.clockTz, hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit' })
-            : now.toLocaleTimeString('en-US', { timeZone: this.clockTz, hour12: true, hour:'2-digit', minute:'2-digit' }).replace(' AM','').replace(' PM','');
+            : now.toLocaleTimeString('en-US', { timeZone: this.clockTz, hour12: true, hour:'2-digit', minute:'2-digit', second:'2-digit' });
         if (date) date.textContent = this.date;
     },
 

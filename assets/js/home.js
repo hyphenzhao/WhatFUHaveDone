@@ -58,7 +58,7 @@ function updateClock() {
     if (!el) return;
     const now = new Date();
     const t = now.toLocaleTimeString('en-US', { timeZone: clockTz, hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    el.textContent = clockFmt24 ? t : now.toLocaleTimeString('en-US', { timeZone: clockTz, hour12: true, hour: '2-digit', minute: '2-digit' }).replace(' AM','').replace(' PM','');
+    el.textContent = clockFmt24 ? t : now.toLocaleTimeString('en-US', { timeZone: clockTz, hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     if (fmt) fmt.textContent = clockFmt24 ? '24h' : '12h';
 }
 

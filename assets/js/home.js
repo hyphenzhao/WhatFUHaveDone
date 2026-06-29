@@ -473,8 +473,12 @@ async function loadRightPanel() {
             workLogsForDate = wl.data || [];
         } catch (e) { workLogsForDate = []; }
         const workLogTaskIds = new Set(workLogsForDate.map(w => w.task_id));
+        // Fetch latest notes for ALL tasks (not just today's)
         const workLogNotes = {};
-        workLogsForDate.forEach(w => { if (w.latest_note) workLogNotes[w.task_id] = w.latest_note; });
+        try {
+            const notesRes = await API.worklogNotes.listAll();
+            (notesRes.data||[]).forEach(n => { if (n.latest_note) workLogNotes[n.task_id] = n.latest_note; });
+        } catch(e) {}
 
         const renderSection = (title, tasks, icon, stageClass) => {
             const cardsHtml = tasks.map(t =>

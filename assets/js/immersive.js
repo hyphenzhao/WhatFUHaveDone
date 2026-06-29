@@ -204,7 +204,10 @@ const IM = {
             const inProgress = tasksRes.data || [];
             const wlTaskIds = new Set((wlRes.data||[]).map(w => w.task_id));
             const wlNotes = {};
-            (wlRes.data||[]).forEach(w => { if (w.latest_note) wlNotes[w.task_id] = w.latest_note; });
+            try {
+                const notesRes = await API.worklogNotes.listAll();
+                (notesRes.data||[]).forEach(n => { if (n.latest_note) wlNotes[n.task_id] = n.latest_note; });
+            } catch(e) {}
 
             const renderCard = (t, showWorklog) => {
                 const note = wlNotes[t.id] || '';

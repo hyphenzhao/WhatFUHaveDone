@@ -101,6 +101,7 @@ const API = {
     // --- Worklog Notes ---
     worklogNotes: {
         list(worklogId) { return API.get(`/worklog_notes?worklog_id=${worklogId}`); },
+        listAll() { return API.get('/worklog_notes?latest_all=1'); },
         add(worklogId, content) { return API.post('/worklog_notes', { worklog_id: worklogId, content }); },
         remove(id) { return API.delete(`/worklog_notes/${id}`); },
     },

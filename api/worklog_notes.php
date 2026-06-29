@@ -17,10 +17,25 @@ $db = get_db();
 
 if ($method === 'GET') {
     $worklog_id = (int)($_GET['worklog_id'] ?? 0);
-    if (!$worklog_id) json_error('worklog_id required');
-    $stmt = $db->prepare('SELECT * FROM worklog_notes WHERE worklog_id = ? ORDER BY created_at ASC');
-    $stmt->execute([$worklog_id]);
-    json_success($stmt->fetchAll());
+    $latest_all = isset($_GET['latest_all']);
+
+    if ($latest_all) {
+        // Return the latest note for every task that has worklogs
+        $sql = "SELECT wl.task_id, wn.content as latest_note
+                FROM worklog_notes wn
+                JOIN work_logs wl ON wn.worklog_id = wl.id
+                WHERE wn.id IN (
+                    SELECT MAX(id) FROM worklog_notes GROUP BY worklog_id
+                )
+                ORDER BY wn.created_at DESC";
+        json_success($db->query($sql)->fetchAll());
+    } elseif ($worklog_id) {
+        $stmt = $db->prepare('SELECT * FROM worklog_notes WHERE worklog_id = ? ORDER BY created_at ASC');
+        $stmt->execute([$worklog_id]);
+        json_success($stmt->fetchAll());
+    } else {
+        json_error('worklog_id or latest_all required');
+    }
 }
 
 if ($method === 'POST') {

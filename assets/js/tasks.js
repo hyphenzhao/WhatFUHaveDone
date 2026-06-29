@@ -153,9 +153,13 @@ async function showTaskModal(taskId = null) {
             </div>
             <div class="form-group"><label>截止日期</label>
                 <div style="display:flex;gap:6px;align-items:center;">
-                    <input type="text" class="form-input" id="taskDeadline" value="${escapeHtml(task?.deadline||'')}" placeholder="YYYY-MM-DD / 尽快 / 自由" style="flex:1;">
-                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('taskDeadline').value='尽快';return false;" style="white-space:nowrap;">⚡ 尽快</button>
-                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('taskDeadline').value='自由';return false;" style="white-space:nowrap;">🆓 自由</button>
+                    <select class="form-select" id="taskDeadlineType" onchange="document.getElementById('taskDeadlineDate').style.display=this.value==='date'?'':'none';if(this.value!=='date')document.getElementById('taskDeadlineDate').value=this.value;" style="width:auto;">
+                        <option value="">无截止</option>
+                        <option value="date">📅 指定日期</option>
+                        <option value="尽快">⚡ 尽快</option>
+                        <option value="自由">🆓 自由</option>
+                    </select>
+                    <input type="date" class="form-input" id="taskDeadlineDate" value="${/^\d{4}-\d{2}-\d{2}$/.test(task?.deadline||'')?task.deadline:''}" style="flex:1;${/^\d{4}-\d{2}-\d{2}$/.test(task?.deadline||'')?'':'display:none'}">
                 </div></div>
             <div class="form-group"><label>受益人</label><div class="tag-chip-group" id="tagGroup_people">${tagSelectHtml('people', peopleList, selPeopleIds, 'people')}</div></div>
             <div class="form-group"><label>标签</label><div class="tag-chip-group" id="tagGroup_tags">${tagSelectHtml('tags', tagsList, selTagIds, 'tag')}</div></div>`,
@@ -169,7 +173,7 @@ async function showTaskModal(taskId = null) {
             stage: document.getElementById('taskStage').value,
             people_ids: getSelectedTagIds('people'), tag_ids: getSelectedTagIds('tags'),
             importance: getStarVal('star_importance'), necessity: getStarVal('star_necessity'),
-            deadline: document.getElementById('taskDeadline').value,
+            deadline: (() => { const t = document.getElementById('taskDeadlineType').value; return t === 'date' ? document.getElementById('taskDeadlineDate').value : t; })(),
         };
         try {
             if (taskId) { await API.tasks.update(taskId, data); }

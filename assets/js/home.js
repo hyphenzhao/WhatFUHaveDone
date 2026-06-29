@@ -816,9 +816,13 @@ async function showAddTaskModal() {
             </div>
             <div class="form-group"><label>截止日期</label>
                 <div style="display:flex;gap:6px;align-items:center;">
-                    <input type="text" class="form-input" id="taskDeadlineH" placeholder="YYYY-MM-DD / 尽快 / 自由" style="flex:1;">
-                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('taskDeadlineH').value='尽快';return false;" style="white-space:nowrap;">⚡ 尽快</button>
-                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('taskDeadlineH').value='自由';return false;" style="white-space:nowrap;">🆓 自由</button>
+                    <select class="form-select" id="taskDeadlineTypeH" onchange="document.getElementById('taskDeadlineDateH').style.display=this.value==='date'?'':'none';if(this.value!=='date')document.getElementById('taskDeadlineDateH').value=this.value;" style="width:auto;">
+                        <option value="">无截止</option>
+                        <option value="date">📅 指定日期</option>
+                        <option value="尽快">⚡ 尽快</option>
+                        <option value="自由">🆓 自由</option>
+                    </select>
+                    <input type="date" class="form-input" id="taskDeadlineDateH" style="flex:1;display:none;">
                 </div></div>
             <div class="form-group">
                 <label>受益人</label>
@@ -841,7 +845,7 @@ async function showAddTaskModal() {
                 name, description: document.getElementById('taskDesc').value.trim(),
                 people_ids: getSelectedTagIds('people'), tag_ids: getSelectedTagIds('tags'),
                 stage: 'in_progress', importance: getStarVal('star_importance'), necessity: getStarVal('star_necessity'),
-                deadline: document.getElementById('taskDeadlineH').value,
+                deadline: (() => { const t = document.getElementById('taskDeadlineTypeH').value; return t === 'date' ? document.getElementById('taskDeadlineDateH').value : t; })(),
             });
             Modal.close(); await refreshAll(); Toast.success('任务已创建');
         } catch (e) { Toast.error('创建失败: ' + e.message); }

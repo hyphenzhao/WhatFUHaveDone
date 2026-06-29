@@ -816,7 +816,7 @@ async function showAddTaskModal() {
             </div>
             <div class="form-group"><label>截止日期</label>
                 <div style="display:flex;gap:6px;align-items:center;">
-                    <input type="date" class="form-input" id="taskDeadlineH" style="flex:1;">
+                    <input type="text" class="form-input" id="taskDeadlineH" placeholder="YYYY-MM-DD / 尽快 / 自由" style="flex:1;">
                     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('taskDeadlineH').value='尽快';return false;" style="white-space:nowrap;">⚡ 尽快</button>
                     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('taskDeadlineH').value='自由';return false;" style="white-space:nowrap;">🆓 自由</button>
                 </div></div>

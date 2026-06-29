@@ -152,7 +152,7 @@ async function showTaskModal(taskId = null) {
             </div>
             <div class="form-group"><label>截止日期</label>
                 <div style="display:flex;gap:6px;align-items:center;">
-                    <input type="date" class="form-input" id="taskDeadline" value="${/^\d{4}-\d{2}-\d{2}$/.test(task?.deadline||'')?task.deadline:''}" style="flex:1;">
+                    <input type="text" class="form-input" id="taskDeadline" value="${escapeHtml(task?.deadline||'')}" placeholder="YYYY-MM-DD / 尽快 / 自由" style="flex:1;">
                     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('taskDeadline').value='尽快';return false;" style="white-space:nowrap;">⚡ 尽快</button>
                     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('taskDeadline').value='自由';return false;" style="white-space:nowrap;">🆓 自由</button>
                 </div></div>

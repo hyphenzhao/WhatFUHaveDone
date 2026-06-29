@@ -129,6 +129,14 @@ button { font-family: inherit; cursor: pointer; }
 .ai-send-btn { background: var(--im-primary) !important; }
 .ai-tool-call { background: var(--im-bg) !important; }
 .confirm-item { background: var(--im-bg) !important; border-color: var(--im-border) !important; }
+/* Dark table in chat */
+.ai-bubble table { border-color: var(--im-border) !important; }
+.ai-bubble th { background: var(--im-bg) !important; color: var(--im-text) !important; border-color: var(--im-border) !important; }
+.ai-bubble td { border-color: var(--im-border) !important; }
+.ai-bubble code { background: rgba(255,255,255,0.1) !important; }
+.ai-bubble pre { background: rgba(255,255,255,0.05) !important; }
+.ai-bubble blockquote { border-left-color: var(--im-primary) !important; color: var(--im-text-secondary) !important; }
+.ai-bubble hr { border-top-color: var(--im-border) !important; }
 
 /* Dark modal overrides */
 .modal-container { background: var(--im-surface) !important; color: var(--im-text) !important; }

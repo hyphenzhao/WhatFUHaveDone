@@ -726,12 +726,14 @@ async function addWorklogNote(wlId) {
         await API.worklogNotes.add(wlId, content);
         input.value = '';
         await loadWorklogNotes(wlId);
+        loadRightPanel(); // refresh task list to show latest note
     } catch(e) { Toast.error('添加失败'); }
 }
 async function delWorklogNote(noteId, wlId) {
     try {
         await API.worklogNotes.remove(noteId);
         await loadWorklogNotes(wlId);
+        loadRightPanel(); // refresh task list
     } catch(e) { Toast.error('删除失败'); }
 }
 

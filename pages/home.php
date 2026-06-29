@@ -16,12 +16,10 @@ $page_content = <<<HTML
             <div class="daily-weather" id="dailyWeather">
                 <div class="no-daily-data">加载中...</div>
             </div>
-            <div class="daily-almanac-wrap">
-                <div class="daily-almanac" id="dailyAlmanac">
-                    <div class="no-daily-data">加载中...</div>
-                </div>
-                <div class="daily-liuri" id="dailyLiuri"></div>
+            <div class="daily-almanac" id="dailyAlmanac">
+                <div class="no-daily-data">加载中...</div>
             </div>
+            <div class="daily-liuri" id="dailyLiuri"></div>
         </div>
         <div class="daily-cards" id="dailyStatusCards">
             <div class="no-daily-data">加载中...</div>

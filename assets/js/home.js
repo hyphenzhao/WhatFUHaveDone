@@ -797,24 +797,6 @@ async function loadDailyStatus(date) {
 }
 
 // --- Add Task Modal ---
-// Tag-style multi-select for people & tags
-function tagSelectHtml(id, items, selectedIds, type) {
-    return items.map(item => {
-        const sel = selectedIds.includes(item.id);
-        if (type === 'people') {
-            return `<span class="tag-chip tag-chip-people${sel?' selected':''}" data-id="${item.id}" data-group="${id}" onclick="toggleTagChip(this)" title="${escapeHtml(item.relationship||'')}">${escapeHtml(item.name)}</span>`;
-        }
-        const color = item.color || '#3B82F6';
-        const style = sel ? `background:${color};color:#fff;border-color:${color}` : `color:${color};border-color:${color}`;
-        return `<span class="tag-chip tag-chip-tag${sel?' selected':''}" style="${style}" data-id="${item.id}" data-group="${id}" onclick="toggleTagChip(this)">${escapeHtml(item.name)}</span>`;
-    }).join('');
-}
-function getSelectedTagIds(groupId) {
-    return Array.from(document.querySelectorAll(`.tag-chip.selected[data-group="${groupId}"]`)).map(el => parseInt(el.dataset.id));
-}
-
-function toggleTagChip(el) { el.classList.toggle('selected'); }
-
 async function showAddTaskModal() {
     let peopleList = [], tagsList = [];
     try {

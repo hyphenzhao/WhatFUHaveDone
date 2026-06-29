@@ -26,7 +26,7 @@ $uri = trim($uri, '/');
 $parts = $uri ? explode('/', $uri) : [];
 
 // AI routes (handles sub-paths: /api/ai/chat, /api/ai/config, etc.)
-if ($parts[0] === 'api' && ($parts[1] ?? '') === 'ai') {
+if (($parts[0] ?? '') === 'api' && ($parts[1] ?? '') === 'ai') {
     require __DIR__ . '/api/ai.php';
     exit;
 }

@@ -11,6 +11,7 @@ const AiChat = {
     isWaiting: false,
     pendingCalls: null,
     typingTimer: null,
+    requestController: null,
 
     async init(container) {
         this.element = container;
@@ -30,7 +31,13 @@ const AiChat = {
         this.inputEl = container.querySelector('#aiInput');
         this.sendBtn = container.querySelector('#aiSendBtn');
 
-        this.sendBtn.addEventListener('click', () => this.send());
+        this.sendBtn.addEventListener('click', () => {
+            if (this.isWaiting && this.requestController) {
+                this.requestController.abort();
+            } else {
+                this.send();
+            }
+        });
         this.inputEl.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
         });
@@ -126,7 +133,8 @@ const AiChat = {
         this.inputEl.value = '';
         this.inputEl.style.height = 'auto';
         this.isWaiting = true;
-        this.sendBtn.disabled = true;
+        this.sendBtn.disabled = false;
+        this.sendBtn.textContent = '停止';
         this._showTyping();
 
         // Add a thinking indicator step
@@ -138,7 +146,9 @@ const AiChat = {
 
         try {
             const ctrl = new AbortController();
-            const timeout = setTimeout(() => ctrl.abort(), 120000); // 2 min timeout
+            this.requestController = ctrl;
+            const isDeepAnalysis = /八字|命理|紫微|运势|侧写|生肖|生辰|五行|流年|流月|大运|奇门|风水/.test(text);
+            const timeout = setTimeout(() => ctrl.abort(), isDeepAnalysis ? 310000 : 100000);
             const body = { messages: this.messages };
             if (typeof App !== 'undefined' && App.selectedDate) {
                 body.selected_date = App.selectedDate;
@@ -206,7 +216,9 @@ const AiChat = {
             this._addMsg('assistant', msg, true);
         } finally {
             this.isWaiting = false;
+            this.requestController = null;
             this.sendBtn.disabled = false;
+            this.sendBtn.textContent = '发送';
         }
     },
 
@@ -224,32 +236,55 @@ const AiChat = {
         this.messagesEl.appendChild(div);
         const bubble = div.querySelector('.ai-bubble');
 
-        // Render markdown first, then animate character by character
+        // Render markdown once. Long/structured replies are displayed at once:
+        // repeatedly parsing partial Markdown becomes very slow and browser
+        // background throttling can otherwise leave the animation suspended.
         const rendered = this._md(text);
-        // Use innerHTML manipulation: reveal progressively
-        // Simpler approach: type raw text, then snap to rendered HTML at the end
+        if (text.length > 600 || text.includes('```') || /(?:^|\n)\|.+\|/.test(text)) {
+            bubble.innerHTML = rendered;
+            this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+            return;
+        }
+
         let i = 0;
-        const speed = 15; // ms per char
+        const speed = 12;
         return new Promise(resolve => {
+            let finished = false;
+            let watchdog = null;
+            const finish = () => {
+                if (finished) return;
+                finished = true;
+                if (this.typingTimer) clearTimeout(this.typingTimer);
+                if (watchdog) clearTimeout(watchdog);
+                this.typingTimer = null;
+                bubble.innerHTML = rendered;
+                this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+                resolve();
+            };
             const tick = () => {
                 if (i >= text.length) {
-                    bubble.innerHTML = rendered;
-                    this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
-                    resolve();
+                    finish();
                     return;
                 }
-                i = Math.min(i + 3, text.length); // 3 chars per tick
+                i = Math.min(i + 6, text.length);
                 const partial = text.substring(0, i);
                 bubble.innerHTML = this._md(partial) + '<span class="typing-cursor">|</span>';
                 this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
                 this.typingTimer = setTimeout(tick, speed);
             };
+            // Even if another UI action clears typingTimer, always finish.
+            watchdog = setTimeout(finish, 5000);
             tick();
         });
     },
 
     // ===== CONFIRMATION =====
     _showConfirmation(calls) {
+        calls = Array.isArray(calls) ? calls : [];
+        if (calls.length === 0) {
+            this._addMsg('assistant', '⚠️ 没有可确认的操作，请重新发送请求。', true);
+            return;
+        }
         const icons = { create_task:'➕', update_task:'✏️', delete_task:'🗑️', create_person:'➕', update_person:'✏️', create_tag:'➕', update_tag:'✏️', toggle_worklog:'📝', add_plan:'📅', add_result_log:'🏆' };
         const names = { create_task:'创建任务', update_task:'更新任务', delete_task:'删除任务', create_person:'创建人物', update_person:'更新人物', create_tag:'创建标签', update_tag:'更新标签', toggle_worklog:'切换工作量', add_plan:'添加计划', add_result_log:'添加成果记录' };
         const items = calls.map(c => `<div class="confirm-item">
@@ -267,15 +302,35 @@ const AiChat = {
     },
 
     async _onConfirm(approved) {
+        const pendingCalls = Array.isArray(this.pendingCalls) ? [...this.pendingCalls] : [];
+        if (pendingCalls.length === 0) {
+            this._addMsg('assistant', '⚠️ 待确认操作已失效，请重新发送请求。', true);
+            return;
+        }
+
         Modal.close();
         this.isWaiting = true;
+        this.sendBtn.disabled = false;
+        this.sendBtn.textContent = '停止';
         this._showTyping();
+        let hasNextConfirmation = false;
         try {
-            const res = await API.post('/ai/confirm', {
-                messages: this.messages.slice(0, -1),
-                message: this.messages[this.messages.length - 1],
-                confirmations: this.pendingCalls.map(c => ({ id: c.id, action: approved ? 'confirm' : 'reject' })),
+            const ctrl = new AbortController();
+            this.requestController = ctrl;
+            const timeout = setTimeout(() => ctrl.abort(), 310000);
+            const response = await fetch('/api/ai/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: this.messages.slice(0, -1),
+                    message: this.messages[this.messages.length - 1],
+                    confirmations: pendingCalls.map(c => ({ id: c.id, action: approved ? 'confirm' : 'reject' })),
+                }),
+                signal: ctrl.signal,
             });
+            clearTimeout(timeout);
+            const res = await response.json();
+            if (!response.ok || res.error) throw new Error(res.message || '请求失败');
             this._hideTyping();
             if (res.data.type === 'text' || res.data.type === 'steps') {
                 const steps = res.data.steps || [];
@@ -290,7 +345,8 @@ const AiChat = {
                 await this._saveConv();
                 if (approved) Toast.success('操作已完成');
             } else if (res.data.type === 'confirmation') {
-                this.pendingCalls = res.data.pending_calls;
+                this.pendingCalls = Array.isArray(res.data.pending_calls) ? res.data.pending_calls : [];
+                hasNextConfirmation = this.pendingCalls.length > 0;
                 this.messages.push(res.data.message);
                 const steps = res.data.steps || [];
                 for (const step of steps) { await this._showStep(step); await new Promise(r => setTimeout(r, 100)); }
@@ -299,11 +355,14 @@ const AiChat = {
             }
         } catch (e) {
             this._hideTyping();
-            this._addMsg('assistant', '⚠️ 操作失败: ' + (e.message || '未知错误'), true);
+            const message = e.name === 'AbortError' ? '请求已停止或等待超时。' : (e.message || '未知错误');
+            this._addMsg('assistant', '⚠️ 操作失败: ' + message, true);
         } finally {
             this.isWaiting = false;
-            this.pendingCalls = null;
+            this.requestController = null;
+            if (!hasNextConfirmation) this.pendingCalls = null;
             this.sendBtn.disabled = false;
+            this.sendBtn.textContent = '发送';
         }
     },
 

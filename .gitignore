@@ -3,6 +3,7 @@
 
 # Dependencies / binaries
 ollama.deb
+vendor/
 
 # OS files
 .DS_Store
@@ -13,3 +14,8 @@ Thumbs.db
 *.swo
 *~
 data/
+
+# Local secrets and publishing worktrees
+API key.md
+config.local.php
+.github-publish/

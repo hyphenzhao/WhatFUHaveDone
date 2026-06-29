@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS people (
     relationship VARCHAR(255) DEFAULT '',
     importance INT DEFAULT 0 CHECK (importance >= 0 AND importance <= 5),
     usefulness INT DEFAULT 0 CHECK (usefulness >= 0 AND usefulness <= 5),
+    closeness INT DEFAULT 0 CHECK (closeness >= 0 AND closeness <= 5),
+    is_me TINYINT(1) DEFAULT 0,
     archived TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -134,7 +136,16 @@ CREATE TABLE IF NOT EXISTS calendar_meta (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 13. AI 配置 (AI Assistant Configuration)
+-- 13. 天气缓存与本地位置设置 (Weather Cache)
+CREATE TABLE IF NOT EXISTS weather_cache (
+    date DATE NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    data_json LONGTEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (date, city)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 14. AI 配置 (AI Assistant Configuration)
 CREATE TABLE IF NOT EXISTS ai_config (
     id INT AUTO_INCREMENT PRIMARY KEY,
     provider VARCHAR(32) NOT NULL DEFAULT 'ollama',
@@ -147,11 +158,71 @@ CREATE TABLE IF NOT EXISTS ai_config (
 
 INSERT IGNORE INTO ai_config (id, provider, endpoint, api_key, model) VALUES (1, 'ollama', 'http://localhost:11434/v1', '', 'qwen2.5:7b');
 
--- 14. AI 对话记录 (AI Conversations)
+-- 15. AI 对话记录 (AI Conversations)
 CREATE TABLE IF NOT EXISTS ai_conversations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(200) NOT NULL DEFAULT '新对话',
     messages_json LONGTEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 16. 个人侧写 (User Profile)
+CREATE TABLE IF NOT EXISTS user_profile (
+    id TINYINT UNSIGNED PRIMARY KEY,
+    name VARCHAR(255) NOT NULL DEFAULT '',
+    birth_date VARCHAR(10) NOT NULL DEFAULT '',
+    birth_time VARCHAR(10) NOT NULL DEFAULT '',
+    birth_place VARCHAR(255) NOT NULL DEFAULT '',
+    gender VARCHAR(10) NOT NULL DEFAULT '',
+    resume LONGTEXT,
+    goals LONGTEXT,
+    bazi_year VARCHAR(20) NOT NULL DEFAULT '',
+    bazi_month VARCHAR(20) NOT NULL DEFAULT '',
+    bazi_day VARCHAR(20) NOT NULL DEFAULT '',
+    bazi_time VARCHAR(20) NOT NULL DEFAULT '',
+    shishen LONGTEXT,
+    nayin LONGTEXT,
+    dayun LONGTEXT,
+    shengxiao VARCHAR(20) NOT NULL DEFAULT '',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO user_profile (id, name) VALUES (1, '');
+
+-- 17. 八字分析缓存 (BaZi Analysis)
+CREATE TABLE IF NOT EXISTS bazi_analysis (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    date_key DATE NOT NULL,
+    type VARCHAR(32) NOT NULL,
+    period_label VARCHAR(100) NOT NULL,
+    gan_zhi VARCHAR(50) NOT NULL DEFAULT '',
+    shi_shen VARCHAR(100) NOT NULL DEFAULT '',
+    analysis LONGTEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_bazi_analysis (date_key, type, period_label)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 18. AI 技能 (AI Skills)
+CREATE TABLE IF NOT EXISTS ai_skills (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    file_path VARCHAR(512) NOT NULL DEFAULT '',
+    content LONGTEXT,
+    enabled TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_ai_skill_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 19. 工作记录备注 (Worklog Notes)
+CREATE TABLE IF NOT EXISTS worklog_notes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    worklog_id INT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (worklog_id) REFERENCES work_logs(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

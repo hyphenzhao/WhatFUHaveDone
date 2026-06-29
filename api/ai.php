@@ -36,7 +36,7 @@ function load_ai_config(PDO $db): array {
     return $row;
 }
 
-function call_llm(array $config, array $messages, array $tools): array {
+function call_llm(array $config, array $messages, array $tools, int $timeout = 60): array {
     $url = rtrim($config['endpoint'], '/') . '/chat/completions';
 
     $body = [
@@ -59,8 +59,8 @@ function call_llm(array $config, array $messages, array $tools): array {
         CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE),
         CURLOPT_HTTPHEADER => $headers,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 180,
-        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => max(5, $timeout),
+        CURLOPT_CONNECTTIMEOUT => min(10, max(3, $timeout)),
     ]);
 
     $response = curl_exec($ch);
@@ -82,11 +82,38 @@ function call_llm(array $config, array $messages, array $tools): array {
         'content' => $choice['content'] ?? '',
         '_usage' => $data['usage'] ?? [],
         '_model' => $data['model'] ?? '',
+        '_finish_reason' => $data['choices'][0]['finish_reason'] ?? '',
     ];
     if (!empty($choice['tool_calls'])) {
         $msg['tool_calls'] = $choice['tool_calls'];
     }
     return $msg;
+}
+
+/**
+ * Browser conversation history is persisted for display, not as a complete
+ * tool transcript. Remove historical tool calls/results so an old assistant
+ * tool_calls message can never be sent without matching tool responses.
+ * The current confirmation message is appended separately and keeps its
+ * tool_calls intact.
+ */
+function normalize_conversation_history(array $history): array {
+    $normalized = [];
+    foreach ($history as $message) {
+        if (!is_array($message)) continue;
+        $role = $message['role'] ?? '';
+        if ($role !== 'user' && $role !== 'assistant') continue;
+
+        $content = $message['content'] ?? '';
+        if (!is_string($content)) $content = '';
+        if ($content === '' && $role === 'assistant') continue;
+
+        $normalized[] = [
+            'role' => $role,
+            'content' => $content,
+        ];
+    }
+    return $normalized;
 }
 
 // --- Tool system ---
@@ -622,9 +649,23 @@ if ($action === 'config' && $parts[3] === 'test' && $method === 'POST') {
 
 // ===== SYSTEM PROMPT =====
 
-function get_system_prompt(PDO $db, string $selectedDate = '', array $almanac = []): array {
+function limit_ai_context(?string $text, int $maxChars): string {
+    $text = trim((string)$text);
+    if (mb_strlen($text, 'UTF-8') <= $maxChars) return $text;
+    return mb_substr($text, 0, $maxChars, 'UTF-8') . "\n...[context truncated]";
+}
+
+function needs_personal_ai_context(string $query): bool {
+    return preg_match(
+        '/八字|命理|紫微|运势|侧写|简历|目标|生肖|生辰|五行|流年|流月|大运|奇门|风水/u',
+        $query
+    ) === 1;
+}
+
+function get_system_prompt(PDO $db, string $selectedDate = '', array $almanac = [], string $userQuery = ''): array {
     $today = today();
     $viewDate = $selectedDate ?: $today;
+    $needsPersonalContext = needs_personal_ai_context($userQuery);
 
     // Build almanac context
     $almanacContext = '';
@@ -643,7 +684,7 @@ function get_system_prompt(PDO $db, string $selectedDate = '', array $almanac = 
     $profile = '';
     $stmt = $db->query('SELECT * FROM user_profile WHERE id = 1');
     $p = $stmt->fetch();
-    if ($p && !empty($p['name'])) {
+    if ($needsPersonalContext && $p && !empty($p['name'])) {
         $profile = "=== USER PROFILE ===\n";
         $profile .= "Name: {$p['name']}\n";
         if ($p['gender']) $profile .= "Gender: {$p['gender']}\n";
@@ -654,10 +695,10 @@ function get_system_prompt(PDO $db, string $selectedDate = '', array $almanac = 
             $ny = json_decode($p['nayin'], true);
             if ($ny) $profile .= "NaYin: 年{$ny['year']} 月{$ny['month']} 日{$ny['day']} 时{$ny['time']}\n";
         }
-        if ($p['shishen']) $profile .= "ShiShen: {$p['shishen']}\n";
-        if ($p['dayun']) $profile .= "Ziwei: {$p['dayun']}\n";
-        if ($p['resume']) $profile .= "Resume: {$p['resume']}\n";
-        if ($p['goals']) $profile .= "Goals: {$p['goals']}\n";
+        if ($p['shishen']) $profile .= "ShiShen: " . limit_ai_context($p['shishen'], 3000) . "\n";
+        if ($p['dayun']) $profile .= "Ziwei: " . limit_ai_context($p['dayun'], 3000) . "\n";
+        if ($p['resume']) $profile .= "Resume: " . limit_ai_context($p['resume'], 4000) . "\n";
+        if ($p['goals']) $profile .= "Goals: " . limit_ai_context($p['goals'], 2000) . "\n";
         $profile .= "\n";
     }
 
@@ -665,10 +706,14 @@ function get_system_prompt(PDO $db, string $selectedDate = '', array $almanac = 
     $skills = '';
     $stmt2 = $db->query('SELECT name, content FROM ai_skills WHERE enabled = 1 ORDER BY name');
     $enabledSkills = $stmt2->fetchAll();
-    if ($enabledSkills) {
+    if ($needsPersonalContext && $enabledSkills) {
         $skills = "=== ENABLED SKILLS ===\n";
+        $remainingSkillChars = 12000;
         foreach ($enabledSkills as $s) {
-            $skills .= "--- SKILL: {$s['name']} ---\n{$s['content']}\n\n";
+            if ($remainingSkillChars <= 0) break;
+            $skillContent = limit_ai_context((string)$s['content'], min(4000, $remainingSkillChars));
+            $skills .= "--- SKILL: {$s['name']} ---\n{$skillContent}\n\n";
+            $remainingSkillChars -= mb_strlen($skillContent, 'UTF-8');
         }
     }
 
@@ -792,11 +837,19 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
     // Build messages
     $selectedDate = $input['selected_date'] ?? '';
     $almanac = $input['almanac'] ?? [];
-    $messages = [get_system_prompt($db, $selectedDate, $almanac)];
+    $historyForContext = $input['messages'] ?? [];
+    $userQuery = '';
+    for ($historyIndex = count($historyForContext) - 1; $historyIndex >= 0; $historyIndex--) {
+        if (($historyForContext[$historyIndex]['role'] ?? '') === 'user') {
+            $userQuery = (string)($historyForContext[$historyIndex]['content'] ?? '');
+            break;
+        }
+    }
+    $messages = [get_system_prompt($db, $selectedDate, $almanac, $userQuery)];
 
     if ($action === 'confirm') {
         // Restore conversation history + confirmed tool results
-        $history = $input['messages'] ?? [];
+        $history = normalize_conversation_history($input['messages'] ?? []);
         $messages = array_merge($messages, $history);
         $assistantMsg = $input['message'] ?? [];
         if ($assistantMsg) $messages[] = $assistantMsg;
@@ -821,13 +874,13 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
             }
         }
     } else {
-        $userMessages = $input['messages'] ?? [];
+        $userMessages = normalize_conversation_history($input['messages'] ?? []);
         $messages = array_merge($messages, $userMessages);
     }
 
     // Sanitize messages: strip internal fields & empty tool_calls
     foreach ($messages as &$m) {
-        unset($m['_usage'], $m['_model']);
+        unset($m['_usage'], $m['_model'], $m['_finish_reason']);
         if (($m['role'] ?? '') === 'assistant' && isset($m['tool_calls']) && empty($m['tool_calls'])) {
             unset($m['tool_calls']);
         }
@@ -835,10 +888,18 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
     unset($m);
 
     // LLM loop — collect all steps for frontend display
-    $maxIter = 10;
+    $isDeepAnalysis = needs_personal_ai_context($userQuery);
+    $overallTimeout = $isDeepAnalysis ? 300 : 90;
+    $perCallTimeout = $isDeepAnalysis ? 180 : 60;
+    $maxIter = 6;
+    $deadline = microtime(true) + $overallTimeout;
     $steps = [];
     for ($i = 0; $i < $maxIter; $i++) {
-        $response = call_llm($config, $messages, $toolSchemas);
+        $remaining = (int)floor($deadline - microtime(true));
+        if ($remaining < 5) {
+            throw new Exception("AI request timed out after {$overallTimeout} seconds");
+        }
+        $response = call_llm($config, $messages, $toolSchemas, min($perCallTimeout, $remaining));
 
         // Collect AI's text as a plan/thinking step if present
         if (!empty($response['content'])) {
@@ -846,11 +907,18 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
         }
 
         if (empty($response['tool_calls'])) {
+            $content = $response['content'];
+            if (($response['_finish_reason'] ?? '') === 'length') {
+                $notice = '⚠️ 回答达到模型输出上限。你可以回复“继续”，我会接着完成。';
+                $content = trim((string)$content);
+                $content = $content !== '' ? $content . "\n\n" . $notice : $notice;
+                $response['content'] = $content;
+            }
             // Final text response — return all steps
             json_success([
                 'type' => 'steps',
                 'steps' => $steps,
-                'content' => $response['content'],
+                'content' => $content,
                 'message' => $response,
                 'model' => $config['model'],
                 'usage' => $response['_usage'] ?? [],

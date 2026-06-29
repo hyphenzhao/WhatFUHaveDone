@@ -125,7 +125,7 @@ async function uploadFile(type, input) {
         if (type === 'bazi') { baziContent = d.content; baziFileName = d.name; showFile('bazi', d.name, d.size, d.content); }
         else if (type === 'ziwei') { ziweiContent = d.content; ziweiFileName = d.name; showFile('ziwei', d.name, d.size, d.content); }
         else if (type === 'resume') { resumeContent = d.content; resumeFileName = d.name; showFile('resume', d.name, d.size, d.content.substring(0,500)); Toast.success('PDF已解析，点击"AI 提取"自动填充简历'); }
-    } catch(e) { Toast.error('上传失败'); }
+    } catch(e) { Toast.error('上传失败: ' + e.message); }
     input.value = '';
 }
 

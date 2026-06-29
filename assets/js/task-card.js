@@ -35,10 +35,9 @@ const TaskCard = {
         return `
             <div class="task-card" data-task-id="${task.id}" data-stage="${stage}">
                 <div class="task-card-name">${escapeHtml(task.name)}</div>
-                ${tagsHtml ? `<div class="task-card-tags">${tagsHtml}</div>` : ''}
+                <div class="task-card-tags">${tagsHtml}${deadlineHtml}</div>
                 ${task.stage_number > 1 ? `<div style="font-size:0.7rem;color:var(--color-text-secondary);margin-bottom:4px;">阶段 ${task.stage_number}</div>` : ''}
                 ${noteHtml}
-                ${deadlineHtml}
                 <div class="task-card-actions">
                     ${actionsHtml}
                 </div>

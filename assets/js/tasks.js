@@ -39,7 +39,7 @@ async function loadTasks() {
         renderTasksTable(tasksData.active, 'tasksTableBody', false);
         renderTasksTable(tasksData.archived, 'archivedTasksBody', true);
         document.getElementById('archivedTasksSection').style.display = tasksData.archived.length ? 'block' : 'none';
-        if (isPrioritySort && filterStage === 'all') initDragDrop();
+        if (isPrioritySort) initDragDrop();
     } catch (e) { Toast.error('加载失败: ' + e.message); }
 }
 

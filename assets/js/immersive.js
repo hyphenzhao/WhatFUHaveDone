@@ -18,7 +18,8 @@ const IM = {
         app.innerHTML = `
             <div class="im-container">
                 <div class="im-header">
-                    <button class="im-back" onclick="window.location='/'">🏠 返回全功能模式</button>
+                    <button class="im-back" onclick="window.location='/'">🏠 返回</button>
+                    <button class="im-back" onclick="IM.openAiChat()">🤖 AI 助手</button>
                     <span class="im-title">🕶️ 沉浸模式</span>
                     <span style="font-size:0.8rem;color:var(--im-text-secondary);" id="imDateShort"></span>
                 </div>
@@ -261,6 +262,21 @@ const IM = {
             try { await API.plans.add(taskId, document.getElementById('imPlanDate').value); Modal.close(); await this.loadTasks(); } catch(e) { Toast.error('失败'); }
         });
     },
+    openAiChat() {
+        Modal.open({
+            title: '🤖 AI 助手',
+            body: '<div id="imAiChatContainer" style="height:60vh;display:flex;flex-direction:column;"></div>',
+            footer: '',
+        });
+        // Initialize AiChat in the modal container
+        setTimeout(() => {
+            const container = document.getElementById('imAiChatContainer');
+            if (container && typeof AiChat !== 'undefined') {
+                AiChat.init(container);
+            }
+        }, 100);
+    },
+
     showAddTask() {
         // Reuse full-mode showAddTaskModal (same form, same DB)
         if (typeof showAddTaskModal === 'function') {

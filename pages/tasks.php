@@ -7,15 +7,28 @@ $current_page = 'tasks';
 $page_content = <<<HTML
 <div class="page-header">
     <h2>📝 任务管理</h2>
-    <button class="btn btn-primary" onclick="showTaskModal()">＋ 新建任务</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+        <select class="form-select" id="stageFilter" style="width:auto;">
+            <option value="all">全部阶段</option>
+            <option value="in_progress">🔄 进行中</option>
+            <option value="stage_complete">✅ 阶段性完成</option>
+            <option value="completed">🎉 已完成</option>
+        </select>
+        <select class="form-select" id="sortSelect" style="width:auto;">
+            <option value="priority">按优先级</option>
+            <option value="updated_at">按更新时间</option>
+        </select>
+        <button class="btn btn-primary" onclick="showTaskModal()">＋ 新建任务</button>
+    </div>
 </div>
 
 <table class="data-table" id="tasksTable">
     <thead>
         <tr>
-            <th data-sort="name">任务名称</th>
-            <th data-sort="stage">阶段</th>
-            <th data-sort="stage_number">阶段#</th>
+            <th>任务名称</th>
+            <th>优先级</th>
+            <th>阶段</th>
+            <th>阶段#</th>
             <th>受益人</th>
             <th>标签</th>
             <th>操作</th>

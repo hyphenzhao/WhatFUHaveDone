@@ -62,13 +62,14 @@ if ($method === 'GET') {
     } else {
         $archived = isset($_GET['archived']) ? (int)$_GET['archived'] : 0;
         $stage = $_GET['stage'] ?? null;
+        $sort = $_GET['sort'] ?? 'priority';
         $sql = 'SELECT * FROM tasks WHERE archived = ?';
         $params = [$archived];
-        if ($stage) {
+        if ($stage && $stage !== 'all') {
             $sql .= ' AND stage = ?';
             $params[] = $stage;
         }
-        $sql .= ' ORDER BY updated_at DESC';
+        $sql .= ($sort === 'priority') ? ' ORDER BY priority ASC' : ' ORDER BY updated_at DESC';
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
         $tasks = $stmt->fetchAll();
@@ -93,13 +94,17 @@ if ($method === 'POST') {
     $name = optional_string($data, 'name');
     if (!$name) json_error('Name is required');
 
-    $stmt = $db->prepare('INSERT INTO tasks (name, description, stage, stage_number) VALUES (?, ?, ?, ?)');
-    $stmt->execute([
-        $name,
-        optional_string($data, 'description'),
-        optional_string($data, 'stage', 'in_progress'),
-        optional_int($data, 'stage_number', 1),
-    ]);
+    $imp = optional_int($data, 'importance', 3);
+    $nec = optional_int($data, 'necessity', 3);
+    $pri = optional_int($data, 'priority', 0);
+    if (!$pri) {
+        // Auto-compute priority: insert after highest priority with same or lower score
+        $stmt = $db->prepare('SELECT COALESCE(MAX(priority), 0) + 1 as next_pri FROM tasks WHERE archived = 0 AND priority >= ?');
+        $stmt->execute([floor(($imp + $nec) / 2)]);
+        $pri = (int)$stmt->fetch()['next_pri'];
+    }
+    $stmt = $db->prepare('INSERT INTO tasks (name, description, stage, stage_number, priority, importance, necessity) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    $stmt->execute([$name, optional_string($data, 'description'), optional_string($data, 'stage', 'in_progress'), optional_int($data, 'stage_number', 1), $pri, $imp, $nec]);
     $id = $db->lastInsertId();
 
     if (isset($data['people_ids'])) attach_people($db, $id, optional_array($data, 'people_ids'));
@@ -118,10 +123,10 @@ if ($method === 'PUT') {
     $data = get_json_input();
     $fields = [];
     $params = [];
-    foreach (['name', 'description', 'stage', 'stage_number', 'archived'] as $f) {
+    foreach (['name', 'description', 'stage', 'stage_number', 'archived', 'priority', 'importance', 'necessity'] as $f) {
         if (array_key_exists($f, $data)) {
             $fields[] = "$f = ?";
-            if ($f === 'stage_number') $params[] = optional_int($data, $f, 1);
+if (in_array($f, ['stage_number', 'priority', 'importance', 'necessity'])) $params[] = optional_int($data, $f, $f === 'stage_number' ? 1 : 3);
             elseif ($f === 'archived') $params[] = (int)$data[$f];
             else $params[] = optional_string($data, $f, $f === 'stage' ? 'in_progress' : '');
         }
@@ -146,6 +151,18 @@ if ($method === 'DELETE') {
 
     $db->prepare('DELETE FROM tasks WHERE id = ?')->execute([$id]);
     json_success(null, 'Task deleted permanently');
+}
+
+// PUT /api/tasks/reorder — reorder priorities { ids: [3, 1, 5, ...] }
+if ($method === 'PUT' && ($parts[2] ?? '') === 'reorder') {
+    $data = get_json_input();
+    $ids = $data['ids'] ?? [];
+    if (empty($ids)) json_error('ids array required');
+    $stmt = $db->prepare('UPDATE tasks SET priority = ? WHERE id = ?');
+    foreach ($ids as $i => $id) {
+        $stmt->execute([$i + 1, (int)$id]);
+    }
+    json_success(null, 'Priorities updated');
 }
 
 json_error('Method not allowed', 405);

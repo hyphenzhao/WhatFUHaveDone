@@ -54,11 +54,12 @@ const API = {
 
     // --- Tasks ---
     tasks: {
-        list(archived = 0, stage = null) {
-            let q = `?archived=${archived}`;
+        list(archived = 0, stage = null, sort = 'priority') {
+            let q = `?archived=${archived}&sort=${sort}`;
             if (stage) q += `&stage=${stage}`;
             return API.get(`/tasks${q}`);
         },
+        reorder(ids) { return API.put('/tasks/reorder', { ids }); },
         get(id) { return API.get(`/tasks/${id}`); },
         create(data) { return API.post('/tasks', data); },
         update(id, data) { return API.put(`/tasks/${id}`, data); },

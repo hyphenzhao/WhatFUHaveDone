@@ -810,6 +810,10 @@ async function showAddTaskModal() {
         body: `
             <div class="form-group"><label>任务名称 *</label><input type="text" class="form-input" id="taskName" placeholder="输入任务名称"></div>
             <div class="form-group"><label>描述</label><textarea class="form-textarea" id="taskDesc" placeholder="任务描述（可选）"></textarea></div>
+            <div class="form-row-2">
+                <div class="form-group"><label>重要度</label>${starHtml('importance', 3)}</div>
+                <div class="form-group"><label>必要度</label>${starHtml('necessity', 3)}</div>
+            </div>
             <div class="form-group">
                 <label>受益人</label>
                 <div class="tag-chip-group" id="tagGroup_people">${tagSelectHtml('people', peopleList, [], 'people')}</div>
@@ -830,7 +834,7 @@ async function showAddTaskModal() {
             await API.tasks.create({
                 name, description: document.getElementById('taskDesc').value.trim(),
                 people_ids: getSelectedTagIds('people'), tag_ids: getSelectedTagIds('tags'),
-                stage: 'in_progress',
+                stage: 'in_progress', importance: getStarVal('star_importance'), necessity: getStarVal('star_necessity'),
             });
             Modal.close(); await refreshAll(); Toast.success('任务已创建');
         } catch (e) { Toast.error('创建失败: ' + e.message); }

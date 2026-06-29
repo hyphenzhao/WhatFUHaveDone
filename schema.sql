@@ -55,6 +55,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     description TEXT,
     stage ENUM('in_progress', 'stage_complete', 'completed', 'failed') DEFAULT 'in_progress',
     stage_number INT DEFAULT 1,
+    priority INT DEFAULT 0,
+    importance INT DEFAULT 3,
+    necessity INT DEFAULT 3,
     archived TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

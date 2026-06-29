@@ -1273,8 +1273,17 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 }
 .star-rating .star { color: #d1d5db; transition: color var(--transition); }
 .star-rating .star.filled { color: #f59e0b; }
+.drag-handle { color: var(--color-text-secondary); font-size: 0.85rem; }
+.form-row-2 { display: flex; gap: 12px; }
+.form-row-2 .form-group { flex: 1; }
 .star-display { font-size: 0.9rem; }
+.drag-handle { color: var(--color-text-secondary); font-size: 0.85rem; }
+.form-row-2 { display: flex; gap: 12px; }
+.form-row-2 .form-group { flex: 1; }
 .star-display .star { color: #d1d5db; }
+.drag-handle { color: var(--color-text-secondary); font-size: 0.85rem; }
+.form-row-2 { display: flex; gap: 12px; }
+.form-row-2 .form-group { flex: 1; }
 .star-display .star.filled { color: #f59e0b; }
 
 /* Multi-select */

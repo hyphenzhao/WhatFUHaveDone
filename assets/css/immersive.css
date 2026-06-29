@@ -117,11 +117,20 @@ button { font-family: inherit; cursor: pointer; }
     .im-bazi-row { flex-direction: row; }
 }
 
-/* Landscape: weather/time left, BaZi buttons right */
+/* Landscape: 3-column — left(back) | mid(weather+clock+bazi) | right(tasks) */
 @media (orientation: landscape) {
-    .im-main { flex-direction: row; }
-    .im-left-panel { width: 320px; flex-shrink: 0; border-right: 1px solid var(--im-border); }
-    .im-right-panel { flex: 1; overflow-y: auto; }
-    .im-top-row { flex-direction: row; }
+    .im-header { display: none; }
+    .im-container { display: flex; height: 100vh; }
+    .im-header { display: none; }
+    .im-side { width: 50px; flex-shrink: 0; display: flex !important; align-items: center; justify-content: center; background: var(--im-surface); border-right: 1px solid var(--im-border); }
+    .im-side .im-back { writing-mode: vertical-rl; padding: 10px 4px; font-size: 0.75rem; }
+    .im-main { display: flex; flex-direction: row; flex: 1; overflow: hidden; }
+    .im-left-panel { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; border-right: 1px solid var(--im-border); overflow-y: auto; }
+    .im-top-row { flex-direction: column; }
+    .im-weather-block { text-align: center; }
+    .im-weather-block .im-clock { text-align: center; }
+    .im-weather-block .im-date { text-align: center; }
     .im-bazi-row { flex-direction: column; }
+    .im-right-panel { flex: 1; overflow-y: auto; }
+    .im-content { flex-direction: row; }
 }

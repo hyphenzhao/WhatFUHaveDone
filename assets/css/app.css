@@ -287,6 +287,9 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     word-break: break-word;
 }
 .ai-message-user .ai-bubble { background: var(--color-primary); color: #fff; }
+.ai-meta { font-size: 0.6rem; color: var(--color-text-secondary); margin-top: 4px; opacity: 0.6; border-top: 1px solid var(--color-border); padding-top: 3px; }
+.ai-message-user .ai-meta { border-top-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); }
+
 .ai-bubble strong { font-weight: 700; }
 .ai-bubble em { font-style: italic; }
 .ai-bubble h2, .ai-bubble h3, .ai-bubble h4 { margin: 8px 0 4px; font-weight: 700; }

@@ -182,6 +182,7 @@ const AiChat = {
                 }
                 this.messages.push(res.data.message || { role: 'assistant', content: res.data.content });
                 await this._typeText(res.data.content);
+                this._showMeta(res.data);
                 const title = this.messages.length <= 2
                     ? this._genTitle(this.messages[0].content)
                     : undefined;
@@ -284,6 +285,7 @@ const AiChat = {
                 }
                 this.messages.push(res.data.message || { role: 'assistant', content: res.data.content });
                 await this._typeText(res.data.content);
+                this._showMeta(res.data);
                 if (approved && typeof refreshAll === 'function') await refreshAll();
                 await this._saveConv();
                 if (approved) Toast.success('操作已完成');
@@ -347,6 +349,27 @@ const AiChat = {
         div.innerHTML = `<div class="ai-avatar">🤖</div><div class="ai-bubble"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>`;
         this.messagesEl.appendChild(div);
         this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    },
+
+    _showMeta(data) {
+        const lastMsg = this.messagesEl.querySelector('.ai-message-assistant:last-of-type .ai-bubble');
+        if (!lastMsg) return;
+        const model = data.model || '';
+        const usage = data.usage || {};
+        let parts = [];
+        if (model) parts.push(model);
+        if (usage.prompt_tokens) {
+            const total = usage.total_tokens || 1;
+            const ctx = usage.prompt_tokens + (usage.completion_tokens || 0);
+            const max = 65536; // default for deepseek
+            parts.push('CTX: ' + ctx + '/' + max + ' (' + Math.round(ctx/max*100) + '%)');
+        }
+        if (parts.length) {
+            const meta = document.createElement('div');
+            meta.className = 'ai-meta';
+            meta.textContent = parts.join(' · ');
+            lastMsg.appendChild(meta);
+        }
     },
 
     _hideTyping() {

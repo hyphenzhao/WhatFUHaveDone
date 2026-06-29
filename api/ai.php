@@ -80,6 +80,8 @@ function call_llm(array $config, array $messages, array $tools): array {
     $msg = [
         'role' => 'assistant',
         'content' => $choice['content'] ?? '',
+        '_usage' => $data['usage'] ?? [],
+        '_model' => $data['model'] ?? '',
     ];
     if (!empty($choice['tool_calls'])) {
         $msg['tool_calls'] = $choice['tool_calls'];
@@ -823,8 +825,9 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
         $messages = array_merge($messages, $userMessages);
     }
 
-    // Sanitize messages: strip empty tool_calls arrays which DeepSeek rejects
+    // Sanitize messages: strip internal fields & empty tool_calls
     foreach ($messages as &$m) {
+        unset($m['_usage'], $m['_model']);
         if (($m['role'] ?? '') === 'assistant' && isset($m['tool_calls']) && empty($m['tool_calls'])) {
             unset($m['tool_calls']);
         }
@@ -849,6 +852,8 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
                 'steps' => $steps,
                 'content' => $response['content'],
                 'message' => $response,
+                'model' => $config['model'],
+                'usage' => $response['_usage'] ?? [],
             ]);
         }
 
@@ -893,6 +898,8 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
                 'steps' => $steps,
                 'pending_calls' => $pendingWrites,
                 'message' => $response,
+                'model' => $config['model'],
+                'usage' => $response['_usage'] ?? [],
             ]);
         }
 
@@ -905,6 +912,8 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
         'steps' => $steps,
         'content' => '抱歉，请求步骤过多，请简化后重试。',
         'message' => null,
+        'model' => $config['model'],
+        'usage' => [],
     ]);
 
     } catch (Exception $e) {

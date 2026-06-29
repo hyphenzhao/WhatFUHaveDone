@@ -54,8 +54,10 @@ const IM = {
                 </div>
                 <div class="im-main">
                     <div class="im-left-panel">
-                        <div class="im-weather-row" id="imWeather"></div>
-                        <div class="im-bazi-row" id="imBaziBtns"></div>
+                        <div class="im-top-row">
+                            <div class="im-weather-block" id="imWeather"></div>
+                            <div class="im-bazi-block" id="imBaziBtns"></div>
+                        </div>
                     </div>
                     <div class="im-right-panel">
                         <div class="im-content" id="imContent"></div>
@@ -113,12 +115,12 @@ const IM = {
         let analyses = {};
         try { const res = await API.get('/bazi_analysis?date=' + this.date); (res.data||[]).forEach(a => analyses[a.type]=a); } catch(e) {}
 
-        el.innerHTML = types.map(t => {
+        el.innerHTML = '<div class="im-bazi-row">' + types.map(t => {
             const has = !!analyses[t.key];
             return `<button class="im-bazi-btn${has?' has-analysis':''}" id="imBazi-${t.key}" onclick="IM.openBazi('${t.key}','${t.label}')">
                 ${t.icon} ${t.label}
             </button>`;
-        }).join('');
+        }).join('') + '</div>';
     },
 
     async openBazi(type, label) {

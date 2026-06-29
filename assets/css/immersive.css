@@ -30,11 +30,17 @@ button { font-family: inherit; cursor: pointer; }
 .im-back:hover { background: var(--im-border); }
 .im-title { font-size: 0.9rem; font-weight: 600; }
 
-/* Weather Row */
-.im-weather-row {
-    display: flex; align-items: center; gap: 16px; padding: 12px;
+/* Weather + BaZi Row */
+.im-top-row {
+    display: flex; gap: 12px; padding: 12px;
     background: var(--im-surface); border-bottom: 1px solid var(--im-border);
-    flex-wrap: wrap;
+    align-items: stretch;
+}
+.im-weather-block {
+    display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;
+}
+.im-bazi-block {
+    display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0;
 }
 .im-w-icon { font-size: 2.5rem; }
 .im-w-info { flex: 1; min-width: 0; }
@@ -47,9 +53,10 @@ button { font-family: inherit; cursor: pointer; }
 
 /* BaZi Buttons */
 .im-bazi-row {
-    display: flex; gap: 8px; padding: 10px 12px;
-    background: var(--im-surface); border-bottom: 1px solid var(--im-border);
+    display: flex; gap: 6px;
+    flex-direction: column;
 }
+@media (orientation: portrait) { .im-bazi-row { flex-direction: row; } }
 .im-bazi-btn {
     flex: 1; padding: 10px 6px; border-radius: var(--im-radius);
     background: var(--im-bg); border: 1px solid var(--im-border);
@@ -106,7 +113,7 @@ button { font-family: inherit; cursor: pointer; }
 /* Portrait */
 @media (orientation: portrait) {
     .im-content { flex-direction: column; }
-    .im-bazi-row { flex-direction: row; }
+    .im-top-row { flex-direction: row; }
 }
 
 /* Landscape */
@@ -121,10 +128,11 @@ button { font-family: inherit; cursor: pointer; }
     .im-sidebar .im-back { writing-mode: vertical-rl; padding: 12px 6px; font-size: 0.75rem; width: 44px; }
     .im-main { display: flex; flex: 1; }
     .im-left-panel { width: 220px; display: flex; flex-direction: column; border-right: 1px solid var(--im-border); flex-shrink: 0; }
-    .im-left-panel .im-weather-row { flex-direction: column; text-align: center; }
+    .im-left-panel .im-top-row { flex-direction: column; }
+    .im-left-panel .im-weather-block { text-align: center; }
     .im-left-panel .im-clock { text-align: center; }
     .im-left-panel .im-date { text-align: center; }
-    .im-left-panel .im-bazi-row { flex-direction: column; flex: 1; }
+    .im-left-panel .im-bazi-block { flex: 1; }
     .im-left-panel .im-bazi-btn { flex: 1 0 44px; }
     .im-right-panel { flex: 1; overflow-y: auto; }
     .im-right-panel .im-content { flex-direction: row; }

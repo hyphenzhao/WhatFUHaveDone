@@ -480,20 +480,24 @@ async function loadRightPanel() {
             (notesRes.data||[]).forEach(n => { if (n.latest_note) workLogNotes[n.task_id] = n.latest_note; });
         } catch(e) {}
 
+        function deadlineScore(dl) {
+            if (!dl) return 999;
+            if (dl === '自由') return 900;
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dl)) {
+                const h = (new Date(dl + 'T23:59:59') - new Date()) / 3600000;
+                if (h < 0) return 0;
+                if (h < 24) return 10;
+                if (h < 72) return 300;
+                if (h < 168) return 700;
+                return 800 + Math.abs(h);
+            }
+            if (dl === '尽快') return 200;
+            return 500;
+        }
         function sortTasks(tasks) {
             const sort = localStorage.getItem('taskSort') || 'priority';
             if (sort === 'deadline') {
-                return [...tasks].sort((a, b) => {
-                    const da = a.deadline || '', db = b.deadline || '';
-                    if (da === '尽快' && db !== '尽快') return -1;
-                    if (db === '尽快' && da !== '尽快') return 1;
-                    if (da === '自由' && db !== '自由') return 1;
-                    if (db === '自由' && da !== '自由') return -1;
-                    if (!da && !db) return 0;
-                    if (!da) return 1;
-                    if (!db) return -1;
-                    return da.localeCompare(db);
-                });
+                return [...tasks].sort((a, b) => deadlineScore(a.deadline) - deadlineScore(b.deadline));
             }
             return [...tasks].sort((a, b) => (a.priority || 999) - (b.priority || 999));
         }

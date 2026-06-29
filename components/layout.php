@@ -63,6 +63,7 @@ $current_page = $current_page ?? 'home';
 
         <!-- Right Panel (task sidebar on home page) -->
         <?php if ($current_page === 'home'): ?>
+        <div class="panel-resize-handle" id="panelResizeHandle"></div>
         <aside class="right-panel" id="rightPanel">
             <div class="right-panel-header">
                 <div class="right-panel-tabs">

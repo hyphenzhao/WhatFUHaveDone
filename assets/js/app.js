@@ -35,6 +35,35 @@ const App = {
                 document.querySelector('.app-layout').classList.add('right-collapsed');
             }
         }
+
+        // Panel resize handle
+        const handle = document.getElementById('panelResizeHandle');
+        if (handle) {
+            let savedWidth = localStorage.getItem('rightPanelWidth');
+            if (savedWidth) {
+                document.documentElement.style.setProperty('--right-panel-width', savedWidth + 'px');
+            }
+            let dragging = false, startX, startWidth;
+            handle.addEventListener('mousedown', (e) => {
+                dragging = true; startX = e.clientX;
+                startWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--right-panel-width'));
+                document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+            });
+            document.addEventListener('mousemove', (e) => {
+                if (!dragging) return;
+                const diff = startX - e.clientX;
+                const newWidth = Math.max(280, Math.min(800, startWidth + diff));
+                document.documentElement.style.setProperty('--right-panel-width', newWidth + 'px');
+            });
+            document.addEventListener('mouseup', () => {
+                if (dragging) {
+                    dragging = false;
+                    document.body.style.cursor = ''; document.body.style.userSelect = '';
+                    const w = getComputedStyle(document.documentElement).getPropertyValue('--right-panel-width');
+                    localStorage.setItem('rightPanelWidth', parseInt(w));
+                }
+            });
+        }
     },
 
     setDate(dateStr) {

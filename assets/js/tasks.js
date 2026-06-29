@@ -69,7 +69,7 @@ function setStar(id, v) {
 
 function renderTasksTable(tasks, tbodyId, isArchived) {
     const tbody = document.getElementById(tbodyId);
-    const cols = isArchived ? 4 : 7;
+    const cols = isArchived ? 4 : 8;
     if (tasks.length === 0) {
         tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--color-text-secondary);">暂无数据</td></tr>`;
         return;
@@ -83,6 +83,7 @@ function renderTasksTable(tasks, tbodyId, isArchived) {
             <td>${t.priority || '-'}</td>
             <td>${STAGE_LABELS[t.stage] || t.stage}</td>
             <td>${t.stage_number}</td>
+            <td>${getDeadlineBadge(t.deadline)}</td>
             <td>${peopleNames}</td>
             <td>${tagSpans}</td>
             <td><div class="table-actions"><button class="btn btn-outline btn-sm" onclick="editTask(${t.id})">编辑</button><button class="btn btn-ghost btn-sm" onclick="archiveTask(${t.id})">归档</button></div></td></tr>`;

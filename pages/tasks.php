@@ -30,6 +30,7 @@ $page_content = <<<HTML
             <th>优先级</th>
             <th>阶段</th>
             <th>阶段#</th>
+            <th>截止</th>
             <th>受益人</th>
             <th>标签</th>
             <th>操作</th>

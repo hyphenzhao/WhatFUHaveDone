@@ -480,8 +480,27 @@ async function loadRightPanel() {
             (notesRes.data||[]).forEach(n => { if (n.latest_note) workLogNotes[n.task_id] = n.latest_note; });
         } catch(e) {}
 
+        function sortTasks(tasks) {
+            const sort = localStorage.getItem('taskSort') || 'priority';
+            if (sort === 'deadline') {
+                return [...tasks].sort((a, b) => {
+                    const da = a.deadline || '', db = b.deadline || '';
+                    if (da === '尽快' && db !== '尽快') return -1;
+                    if (db === '尽快' && da !== '尽快') return 1;
+                    if (da === '自由' && db !== '自由') return 1;
+                    if (db === '自由' && da !== '自由') return -1;
+                    if (!da && !db) return 0;
+                    if (!da) return 1;
+                    if (!db) return -1;
+                    return da.localeCompare(db);
+                });
+            }
+            return [...tasks].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+        }
+
         const renderSection = (title, tasks, icon, stageClass) => {
-            const cardsHtml = tasks.map(t =>
+            const sorted = sortTasks(tasks);
+            const cardsHtml = sorted.map(t =>
                 TaskCard.render(t, { date: App.selectedDate, workLogActive: workLogTaskIds.has(t.id), latestNote: workLogNotes[t.id] || '' })
             ).join('');
 
@@ -494,8 +513,11 @@ async function loadRightPanel() {
                     </div>
                     <div class="task-list">
                         ${stageClass === 'in_progress' ? `
-                            <div class="add-task-bar" onclick="showAddTaskModal()">
-                                <span>＋</span> 添加新任务
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                <div class="add-task-bar" onclick="showAddTaskModal()" style="flex:1;">
+                                    <span>＋</span> 添加新任务
+                                </div>
+                                <button class="btn btn-ghost btn-sm" onclick="IMtoggleTaskSort()" style="font-size:0.7rem;white-space:nowrap;" title="切换排序方式">${localStorage.getItem('taskSort')==='deadline'?'📅 截止':'🔢 优先级'}</button>
                             </div>
                         ` : ''}
                         ${cardsHtml || '<div style="padding:8px;color:var(--color-text-secondary);font-size:0.8rem;text-align:center;">暂无任务</div>'}
@@ -513,6 +535,12 @@ async function loadRightPanel() {
     } catch (e) {
         panel.innerHTML = '<div style="padding:16px;color:var(--color-danger);">加载失败: ' + escapeHtml(e.message) + '</div>';
     }
+}
+
+function IMtoggleTaskSort() {
+    const cur = localStorage.getItem('taskSort') || 'priority';
+    localStorage.setItem('taskSort', cur === 'priority' ? 'deadline' : 'priority');
+    loadRightPanel();
 }
 
 function toggleSection(header) {

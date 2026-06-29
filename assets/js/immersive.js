@@ -81,6 +81,7 @@ const IM = {
     },
 
     toggleClock() { this.clockFmt24 = !this.clockFmt24; this.updateClock(); },
+    toggleSort() { const cur = localStorage.getItem('taskSort') || 'priority'; localStorage.setItem('taskSort', cur === 'priority' ? 'deadline' : 'priority'); this.loadTasks(); },
     startClock() { if (this.clockInterval) clearInterval(this.clockInterval); this.updateClock(); this.clockInterval = setInterval(() => this.updateClock(), 1000); },
     updateClock() {
         const clk = document.getElementById('imClock'), date = document.getElementById('imDate');
@@ -246,7 +247,20 @@ const IM = {
                     html += `<div class="im-card"><div class="im-card-name">📅 ${escapeHtml(t.name)}</div><div class="im-card-tags">${(t.tags||[]).map(tg=>`<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('')}</div></div>`;
                 });
             }
-            html += '</div><div class="im-col"><div class="im-col-title">🔄 进行中 <button class="im-add-task-btn" onclick="IM.showAddTask()">＋</button></div>';
+            html += '</div><div class="im-col"><div class="im-col-title">🔄 进行中 <button class="im-add-task-btn" onclick="IM.showAddTask()">＋</button> <button class="btn btn-ghost btn-sm" onclick="IM.toggleSort()" style="font-size:0.65rem;">${(localStorage.getItem('taskSort')||'priority')==='deadline'?'📅截止':'🔢优先级'}</button></div>';
+            inProgress.sort((a, b) => {
+                const sort = localStorage.getItem('taskSort') || 'priority';
+                if (sort === 'deadline') {
+                    const da = a.deadline || '', db = b.deadline || '';
+                    if (da === '尽快' && db !== '尽快') return -1;
+                    if (db === '尽快' && da !== '尽快') return 1;
+                    if (da === '自由' && db !== '自由') return 1;
+                    if (db === '自由' && da !== '自由') return -1;
+                    if (!da && !db) return 0; if (!da) return 1; if (!db) return -1;
+                    return da.localeCompare(db);
+                }
+                return (a.priority||999) - (b.priority||999);
+            });
             if (inProgress.length === 0) {
                 html += '<div class="im-empty">暂无进行中任务</div>';
             } else {

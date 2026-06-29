@@ -942,16 +942,19 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     text-align: center;
     min-height: 100%;
 }
-.weather-city { font-size: 0.82rem; opacity: 0.85; margin-bottom: 6px; cursor: pointer; }
+.weather-city { font-size: 0.78rem; opacity: 0.85; margin-bottom: 8px; cursor: pointer; text-align: center; }
 .weather-city:hover { opacity: 1; text-decoration: underline; }
 .city-result { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--color-border); font-size: 0.85rem; }
 .city-result:hover { background: var(--color-bg); }
 .city-result:last-child { border-bottom: none; }
-.weather-emoji { font-size: 3.2rem; margin-bottom: 6px; }
-.weather-temp { font-size: 2.2rem; font-weight: 800; line-height: 1.1; }
-.weather-temp-lo { font-size: 1rem; font-weight: 400; opacity: 0.8; }
-.weather-desc { font-size: 0.95rem; font-weight: 600; margin: 2px 0; }
-.weather-detail { font-size: 0.78rem; opacity: 0.9; margin-top: 4px; }
+.weather-body { display: flex; gap: 10px; align-items: center; flex: 1; }
+.weather-left { flex: 1; text-align: center; }
+.weather-right { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.weather-emoji { font-size: 2.8rem; margin-bottom: 2px; }
+.weather-temp { font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
+.weather-temp-lo { font-size: 0.85rem; font-weight: 400; opacity: 0.8; }
+.weather-desc { font-size: 0.9rem; font-weight: 600; }
+.weather-detail { font-size: 0.72rem; opacity: 0.85; }
 @media (max-width: 768px) {
     .daily-left-col { flex: 0 0 100%; flex-direction: row; gap: 8px; }
     .daily-weather { flex: 1; min-height: 120px; }
@@ -1006,27 +1009,29 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     background: linear-gradient(135deg, #fefce8, #fef9c3);
     border: 1px solid #eab308;
     border-radius: var(--radius);
-    padding: 14px;
+    padding: 12px;
     font-size: 1rem;
-    line-height: 2;
     height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: center;
 }
-.almanac-solar { text-align: center; margin-bottom: 6px; }
-.almanac-year { font-size: 1.4rem; font-weight: 700; }
-.almanac-month { font-size: 1.4rem; font-weight: 700; }
-.almanac-day { font-size: 1.8rem; font-weight: 800; color: #e53e3e; }
-.almanac-sep { font-size: 0.85rem; color: var(--color-text-secondary); margin: 0 2px; }
-.almanac-weekday { font-size: 1rem; font-weight: 600; margin-left: 6px; }
-.almanac-lunar { text-align: center; margin-bottom: 8px; font-size: 0.95rem; }
-.almanac-lunar-text { font-weight: 600; margin: 0 4px; }
-.almanac-term { color: #38a169; font-weight: 700; font-size: 0.9rem; }
-.almanac-ganzhi { font-size: 0.92rem; }
-.almanac-gz-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
-.almanac-gz-label { width: 36px; font-size: 0.82rem; color: var(--color-text-secondary); }
-.almanac-gz-sx { font-size: 0.82rem; color: var(--color-text-secondary); margin-left: 4px; }
+.almanac-body { display: flex; gap: 10px; align-items: center; }
+.almanac-left { flex: 1; text-align: center; }
+.almanac-right { flex: 1.2; }
+.almanac-solar { margin-bottom: 2px; }
+.almanac-year { font-size: 1.2rem; font-weight: 700; }
+.almanac-month { font-size: 1.2rem; font-weight: 700; }
+.almanac-day { font-size: 1.6rem; font-weight: 800; color: #e53e3e; }
+.almanac-sep { font-size: 0.75rem; color: var(--color-text-secondary); margin: 0 1px; }
+.almanac-weekday { font-size: 0.85rem; font-weight: 600; margin-top: 2px; }
+.almanac-lunar { margin-bottom: 6px; font-size: 0.88rem; }
+.almanac-lunar-text { font-weight: 600; margin: 0 2px; }
+.almanac-term { color: #38a169; font-weight: 700; font-size: 0.85rem; }
+.almanac-ganzhi { font-size: 0.85rem; }
+.almanac-gz-row { display: flex; align-items: center; gap: 4px; padding: 2px 0; }
+.almanac-gz-label { width: 24px; font-size: 0.75rem; color: var(--color-text-secondary); }
+.almanac-gz-sx { font-size: 0.75rem; color: var(--color-text-secondary); margin-left: 2px; }
 @media (max-width: 768px) {
     .daily-body { flex-direction: column; }
     .daily-almanac { width: 100%; }

@@ -61,11 +61,19 @@ async function renderWeather(dateStr) {
         }
         container.innerHTML = `<div class="weather-card" style="background:linear-gradient(135deg,${w.gradient})">
             <div class="weather-city" onclick="changeCity()" title="点击更换城市">📍 ${escapeHtml(w.city||'')} <span style="font-size:0.6rem;">▾</span></div>
-            <div class="weather-emoji">${w.emoji}</div>
-            <div class="weather-temp">${Math.round(w.temp_max)}°<span class="weather-temp-lo">/${Math.round(w.temp_min)}°</span></div>
-            <div class="weather-desc">${w.desc}</div>
-            <div class="weather-detail">💧${w.humidity}% 🌬️${Math.round(w.wind)}km/h ${w.rain>0?'🌧️'+w.rain+'mm':''}</div>
-            ${dateStr !== new Date().toISOString().split('T')[0] ? '<button class="btn btn-ghost btn-sm" onclick="fetchWeather(\''+dateStr+'\')" style="margin-top:4px;font-size:0.7rem;">🔄 刷新</button>' : '<div style="font-size:0.6rem;color:rgba(255,255,255,0.6);margin-top:4px;">自动更新</div>'}
+            <div class="weather-body">
+                <div class="weather-left">
+                    <div class="weather-emoji">${w.emoji}</div>
+                    <div class="weather-temp">${Math.round(w.temp_max)}°<span class="weather-temp-lo"> / ${Math.round(w.temp_min)}°</span></div>
+                </div>
+                <div class="weather-right">
+                    <div class="weather-desc">${w.desc}</div>
+                    <div class="weather-detail">💧 ${w.humidity}%</div>
+                    <div class="weather-detail">🌬️ ${Math.round(w.wind)} km/h</div>
+                    ${w.rain>0 ? `<div class="weather-detail">🌧️ ${w.rain} mm</div>` : ''}
+                </div>
+            </div>
+            ${dateStr !== new Date().toISOString().split('T')[0] ? '<button class="btn btn-ghost btn-sm" onclick="fetchWeather(\''+dateStr+'\')" style="margin-top:4px;font-size:0.7rem;">🔄 刷新</button>' : '<div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-top:4px;">自动更新</div>'}
         </div>`;
     } catch(e) {
         container.innerHTML = `<div class="weather-card" style="background:linear-gradient(135deg,#f0f4f8,#e2e8f0)"><div class="weather-desc" style="font-size:0.7rem;">加载失败</div></div>`;
@@ -145,19 +153,22 @@ function renderAlmanac(dateStr) {
 
         container.innerHTML = `
             <div class="almanac-card">
-                <div class="almanac-solar">
-                    <span class="almanac-year">${y}</span><span class="almanac-sep">年</span>
-                    <span class="almanac-month">${parseInt(m)}</span><span class="almanac-sep">月</span>
-                    <span class="almanac-day">${parseInt(day)}</span><span class="almanac-sep">日</span>
-                    <span class="almanac-weekday">星期${weekNames[d.getDay()]}</span>
-                </div>
-                <div class="almanac-lunar">
-                    <span>农历</span>
-                    <span class="almanac-lunar-text">${escapeHtml(meta.lunar_month || lunar.getMonthInChinese())}月${escapeHtml(meta.lunar_day || lunar.getDayInChinese())}</span>
-                    ${(() => { let t = meta.solar_term || lunar.getJieQi(); if (!t) { const p = lunar.getPrevJieQi(true); t = p ? p.getName() : ''; } return t ? '<span class="almanac-term">' + escapeHtml(t) + '</span>' : ''; })()}
-                </div>
-                <div class="almanac-ganzhi">
-                    <div class="almanac-gz-row"><span class="almanac-gz-label">年柱</span>${gz(yGan, yZhi)}<span class="almanac-gz-sx">${escapeHtml(shengXiao)}</span></div>
+                <div class="almanac-body">
+                    <div class="almanac-left">
+                        <div class="almanac-solar">
+                            <span class="almanac-year">${y}</span><span class="almanac-sep">年</span>
+                            <span class="almanac-month">${parseInt(m)}</span><span class="almanac-sep">月</span>
+                            <span class="almanac-day">${parseInt(day)}</span>
+                        </div>
+                        <div class="almanac-weekday">星期${weekNames[d.getDay()]}</div>
+                    </div>
+                    <div class="almanac-right">
+                        <div class="almanac-lunar">
+                            <span class="almanac-lunar-text">${escapeHtml(meta.lunar_month || lunar.getMonthInChinese())}月${escapeHtml(meta.lunar_day || lunar.getDayInChinese())}</span>
+                            ${(() => { let t = meta.solar_term || lunar.getJieQi(); if (!t) { const p = lunar.getPrevJieQi(true); t = p ? p.getName() : ''; } return t ? '<span class="almanac-term">' + escapeHtml(t) + '</span>' : ''; })()}
+                        </div>
+                        <div class="almanac-ganzhi">
+                            <div class="almanac-gz-row"><span class="almanac-gz-label">年</span>${gz(yGan, yZhi)}<span class="almanac-gz-sx">${escapeHtml(shengXiao)}</span></div>
                     <div class="almanac-gz-row"><span class="almanac-gz-label">月柱</span>${gz(mGan, mZhi)}</div>
                     <div class="almanac-gz-row"><span class="almanac-gz-label">日柱</span>${gz(dGan, dZhi)}</div>
                 </div>

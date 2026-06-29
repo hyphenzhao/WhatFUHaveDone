@@ -79,8 +79,7 @@ function tagSelectHtml(id, items, selectedIds, type) {
             return `<span class="tag-chip tag-chip-people${sel?' selected':''}" data-id="${item.id}" data-group="${id}" onclick="toggleTagChip(this)" title="${escapeHtml(item.relationship||'')}">${escapeHtml(item.name)}</span>`;
         }
         const color = item.color || '#3B82F6';
-        const style = sel ? `background:${color};color:#fff;border-color:${color}` : `color:${color};border-color:${color}`;
-        return `<span class="tag-chip tag-chip-tag${sel?' selected':''}" style="${style}" data-id="${item.id}" data-group="${id}" onclick="toggleTagChip(this)">${escapeHtml(item.name)}</span>`;
+        return `<span class="tag-chip tag-chip-tag${sel?' selected':''}" style="--chip-color:${color};color:${sel?'#fff':color};border-color:${color};${sel?'background:'+color+';':''}" data-id="${item.id}" data-group="${id}" onclick="toggleTagChip(this)">${escapeHtml(item.name)}</span>`;
     }).join('');
 }
 function getSelectedTagIds(groupId) {

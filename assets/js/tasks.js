@@ -40,22 +40,24 @@ async function showTaskModal(taskId = null) {
         if (t) task = t.data;
         peopleList = p.data || []; tagsList = tg.data || [];
     } catch (e) {}
-    const pOpts = peopleList.map(p => `<option value="${p.id}" ${(task?.people||[]).some(tp=>tp.id===p.id)?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
-    const tOpts = tagsList.map(t => `<option value="${t.id}" ${(task?.tags||[]).some(tt=>tt.id===t.id)?'selected':''}>${escapeHtml(t.name)}</option>`).join('');
+    const selPeopleIds = (task?.people||[]).map(p => p.id);
+    const selTagIds = (task?.tags||[]).map(t => t.id);
+    const pOpts = tagSelectHtml('people', peopleList, selPeopleIds, 'people');
+    const tOpts = tagSelectHtml('tags', tagsList, selTagIds, 'tag');
     Modal.open({
         title: task ? '编辑任务' : '新建任务',
         body: `<div class="form-group"><label>任务名称 *</label><input class="form-input" id="taskName" value="${escapeHtml(task?.name||'')}"></div>
             <div class="form-group"><label>描述</label><textarea class="form-textarea" id="taskDesc">${escapeHtml(task?.description||'')}</textarea></div>
             <div class="form-group"><label>阶段</label><select class="form-select" id="taskStage">${Object.entries(STAGE_LABELS).map(([k,v])=>`<option value="${k}" ${task?.stage===k?'selected':''}>${v}</option>`).join('')}</select></div>
             <div class="form-group"><label>阶段编号</label><input type="number" class="form-input" id="taskStageNum" value="${task?.stage_number||1}" min="1"></div>
-            <div class="form-group"><label>受益人 (Ctrl+Click 多选)</label><select class="form-select" id="taskPeople" multiple size="3">${pOpts}</select></div>
-            <div class="form-group"><label>标签 (Ctrl+Click 多选)</label><select class="form-select" id="taskTags" multiple size="3">${tOpts}</select></div>`,
+            <div class="form-group"><label>受益人</label><div class="tag-chip-group" id="tagGroup_people">${pOpts}</div></div>
+            <div class="form-group"><label>标签</label><div class="tag-chip-group" id="tagGroup_tags">${tOpts}</div></div>`,
         footer: `<button class="btn btn-ghost" onclick="Modal.close()">取消</button><button class="btn btn-primary" id="saveTask">${task?'保存':'创建'}</button>`,
     });
     document.getElementById('saveTask').addEventListener('click', async () => {
         const name = document.getElementById('taskName').value.trim();
         if (!name) { Toast.error('请输入任务名称'); return; }
-        const data = { name, description: document.getElementById('taskDesc').value.trim(), stage: document.getElementById('taskStage').value, stage_number: parseInt(document.getElementById('taskStageNum').value)||1, people_ids: Array.from(document.getElementById('taskPeople').selectedOptions).map(o=>parseInt(o.value)), tag_ids: Array.from(document.getElementById('taskTags').selectedOptions).map(o=>parseInt(o.value)) };
+        const data = { name, description: document.getElementById('taskDesc').value.trim(), stage: document.getElementById('taskStage').value, stage_number: parseInt(document.getElementById('taskStageNum').value)||1, people_ids: getSelectedTagIds('people'), tag_ids: getSelectedTagIds('tags') };
         try { if(taskId){await API.tasks.update(taskId,data)}else{await API.tasks.create(data)} Modal.close(); loadTasks(); Toast.success(taskId?'已更新':'已创建'); } catch(e){Toast.error('失败:'+e.message)}
     });
 }

@@ -797,6 +797,24 @@ async function loadDailyStatus(date) {
 }
 
 // --- Add Task Modal ---
+// Tag-style multi-select for people & tags
+function tagSelectHtml(id, items, selectedIds, type) {
+    return items.map(item => {
+        const sel = selectedIds.includes(item.id);
+        if (type === 'people') {
+            return `<span class="tag-chip tag-chip-people${sel?' selected':''}" data-id="${item.id}" data-group="${id}" onclick="toggleTagChip(this)" title="${escapeHtml(item.relationship||'')}">${escapeHtml(item.name)}</span>`;
+        }
+        const color = item.color || '#3B82F6';
+        const style = sel ? `background:${color};color:#fff;border-color:${color}` : `color:${color};border-color:${color}`;
+        return `<span class="tag-chip tag-chip-tag${sel?' selected':''}" style="${style}" data-id="${item.id}" data-group="${id}" onclick="toggleTagChip(this)">${escapeHtml(item.name)}</span>`;
+    }).join('');
+}
+function getSelectedTagIds(groupId) {
+    return Array.from(document.querySelectorAll(`.tag-chip.selected[data-group="${groupId}"]`)).map(el => parseInt(el.dataset.id));
+}
+
+function toggleTagChip(el) { el.classList.toggle('selected'); }
+
 async function showAddTaskModal() {
     let peopleList = [], tagsList = [];
     try {
@@ -805,70 +823,35 @@ async function showAddTaskModal() {
         tagsList = t.data || [];
     } catch (e) {}
 
-    const peopleOptions = peopleList.map(p =>
-        `<option value="${p.id}">${escapeHtml(p.name)} (${escapeHtml(p.relationship || '')})</option>`
-    ).join('');
-
-    const tagOptions = tagsList.map(t =>
-        `<option value="${t.id}">${escapeHtml(t.name)}</option>`
-    ).join('');
-
     Modal.open({
         title: '添加新任务',
         body: `
-            <div class="form-group">
-                <label>任务名称 *</label>
-                <input type="text" class="form-input" id="taskName" placeholder="输入任务名称">
-            </div>
-            <div class="form-group">
-                <label>描述</label>
-                <textarea class="form-textarea" id="taskDesc" placeholder="任务描述（可选）"></textarea>
-            </div>
+            <div class="form-group"><label>任务名称 *</label><input type="text" class="form-input" id="taskName" placeholder="输入任务名称"></div>
+            <div class="form-group"><label>描述</label><textarea class="form-textarea" id="taskDesc" placeholder="任务描述（可选）"></textarea></div>
             <div class="form-group">
                 <label>受益人</label>
-                <select class="form-select" id="taskPeople" multiple size="3">
-                    ${peopleOptions}
-                </select>
+                <div class="tag-chip-group" id="tagGroup_people">${tagSelectHtml('people', peopleList, [], 'people')}</div>
                 <button class="btn btn-ghost btn-sm" style="margin-top:4px;" onclick="showQuickAddPerson()" type="button">+ 添加新人</button>
             </div>
             <div class="form-group">
                 <label>标签</label>
-                <select class="form-select" id="taskTags" multiple size="3">
-                    ${tagOptions}
-                </select>
+                <div class="tag-chip-group" id="tagGroup_tags">${tagSelectHtml('tags', tagsList, [], 'tag')}</div>
                 <button class="btn btn-ghost btn-sm" style="margin-top:4px;" onclick="showQuickAddTag()" type="button">+ 添加新标签</button>
-            </div>
-        `,
-        footer: `
-            <button class="btn btn-ghost" onclick="Modal.close()">取消</button>
-            <button class="btn btn-primary" id="confirmAddTask">确认添加</button>
-        `,
+            </div>`,
+        footer: `<button class="btn btn-ghost" onclick="Modal.close()">取消</button><button class="btn btn-primary" id="confirmAddTask">确认添加</button>`,
     });
 
     document.getElementById('confirmAddTask').addEventListener('click', async () => {
         const name = document.getElementById('taskName').value.trim();
         if (!name) { Toast.error('请输入任务名称'); return; }
-
-        const peopleSelect = document.getElementById('taskPeople');
-        const peopleIds = Array.from(peopleSelect.selectedOptions).map(o => parseInt(o.value));
-
-        const tagSelect = document.getElementById('taskTags');
-        const tagIds = Array.from(tagSelect.selectedOptions).map(o => parseInt(o.value));
-
         try {
             await API.tasks.create({
-                name,
-                description: document.getElementById('taskDesc').value.trim(),
-                people_ids: peopleIds,
-                tag_ids: tagIds,
+                name, description: document.getElementById('taskDesc').value.trim(),
+                people_ids: getSelectedTagIds('people'), tag_ids: getSelectedTagIds('tags'),
                 stage: 'in_progress',
             });
-            Modal.close();
-            await refreshAll();
-            Toast.success('任务已创建');
-        } catch (e) {
-            Toast.error('创建失败: ' + e.message);
-        }
+            Modal.close(); await refreshAll(); Toast.success('任务已创建');
+        } catch (e) { Toast.error('创建失败: ' + e.message); }
     });
 }
 

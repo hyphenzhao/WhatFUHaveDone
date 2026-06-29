@@ -30,6 +30,7 @@ const TaskCard = {
         }
 
         const noteHtml = latestNote ? `<div class="task-card-note">📝 ${escapeHtml(latestNote)}</div>` : '';
+        const deadlineHtml = getDeadlineBadge(task.deadline);
 
         return `
             <div class="task-card" data-task-id="${task.id}" data-stage="${stage}">
@@ -37,6 +38,7 @@ const TaskCard = {
                 ${tagsHtml ? `<div class="task-card-tags">${tagsHtml}</div>` : ''}
                 ${task.stage_number > 1 ? `<div style="font-size:0.7rem;color:var(--color-text-secondary);margin-bottom:4px;">阶段 ${task.stage_number}</div>` : ''}
                 ${noteHtml}
+                ${deadlineHtml}
                 <div class="task-card-actions">
                     ${actionsHtml}
                 </div>

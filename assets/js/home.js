@@ -814,6 +814,7 @@ async function showAddTaskModal() {
                 <div class="form-group"><label>重要度</label>${starHtml('importance', 3)}</div>
                 <div class="form-group"><label>必要度</label>${starHtml('necessity', 3)}</div>
             </div>
+            <div class="form-group"><label>截止日期</label><input type="date" class="form-input" id="taskDeadlineH" placeholder="留空=无截止 / 填'尽快'或'自由'"></div>
             <div class="form-group">
                 <label>受益人</label>
                 <div class="tag-chip-group" id="tagGroup_people">${tagSelectHtml('people', peopleList, [], 'people')}</div>
@@ -835,6 +836,7 @@ async function showAddTaskModal() {
                 name, description: document.getElementById('taskDesc').value.trim(),
                 people_ids: getSelectedTagIds('people'), tag_ids: getSelectedTagIds('tags'),
                 stage: 'in_progress', importance: getStarVal('star_importance'), necessity: getStarVal('star_necessity'),
+                deadline: document.getElementById('taskDeadlineH').value,
             });
             Modal.close(); await refreshAll(); Toast.success('任务已创建');
         } catch (e) { Toast.error('创建失败: ' + e.message); }

@@ -87,6 +87,20 @@ function getSelectedTagIds(groupId) {
 }
 function toggleTagChip(el) { el.classList.toggle('selected'); }
 
+function getDeadlineBadge(deadline) {
+    if (!deadline) return '';
+    if (deadline === '自由') return '<span class="deadline-badge deadline-free">自由</span>';
+    if (deadline === '尽快') return '<span class="deadline-badge deadline-asap">尽快</span>';
+    const due = new Date(deadline + 'T23:59:59');
+    const now = new Date();
+    const hours = (due - now) / (3600 * 1000);
+    if (hours < 0) return `<span class="deadline-badge deadline-overdue">${deadline}</span>`;
+    if (hours < 24) return `<span class="deadline-badge deadline-urgent">${deadline}</span>`;
+    if (hours < 72) return `<span class="deadline-badge deadline-warn">${deadline}</span>`;
+    if (hours < 168) return `<span class="deadline-badge deadline-info">${deadline}</span>`;
+    return `<span class="deadline-badge deadline-normal">${deadline}</span>`;
+}
+
 function today() {
     const d = new Date();
     return d.getFullYear() + '-' +

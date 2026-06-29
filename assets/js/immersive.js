@@ -217,8 +217,9 @@ const IM = {
                     ? `<button class="im-btn-worklog${wlActive?' active':''}" onclick="IM.toggleWL(${t.id},'${this.date}')">${wlActive?'😊':'+1'}</button>`
                     : '';
                 const noteHtml = note ? `<div class="im-card-note">📝 ${escapeHtml(note)}</div>` : '';
+                const deadlineHtml = typeof getDeadlineBadge !== 'undefined' ? getDeadlineBadge(t.deadline) : '';
                 return `<div class="im-card">
-                    <div class="im-card-name">${escapeHtml(t.name)}</div>
+                    <div class="im-card-name">${escapeHtml(t.name)}${deadlineHtml}</div>
                     <div class="im-card-tags">${tags}</div>
                     ${noteHtml}
                     <div class="im-card-actions">

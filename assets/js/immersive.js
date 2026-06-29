@@ -52,7 +52,6 @@ const IM = {
                     <span class="im-title">🕶️ 沉浸模式</span>
                     <span style="font-size:0.8rem;color:var(--im-text-secondary);" id="imDateShort"></span>
                 </div>
-                <div class="im-side" style="display:none;"><button class="im-back" onclick="window.location='/'">🏠 返回</button></div>
                 <div class="im-main">
                     <div class="im-left-panel">
                         <div class="im-top-row">

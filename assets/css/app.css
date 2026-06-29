@@ -92,6 +92,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     display: flex;
     align-items: center;
     justify-content: space-between;
+    align-items: center;
     padding: 16px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
@@ -176,6 +177,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     display: flex;
     align-items: center;
     justify-content: space-between;
+    align-items: center;
     padding: 16px;
     border-bottom: 1px solid var(--color-border);
 }
@@ -417,6 +419,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     display: flex;
     align-items: center;
     justify-content: space-between;
+    align-items: center;
     padding: 8px 6px;
     cursor: pointer;
     user-select: none;
@@ -458,6 +461,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 }
 .task-card-tags {
     justify-content: space-between;
+    align-items: center;
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
@@ -476,6 +480,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     display: flex;
     align-items: center;
     justify-content: space-between;
+    align-items: center;
     gap: 6px;
 }
 .task-card-actions-left { display: flex; gap: 6px; }
@@ -647,6 +652,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .bazi-card-period { font-size: 0.72rem; color: var(--color-text-secondary); }
 .bazi-card-pillars { margin-bottom: 6px; }
 .bazi-card-pillar-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
+    align-items: center;
 .bazi-card-gan { font-size: 1.1rem; font-weight: 700; letter-spacing: 2px; }
 .bazi-card-shishen {
     font-size: 0.75rem;
@@ -802,6 +808,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     display: flex;
     justify-content: space-between;
     align-items: center;
+    align-items: center;
     padding: 8px 0;
     border-bottom: 1px solid var(--color-border);
     gap: 12px;
@@ -868,6 +875,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     display: flex;
     justify-content: space-between;
     align-items: center;
+    align-items: center;
     padding: 8px 0;
     border-bottom: 1px solid var(--color-border);
     gap: 12px;
@@ -916,6 +924,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     display: flex;
     align-items: center;
     justify-content: space-between;
+    align-items: center;
     margin-bottom: 12px;
 }
 .daily-status-header h2 {
@@ -1079,6 +1088,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     display: flex;
     align-items: center;
     justify-content: space-between;
+    align-items: center;
     margin-bottom: 12px;
 }
 .calendar-header h3 { font-size: 1rem; font-weight: 700; }
@@ -1125,6 +1135,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .calendar-day .day-row {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     align-items: center;
     margin-bottom: 1px;
 }
@@ -1211,6 +1222,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     display: flex;
     align-items: center;
     justify-content: space-between;
+    align-items: center;
     padding: 16px 20px;
     border-bottom: 1px solid var(--color-border);
 }
@@ -1355,6 +1367,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     display: flex;
     align-items: center;
     justify-content: space-between;
+    align-items: center;
     margin-bottom: 20px;
 }
 .page-header h2 { font-size: 1.3rem; font-weight: 700; }
@@ -1422,6 +1435,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     display: flex;
     align-items: center;
     justify-content: space-between;
+    align-items: center;
     margin-bottom: 16px;
 }
 .graph-header h2 { font-size: 1.1rem; font-weight: 700; }

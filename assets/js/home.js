@@ -44,6 +44,24 @@ const WU_XING = {
     color: { 木:'#38a169', 火:'#e53e3e', 土:'#d97706', 金:'#ddb100', 水:'#3182ce' },
 };
 
+let clockInterval = null, clockTz = 'Asia/Shanghai', clockFmt24 = false;
+function toggleTimeFmt() { clockFmt24 = !clockFmt24; updateClock(); }
+function startClock(tz) {
+    if (clockInterval) clearInterval(clockInterval);
+    clockTz = tz || 'Asia/Shanghai';
+    updateClock();
+    clockInterval = setInterval(updateClock, 1000);
+}
+function updateClock() {
+    const el = document.getElementById('weatherTime');
+    const fmt = document.getElementById('weatherTimeFmt');
+    if (!el) return;
+    const now = new Date();
+    const t = now.toLocaleTimeString('en-US', { timeZone: clockTz, hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    el.textContent = clockFmt24 ? t : now.toLocaleTimeString('en-US', { timeZone: clockTz, hour12: true, hour: '2-digit', minute: '2-digit' }).replace(' AM','').replace(' PM','');
+    if (fmt) fmt.textContent = clockFmt24 ? '24h' : '12h';
+}
+
 async function renderWeather(dateStr) {
     const container = document.getElementById('dailyWeather');
     if (!container) return;
@@ -59,6 +77,7 @@ async function renderWeather(dateStr) {
             </div>`;
             return;
         }
+        const tz = w.timezone || 'Asia/Shanghai';
         container.innerHTML = `<div class="weather-card" style="background:linear-gradient(135deg,${w.gradient})">
             <div class="weather-city" onclick="changeCity()" title="点击更换城市">📍 ${escapeHtml(w.city||'')} <span style="font-size:0.6rem;">▾</span></div>
             <div class="weather-body">
@@ -73,8 +92,13 @@ async function renderWeather(dateStr) {
                     ${w.rain>0 ? `<div class="weather-detail">🌧️ ${w.rain} mm</div>` : ''}
                 </div>
             </div>
-            ${dateStr !== new Date().toISOString().split('T')[0] ? '<button class="btn btn-ghost btn-sm" onclick="fetchWeather(\''+dateStr+'\')" style="margin-top:4px;font-size:0.7rem;">🔄 刷新</button>' : '<div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-top:4px;">自动更新</div>'}
+            <div class="weather-clock" id="weatherClock">
+                <span class="weather-time" id="weatherTime">--:--</span>
+                <button class="weather-time-fmt" id="weatherTimeFmt" onclick="toggleTimeFmt()" title="切换12/24小时">12h</button>
+            </div>
+            ${dateStr !== new Date().toISOString().split('T')[0] ? '<button class="btn btn-ghost btn-sm" onclick="fetchWeather(\''+dateStr+'\')" style="margin-top:2px;font-size:0.7rem;">🔄 刷新</button>' : '<div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-top:2px;">自动更新</div>'}
         </div>`;
+        startClock(tz);
     } catch(e) {
         container.innerHTML = `<div class="weather-card" style="background:linear-gradient(135deg,#f0f4f8,#e2e8f0)"><div class="weather-desc" style="font-size:0.7rem;">加载失败</div></div>`;
     }

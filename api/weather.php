@@ -100,6 +100,7 @@ function fetch_weather(float $lat, float $lon, string $date, string $city = ''):
     return [
         'date' => $date,
         'city' => $city,
+        'timezone' => $daily['timezone'][0] ?? 'Asia/Shanghai',
         'code' => $code,
         'emoji' => $meta[0],
         'desc' => $meta[1],

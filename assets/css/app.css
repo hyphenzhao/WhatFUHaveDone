@@ -964,6 +964,15 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .weather-temp { font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
 .weather-temp-lo { font-size: 0.85rem; font-weight: 400; opacity: 0.8; }
 .weather-desc { font-size: 0.9rem; font-weight: 600; }
+.weather-clock { text-align: center; margin-top: 6px; }
+.weather-time { font-size: 2rem; font-weight: 800; letter-spacing: 1px; }
+.weather-time-fmt {
+    display: inline-block; margin-top: 2px;
+    background: rgba(255,255,255,0.3); border: none; color: inherit;
+    padding: 1px 8px; border-radius: 8px; font-size: 0.65rem;
+    cursor: pointer; font-weight: 600;
+}
+.weather-time-fmt:hover { background: rgba(255,255,255,0.5); }
 .weather-detail { font-size: 0.72rem; opacity: 0.85; }
 @media (max-width: 768px) {
     .daily-left-col { flex: 0 0 100%; flex-direction: row; gap: 8px; }

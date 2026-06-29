@@ -85,16 +85,16 @@ async function renderWeather(dateStr) {
                     <div class="weather-emoji">${w.emoji}</div>
                     <div class="weather-temp">${Math.round(w.temp_max)}°<span class="weather-temp-lo"> / ${Math.round(w.temp_min)}°</span></div>
                 </div>
-                <div class="weather-right">
+                <div class="weather-mid">
                     <div class="weather-desc">${w.desc}</div>
                     <div class="weather-detail">💧 ${w.humidity}%</div>
                     <div class="weather-detail">🌬️ ${Math.round(w.wind)} km/h</div>
                     ${w.rain>0 ? `<div class="weather-detail">🌧️ ${w.rain} mm</div>` : ''}
                 </div>
-            </div>
-            <div class="weather-clock" id="weatherClock">
-                <span class="weather-time" id="weatherTime">--:--</span>
-                <button class="weather-time-fmt" id="weatherTimeFmt" onclick="toggleTimeFmt()" title="切换12/24小时">12h</button>
+                <div class="weather-clock" id="weatherClock">
+                    <span class="weather-time" id="weatherTime">--:--</span>
+                    <button class="weather-time-fmt" id="weatherTimeFmt" onclick="toggleTimeFmt()" title="切换12/24小时">12h</button>
+                </div>
             </div>
             ${dateStr !== new Date().toISOString().split('T')[0] ? '<button class="btn btn-ghost btn-sm" onclick="fetchWeather(\''+dateStr+'\')" style="margin-top:2px;font-size:0.7rem;">🔄 刷新</button>' : '<div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-top:2px;">自动更新</div>'}
         </div>`;

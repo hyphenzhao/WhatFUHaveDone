@@ -958,13 +958,13 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .city-result:hover { background: var(--color-bg); }
 .city-result:last-child { border-bottom: none; }
 .weather-body { display: flex; gap: 10px; align-items: center; flex: 1; }
-.weather-left { flex: 1; text-align: center; }
-.weather-right { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
-.weather-emoji { font-size: 2.8rem; margin-bottom: 2px; }
-.weather-temp { font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
-.weather-temp-lo { font-size: 0.85rem; font-weight: 400; opacity: 0.8; }
+.weather-left { flex: 1.2; text-align: center; }
+.weather-mid { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.weather-emoji { font-size: 2.4rem; margin-bottom: 2px; }
+.weather-temp { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
+.weather-temp-lo { font-size: 0.78rem; font-weight: 400; opacity: 0.8; }
 .weather-desc { font-size: 0.9rem; font-weight: 600; }
-.weather-clock { text-align: center; margin-top: 6px; }
+.weather-clock { flex: 1.4; text-align: center; }
 .weather-time { font-size: 2rem; font-weight: 800; letter-spacing: 1px; }
 .weather-time-fmt {
     display: inline-block; margin-top: 2px;

@@ -139,7 +139,7 @@ button { font-family: inherit; cursor: pointer; }
 /* Landscape: weather+bazi left, tasks right */
 @media (orientation: landscape) {
     .im-main { display: flex; flex-direction: row; flex: 1; overflow: hidden; }
-    .im-left-panel { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; border-right: 1px solid var(--im-border); overflow-y: auto; }
+    .im-left-panel { width: 33.33vw; flex-shrink: 0; display: flex; flex-direction: column; border-right: 1px solid var(--im-border); overflow-y: auto; }
     .im-top-row { flex-direction: column; }
     .im-weather-block { text-align: center; }
     .im-weather-block .im-clock { text-align: center; }

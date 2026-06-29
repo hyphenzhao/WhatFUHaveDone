@@ -154,10 +154,7 @@ async function showTaskModal(taskId = null) {
             <div class="form-group"><label>截止日期</label>
                 <div style="display:flex;gap:6px;align-items:center;">
                     <select class="form-select" id="taskDeadlineType" onchange="document.getElementById('taskDeadlineDate').style.display=this.value==='date'?'':'none';if(this.value!=='date')document.getElementById('taskDeadlineDate').value=this.value;" style="width:auto;">
-                        <option value="">无截止</option>
-                        <option value="date">📅 指定日期</option>
-                        <option value="尽快">⚡ 尽快</option>
-                        <option value="自由">🆓 自由</option>
+                        ${(() => { const dl = task?.deadline||''; const sel = dl === '尽快' ? '尽快' : dl === '自由' ? '自由' : /^\d{4}-\d{2}-\d{2}$/.test(dl) ? 'date' : ''; return `<option value="" ${!sel?'selected':''}>无截止</option><option value="date" ${sel==='date'?'selected':''}>📅 指定日期</option><option value="尽快" ${sel==='尽快'?'selected':''}>⚡ 尽快</option><option value="自由" ${sel==='自由'?'selected':''}>🆓 自由</option>`; })()}
                     </select>
                     <input type="date" class="form-input" id="taskDeadlineDate" value="${/^\d{4}-\d{2}-\d{2}$/.test(task?.deadline||'')?task.deadline:''}" style="flex:1;${/^\d{4}-\d{2}-\d{2}$/.test(task?.deadline||'')?'':'display:none'}">
                 </div></div>

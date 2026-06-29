@@ -30,7 +30,7 @@ if ($method === 'POST') {
         // Extract text using pdftotext
         $tmpPath = $file['tmp_name'];
         $pdftotext = null;
-        foreach (['/opt/homebrew/bin/pdftotext', '/usr/local/bin/pdftotext', '/Applications/MAMP/Library/bin/pdftotext'] as $candidate) {
+        foreach (['/usr/bin/pdftotext', '/opt/homebrew/bin/pdftotext', '/usr/local/bin/pdftotext', '/Applications/MAMP/Library/bin/pdftotext'] as $candidate) {
             if (is_executable($candidate)) {
                 $pdftotext = $candidate;
                 break;

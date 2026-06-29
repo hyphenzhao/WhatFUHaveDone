@@ -110,30 +110,18 @@ button { font-family: inherit; cursor: pointer; }
 .im-bazi-modal-body .bazi-pillar-card { background: var(--im-bg); border-color: var(--im-border); }
 .im-bazi-modal-body .bazi-card-analysis { color: var(--im-text-secondary); }
 
-/* Portrait */
+/* Portrait: weather/time top, BaZi buttons below */
 @media (orientation: portrait) {
     .im-content { flex-direction: column; }
-    .im-top-row { flex-direction: row; }
+    .im-top-row { flex-direction: column; }
+    .im-bazi-row { flex-direction: row; }
 }
 
-/* Landscape */
+/* Landscape: weather/time left, BaZi buttons right */
 @media (orientation: landscape) {
-    body { display: flex; }
-    .im-container { display: flex; flex-direction: column; height: 100vh; flex: 1; }
-    .im-sidebar {
-        width: 60px; display: flex; flex-direction: column; align-items: center;
-        background: var(--im-surface); border-right: 1px solid var(--im-border);
-        padding: 8px 0; gap: 2px;
-    }
-    .im-sidebar .im-back { writing-mode: vertical-rl; padding: 12px 6px; font-size: 0.75rem; width: 44px; }
-    .im-main { display: flex; flex: 1; }
-    .im-left-panel { width: 220px; display: flex; flex-direction: column; border-right: 1px solid var(--im-border); flex-shrink: 0; }
-    .im-left-panel .im-top-row { flex-direction: column; }
-    .im-left-panel .im-weather-block { text-align: center; }
-    .im-left-panel .im-clock { text-align: center; }
-    .im-left-panel .im-date { text-align: center; }
-    .im-left-panel .im-bazi-block { flex: 1; }
-    .im-left-panel .im-bazi-btn { flex: 1 0 44px; }
+    .im-main { flex-direction: row; }
+    .im-left-panel { width: 320px; flex-shrink: 0; border-right: 1px solid var(--im-border); }
     .im-right-panel { flex: 1; overflow-y: auto; }
-    .im-right-panel .im-content { flex-direction: row; }
+    .im-top-row { flex-direction: row; }
+    .im-bazi-row { flex-direction: column; }
 }

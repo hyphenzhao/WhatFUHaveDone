@@ -68,6 +68,7 @@ $current_page = $current_page ?? 'home';
             <div class="right-panel-header">
                 <div class="right-panel-tabs">
                     <button class="rp-tab rp-tab-active" data-tab="tasklist">📋 任务列表</button>
+                    <button class="rp-refresh-btn" onclick="loadRightPanel()" title="刷新任务列表和备注">🔄</button>
                     <button class="rp-tab" data-tab="ai-assistant">🤖 智能助手</button>
                 </div>
                 <button class="panel-toggle" id="rightPanelToggle">▶</button>

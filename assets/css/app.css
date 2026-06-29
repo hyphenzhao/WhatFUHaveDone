@@ -230,6 +230,8 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     color: var(--color-text);
     box-shadow: var(--shadow-sm);
 }
+.rp-refresh-btn { background: none; border: 1px solid var(--color-border); color: var(--color-text-secondary); padding: 4px 8px; border-radius: var(--radius-sm); font-size: 0.8rem; cursor: pointer; }
+.rp-refresh-btn:hover { background: var(--color-bg); color: var(--color-text); }
 .rp-hidden { display: none !important; }
 
 /* ============ AI CHAT ============ */

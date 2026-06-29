@@ -51,22 +51,6 @@ async function loadTasks() {
     } catch (e) { Toast.error('加载失败: ' + e.message); }
 }
 
-function starHtml(name, val) {
-    const id = 'star_' + name;
-    let h = `<span class="star-rating" id="${id}">`;
-    for (let i = 1; i <= 5; i++) {
-        h += `<span class="star${i <= val ? ' filled' : ''}" data-v="${i}" onclick="setStar('${id}',${i})">★</span>`;
-    }
-    h += '</span>';
-    return h;
-}
-function getStarVal(id) { return document.querySelectorAll('#' + id + ' .star.filled').length; }
-function setStar(id, v) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.querySelectorAll('.star').forEach((s, i) => s.classList.toggle('filled', i < v));
-}
-
 function renderTasksTable(tasks, tbodyId, isArchived) {
     const tbody = document.getElementById(tbodyId);
     const cols = isArchived ? 4 : 8;

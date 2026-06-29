@@ -87,6 +87,15 @@ function getSelectedTagIds(groupId) {
 }
 function toggleTagChip(el) { el.classList.toggle('selected'); }
 
+function starHtml(name, val) {
+    const id = 'star_' + name;
+    let h = `<span class="star-rating" id="${id}">`;
+    for (let i = 1; i <= 5; i++) h += `<span class="star${i <= val ? ' filled' : ''}" data-v="${i}" onclick="setStar('${id}',${i})">★</span>`;
+    return h + '</span>';
+}
+function getStarVal(id) { return document.querySelectorAll('#' + id + ' .star.filled').length; }
+function setStar(id, v) { const el = document.getElementById(id); if (!el) return; el.querySelectorAll('.star').forEach((s, i) => s.classList.toggle('filled', i < v)); }
+
 function getDeadlineBadge(deadline) {
     if (!deadline) return '';
     if (deadline === '自由') return '<span class="deadline-badge deadline-free">自由</span>';

@@ -8,6 +8,7 @@ define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
 define('DB_NAME', getenv('DB_NAME') ?: 'worklog');
 define('DB_USER', getenv('DB_USER') ?: 'worklog');
 define('DB_PASS', getenv('DB_PASS') ?: 'worklog_pass_2024');
+define('DB_PORT', getenv('DB_PORT') ?: '3306');
 define('DB_CHARSET', 'utf8mb4');
 
 // App

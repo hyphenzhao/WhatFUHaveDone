@@ -55,25 +55,25 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 /* --- App Layout --- */
 .app-layout {
     display: grid;
-    grid-template-columns: var(--sidebar-width) 1fr var(--right-panel-width);
+    grid-template-columns: var(--sidebar-width) 1fr 4px var(--right-panel-width);
     min-height: 100vh;
     transition: grid-template-columns var(--transition);
 }
 .app-layout.sidebar-collapsed {
-    grid-template-columns: var(--sidebar-collapsed) 1fr var(--right-panel-width);
+    grid-template-columns: var(--sidebar-collapsed) 1fr 4px var(--right-panel-width);
 }
 .app-layout.right-collapsed {
-    grid-template-columns: var(--sidebar-width) 1fr var(--right-panel-collapsed);
+    grid-template-columns: var(--sidebar-width) 1fr 4px var(--right-panel-collapsed);
 }
 .app-layout.sidebar-collapsed.right-collapsed {
-    grid-template-columns: var(--sidebar-collapsed) 1fr var(--right-panel-collapsed);
+    grid-template-columns: var(--sidebar-collapsed) 1fr 4px var(--right-panel-collapsed);
 }
 /* Home page has right panel; other pages don't */
 .app-layout.no-right-panel {
-    grid-template-columns: var(--sidebar-width) 1fr;
+    grid-template-columns: var(--sidebar-width) 1fr 0;
 }
 .app-layout.no-right-panel.sidebar-collapsed {
-    grid-template-columns: var(--sidebar-collapsed) 1fr;
+    grid-template-columns: var(--sidebar-collapsed) 1fr 0;
 }
 
 /* ============ SIDEBAR ============ */
@@ -1439,12 +1439,12 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 1200px) {
-    .app-layout { grid-template-columns: var(--sidebar-collapsed) 1fr var(--right-panel-width); }
+    .app-layout { grid-template-columns: var(--sidebar-collapsed) 1fr 4px var(--right-panel-width); }
     .leaderboards { grid-template-columns: 1fr; }
 }
 @media (max-width: 900px) {
     .app-layout, .app-layout.right-collapsed {
-        grid-template-columns: var(--sidebar-collapsed) 1fr;
+        grid-template-columns: var(--sidebar-collapsed) 1fr 0;
     }
     .right-panel { display: none; }
 }

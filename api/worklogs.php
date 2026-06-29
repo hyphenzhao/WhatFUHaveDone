@@ -19,7 +19,9 @@ if ($method === 'GET') {
     $task_id = $_GET['task_id'] ?? null;
 
     if ($date) {
-        $stmt = $db->prepare('SELECT wl.*, t.name as task_name FROM work_logs wl JOIN tasks t ON wl.task_id = t.id WHERE wl.log_date = ?');
+        $stmt = $db->prepare('SELECT wl.*, t.name as task_name,
+            (SELECT content FROM worklog_notes WHERE worklog_id = wl.id ORDER BY created_at DESC LIMIT 1) as latest_note
+            FROM work_logs wl JOIN tasks t ON wl.task_id = t.id WHERE wl.log_date = ?');
         $stmt->execute([$date]);
         json_success($stmt->fetchAll());
     } elseif ($task_id) {

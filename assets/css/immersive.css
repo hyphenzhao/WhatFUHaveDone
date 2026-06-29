@@ -83,6 +83,7 @@ button { font-family: inherit; cursor: pointer; }
     font-size: 0.82rem;
 }
 .im-card-name { font-weight: 600; margin-bottom: 2px; }
+.im-card-note { font-size: 0.68rem; color: var(--im-text-secondary); margin: 2px 0; line-height: 1.3; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .im-card-tags { display: flex; gap: 4px; flex-wrap: wrap; margin: 3px 0; }
 .im-tag-dot {
     width: 8px; height: 8px; border-radius: 50%; cursor: pointer;

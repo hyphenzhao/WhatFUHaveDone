@@ -11,6 +11,7 @@ const TaskCard = {
         const stage = task.stage;
         const date = options.date || App.selectedDate;
         const workLogActive = options.workLogActive || false;
+        const latestNote = options.latestNote || '';
 
         const tagsHtml = (task.tags || []).map(t =>
             `<span class="task-card-tag" style="background:${escapeHtml(t.color)}">${escapeHtml(t.name)}</span>`
@@ -28,11 +29,14 @@ const TaskCard = {
             actionsHtml = this._renderFailedActions(task);
         }
 
+        const noteHtml = latestNote ? `<div class="task-card-note">📝 ${escapeHtml(latestNote)}</div>` : '';
+
         return `
             <div class="task-card" data-task-id="${task.id}" data-stage="${stage}">
                 <div class="task-card-name">${escapeHtml(task.name)}</div>
                 ${tagsHtml ? `<div class="task-card-tags">${tagsHtml}</div>` : ''}
                 ${task.stage_number > 1 ? `<div style="font-size:0.7rem;color:var(--color-text-secondary);margin-bottom:4px;">阶段 ${task.stage_number}</div>` : ''}
+                ${noteHtml}
                 <div class="task-card-actions">
                     ${actionsHtml}
                 </div>

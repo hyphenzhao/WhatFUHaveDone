@@ -473,10 +473,12 @@ async function loadRightPanel() {
             workLogsForDate = wl.data || [];
         } catch (e) { workLogsForDate = []; }
         const workLogTaskIds = new Set(workLogsForDate.map(w => w.task_id));
+        const workLogNotes = {};
+        workLogsForDate.forEach(w => { if (w.latest_note) workLogNotes[w.task_id] = w.latest_note; });
 
         const renderSection = (title, tasks, icon, stageClass) => {
             const cardsHtml = tasks.map(t =>
-                TaskCard.render(t, { date: App.selectedDate, workLogActive: workLogTaskIds.has(t.id) })
+                TaskCard.render(t, { date: App.selectedDate, workLogActive: workLogTaskIds.has(t.id), latestNote: workLogNotes[t.id] || '' })
             ).join('');
 
             return `

@@ -203,16 +203,21 @@ const IM = {
             const daily = dailyRes.data || {};
             const inProgress = tasksRes.data || [];
             const wlTaskIds = new Set((wlRes.data||[]).map(w => w.task_id));
+            const wlNotes = {};
+            (wlRes.data||[]).forEach(w => { if (w.latest_note) wlNotes[w.task_id] = w.latest_note; });
 
             const renderCard = (t, showWorklog) => {
+                const note = wlNotes[t.id] || '';
                 const tags = (t.tags||[]).map(tg => `<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('');
                 const wlActive = showWorklog && wlTaskIds.has(t.id);
                 const wlBtn = showWorklog
                     ? `<button class="im-btn-worklog${wlActive?' active':''}" onclick="IM.toggleWL(${t.id},'${this.date}')">${wlActive?'😊':'+1'}</button>`
                     : '';
+                const noteHtml = note ? `<div class="im-card-note">📝 ${escapeHtml(note)}</div>` : '';
                 return `<div class="im-card">
                     <div class="im-card-name">${escapeHtml(t.name)}</div>
                     <div class="im-card-tags">${tags}</div>
+                    ${noteHtml}
                     <div class="im-card-actions">
                         ${wlBtn}
                         <button onclick="IM.addPlan(${t.id})">📅</button>

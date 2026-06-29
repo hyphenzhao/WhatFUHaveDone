@@ -55,7 +55,19 @@ apache2 -v    # 或 nginx -v
 
 ## Quick Start
 
-### 环境要求
+### Docker 一键启动（推荐）
+
+```bash
+git clone https://github.com/hyphenzhao/WhatFUHaveDone.git
+cd WhatFUHaveDone
+docker compose up -d
+```
+
+访问 `http://localhost:8080`。数据库自动初始化，无需手动配置。
+
+### 手动安装
+
+#### 环境要求
 
 - **PHP 8.0+**（需 curl 扩展）
 - **MySQL 8.0+**

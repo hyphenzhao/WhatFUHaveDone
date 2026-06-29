@@ -34,6 +34,11 @@ const AiChat = {
         this.inputEl.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
         });
+        // Auto-resize textarea
+        this.inputEl.addEventListener('input', () => {
+            this.inputEl.style.height = 'auto';
+            this.inputEl.style.height = Math.min(this.inputEl.scrollHeight, 140) + 'px';
+        });
 
         document.getElementById('aiConvSelect').addEventListener('change', () => this._switchConv());
         document.getElementById('aiConvDel').addEventListener('click', () => this._deleteConv());
@@ -119,6 +124,7 @@ const AiChat = {
         this._addMsg('user', text, true);
         this.messages.push({ role: 'user', content: text });
         this.inputEl.value = '';
+        this.inputEl.style.height = 'auto';
         this.isWaiting = true;
         this.sendBtn.disabled = true;
         this._showTyping();

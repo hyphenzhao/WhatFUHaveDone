@@ -4,6 +4,55 @@
 
 ---
 
+## 0. 前置需求
+
+### Ubuntu / Debian
+
+```bash
+# PHP 8.1 + 扩展
+sudo apt update
+sudo apt install -y php8.1 php8.1-cli php8.1-curl php8.1-mysql php8.1-mbstring php8.1-xml
+
+# MySQL 8.0
+sudo apt install -y mysql-server
+sudo mysql_secure_installation
+
+# Apache
+sudo apt install -y apache2
+sudo a2enmod rewrite
+sudo systemctl enable apache2
+```
+
+### macOS
+
+```bash
+# 安装 Homebrew（如已安装跳过）
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# PHP 8.1
+brew install php@8.1
+
+# MySQL 8.0
+brew install mysql
+brew services start mysql
+
+# Nginx（macOS 上更推荐 Nginx）
+brew install nginx
+brew services start nginx
+```
+
+> **macOS 注意**：如果已有系统自带的 Apache，建议改用 Nginx 避免端口冲突。Apache 用户把项目放到 `/Library/WebServer/Documents/` 或修改 `httpd.conf` 指向项目目录。
+
+### 验证安装
+
+```bash
+php -v        # PHP 8.1+
+mysql --version  # MySQL 8.0+
+apache2 -v    # 或 nginx -v
+```
+
+---
+
 ## Quick Start
 
 ### 环境要求
@@ -20,10 +69,21 @@ git clone https://github.com/hyphenzhao/WhatFUHaveDone.git
 cd WhatFUHaveDone
 ```
 
-### 2. 创建数据库
+### 2. 创建数据库与用户
 
 ```bash
-mysql -u root -p < schema.sql
+# 登录 MySQL
+mysql -u root -p
+
+# 创建数据库和用户
+CREATE DATABASE IF NOT EXISTS worklog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'worklog'@'localhost' IDENTIFIED BY 'worklog_pass_2024';
+GRANT ALL PRIVILEGES ON worklog.* TO 'worklog'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+
+# 导入表结构
+mysql -u worklog -pworklog_pass_2024 worklog < schema.sql
 ```
 
 ### 3. 修改配置

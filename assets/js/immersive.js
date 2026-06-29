@@ -123,16 +123,37 @@ const IM = {
         return info;
     },
 
-    async openBazi(type, label) {
-        const btn = document.getElementById('imBazi-' + type);
-        if (btn) { btn.classList.add('loading'); btn.textContent = '⏳'; }
-        const info = await this.getPillarInfo();
-        const pillar = info ? info[type] : null;
-        await analyzeBazi(this.date, type, label, pillar?.gz || '', pillar?.ss || '');
-        this.loadBaziButtons();
-
+    async getExistingAnalysis() {
+        // Same lookup as full mode: check current date + nearby dates
         let analyses = {};
         try { const res = await API.get('/bazi_analysis?date=' + this.date); (res.data||[]).forEach(a => analyses[a.type]=a); } catch(e) {}
+        // Also search nearby dates for 大运/流年/流月
+        if (!analyses['dayun'] || !analyses['liunian'] || !analyses['liuyue']) {
+            const base = new Date(this.date + 'T12:00:00');
+            for (let back = 1; back <= 31; back++) {
+                const prev = new Date(base); prev.setDate(base.getDate() - back);
+                const prevStr = prev.toISOString().split('T')[0];
+                try { const r = await API.get('/bazi_analysis?date=' + prevStr); (r.data||[]).forEach(a => { if (a.type !== 'liuri' && !analyses[a.type]) analyses[a.type] = a; }); } catch(e) {}
+                if (analyses['dayun'] && analyses['liunian'] && analyses['liuyue']) break;
+            }
+        }
+        return analyses;
+    },
+
+    async openBazi(type, label) {
+        const btn = document.getElementById('imBazi-' + type);
+        // Check if analysis already exists (same DB as full mode)
+        let analyses = await this.getExistingAnalysis();
+        if (!analyses[type]) {
+            // Auto-generate
+            if (btn) { btn.classList.add('loading'); btn.textContent = '⏳'; }
+            const info = await this.getPillarInfo();
+            const pillar = info ? info[type] : null;
+            await analyzeBazi(this.date, type, label, pillar?.gz || '', pillar?.ss || '');
+            this.loadBaziButtons();
+            analyses = await this.getExistingAnalysis();
+        }
+
         const a = analyses[type];
         if (a && a.analysis) {
             Modal.open({

@@ -15,6 +15,7 @@ const IM = {
 
     render() {
         const app = document.getElementById('imApp');
+        console.log('immersive render start, imApp:', app);
         app.innerHTML = `
             <div class="im-container">
                 <div class="im-header">
@@ -35,6 +36,7 @@ const IM = {
                     </div>
                 </div>
             </div>`;
+        console.log('immersive render done, imWeather:', document.getElementById('imWeather'), 'imBaziBtns:', document.getElementById('imBaziBtns'));
     },
 
     async loadWeather() {

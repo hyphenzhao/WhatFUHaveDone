@@ -21,13 +21,38 @@ if ($method === 'POST') {
     $size = $file['size'];
     $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
     $content = '';
+    $allowed = ['txt', 'md', 'json', 'pdf'];
+    if (!in_array($ext, $allowed, true)) {
+        json_error('Unsupported file type. Use PDF, TXT, MD, or JSON.');
+    }
 
     if ($ext === 'pdf') {
         // Extract text using pdftotext
         $tmpPath = $file['tmp_name'];
-        $content = shell_exec('pdftotext ' . escapeshellarg($tmpPath) . ' - 2>/dev/null');
+        $pdftotext = null;
+        foreach (['/opt/homebrew/bin/pdftotext', '/usr/local/bin/pdftotext', '/Applications/MAMP/Library/bin/pdftotext'] as $candidate) {
+            if (is_executable($candidate)) {
+                $pdftotext = $candidate;
+                break;
+            }
+        }
+        if ($pdftotext) {
+            $content = shell_exec(escapeshellarg($pdftotext) . ' ' . escapeshellarg($tmpPath) . ' - 2>/dev/null');
+        } else {
+            $autoload = __DIR__ . '/../vendor/autoload.php';
+            if (!is_file($autoload)) {
+                json_error('PDF 解析组件尚未安装；命盘 TXT/MD/JSON 文件可正常上传。');
+            }
+            require_once $autoload;
+            try {
+                $parser = new Smalot\PdfParser\Parser();
+                $content = $parser->parseFile($tmpPath)->getText();
+            } catch (Throwable $e) {
+                json_error('无法解析该 PDF，请确认文件完整且未加密。');
+            }
+        }
         if ($content === null || trim($content) === '') {
-            json_error('Failed to extract text from PDF. Ensure pdftotext is installed.');
+            json_error('无法从该 PDF 提取文字，请确认文件不是扫描图片。');
         }
     } else {
         // Direct read for text files

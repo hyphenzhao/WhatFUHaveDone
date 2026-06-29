@@ -1,0 +1,9 @@
+{
+    "name": "hyphenzhao/what-fu-have-done",
+    "description": "Personal work log and AI assistant application",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "smalot/pdfparser": "^2.12"
+    }
+}

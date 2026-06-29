@@ -192,7 +192,7 @@ function renderAlmanac(dateStr) {
                             ${(() => { let t = meta.solar_term || lunar.getJieQi(); if (!t) { const p = lunar.getPrevJieQi(true); t = p ? p.getName() : ''; } return t ? '<span class="almanac-term">' + escapeHtml(t) + '</span>' : ''; })()}
                         </div>
                         <div class="almanac-ganzhi">
-                            <div class="almanac-gz-row"><span class="almanac-gz-label">年</span>${gz(yGan, yZhi)}<span class="almanac-gz-sx">${escapeHtml(shengXiao)}</span></div>
+                            <div class="almanac-gz-row"><span class="almanac-gz-label">年柱</span>${gz(yGan, yZhi)}<span class="almanac-gz-sx">${escapeHtml(shengXiao)}</span></div>
                     <div class="almanac-gz-row"><span class="almanac-gz-label">月柱</span>${gz(mGan, mZhi)}</div>
                     <div class="almanac-gz-row"><span class="almanac-gz-label">日柱</span>${gz(dGan, dZhi)}</div>
                 </div>

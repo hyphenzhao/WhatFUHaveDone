@@ -49,6 +49,9 @@ button { font-family: inherit; cursor: pointer; }
 .im-w-desc { font-size: 0.85rem; }
 .im-w-detail { font-size: 0.7rem; color: var(--im-text-secondary); }
 .im-clock { font-size: 2.2rem; font-weight: 800; text-align: right; }
+.im-pillars { margin-top: 8px; font-size: 0.78rem; }
+.im-pillar-row { display: flex; align-items: center; gap: 6px; padding: 1px 0; }
+.im-pillar-label { font-size: 0.68rem; color: var(--im-text-secondary); width: 24px; }
 .im-date { font-size: 0.85rem; color: var(--im-text-secondary); text-align: right; }
 
 /* BaZi Buttons */

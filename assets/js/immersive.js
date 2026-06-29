@@ -41,6 +41,21 @@ const IM = {
         try {
             const res = await API.weather.get(this.date);
             const w = res.data;
+            // Compute pillars for display
+            let pillarHtml = '';
+            try {
+                const d = new Date(this.date + 'T12:00:00');
+                const ec = Lunar.fromDate(d).getEightChar();
+                const WX_G = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
+                const WX_Z = {子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'};
+                const WC = {木:'#38a169',火:'#e53e3e',土:'#d97706',金:'#ddb100',水:'#3182ce'};
+                const gzSpan = (g,z) => `<span style="color:${WC[WX_G[g]]||'#ccc'}">${g}</span><span style="color:${WC[WX_Z[z]]||'#ccc'}">${z}</span>`;
+                pillarHtml = `<div class="im-pillars">
+                    <div class="im-pillar-row"><span class="im-pillar-label">年柱</span>${gzSpan(ec.getYearGan(),ec.getYearZhi())}</div>
+                    <div class="im-pillar-row"><span class="im-pillar-label">月柱</span>${gzSpan(ec.getMonthGan(),ec.getMonthZhi())}</div>
+                    <div class="im-pillar-row"><span class="im-pillar-label">日柱</span>${gzSpan(ec.getDayGan(),ec.getDayZhi())}</div>
+                </div>`;
+            } catch(e) {}
             if (w) {
                 el.innerHTML = `
                     <div class="im-w-icon">${w.emoji}</div>
@@ -54,10 +69,11 @@ const IM = {
                         <div class="im-clock" id="imClock">--:--</div>
                         <div class="im-date" id="imDate">--</div>
                         <button onclick="IM.toggleClock()" style="background:none;border:1px solid var(--im-border);color:var(--im-text-secondary);padding:2px 6px;border-radius:4px;font-size:0.65rem;">12h/24h</button>
-                    </div>`;
+                    </div>
+                    ${pillarHtml}`;
                 this.clockTz = w.timezone || 'Asia/Shanghai';
                 this.updateClock();
-            } else { el.innerHTML = '<div class="im-empty">无天气数据</div>'; }
+            } else { el.innerHTML = pillarHtml || '<div class="im-empty">无天气数据</div>'; }
         } catch(e) { el.innerHTML = '<div class="im-empty">天气加载失败</div>'; }
     },
 

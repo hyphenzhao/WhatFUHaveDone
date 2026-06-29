@@ -686,9 +686,9 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     word-break: break-word;
     overflow: hidden;
 }
-.liuri-header { font-weight: 700; font-size: 0.88rem; margin-bottom: 4px; }
-.liuri-ganzhi { font-size: 1.05rem; letter-spacing: 2px; }
-.liuri-analysis { font-size: 0.78rem; line-height: 1.5; color: var(--color-text-secondary); margin-top: 4px; }
+.liuri-header { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+.liuri-ganzhi { font-size: 1.15rem; letter-spacing: 2px; }
+.liuri-analysis { font-size: 0.85rem; line-height: 1.5; color: var(--color-text-secondary); margin-top: 4px; }
 
 /* Toast info variant */
 .toast-info { background: #dbeafe; color: #1e40af; }
@@ -924,11 +924,11 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     flex-shrink: 0;
 }
 .daily-weather {
-    width: 140px;
+    width: 200px;
     flex-shrink: 0;
 }
 .daily-almanac-wrap {
-    width: 220px;
+    width: 300px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -947,16 +947,16 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     text-align: center;
     min-height: 100%;
 }
-.weather-city { font-size: 0.7rem; opacity: 0.85; margin-bottom: 4px; cursor: pointer; }
+.weather-city { font-size: 0.82rem; opacity: 0.85; margin-bottom: 6px; cursor: pointer; }
 .weather-city:hover { opacity: 1; text-decoration: underline; }
 .city-result { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--color-border); font-size: 0.85rem; }
 .city-result:hover { background: var(--color-bg); }
 .city-result:last-child { border-bottom: none; }
-.weather-emoji { font-size: 2.5rem; margin-bottom: 4px; }
-.weather-temp { font-size: 1.8rem; font-weight: 800; line-height: 1.1; }
-.weather-temp-lo { font-size: 0.9rem; font-weight: 400; opacity: 0.8; }
-.weather-desc { font-size: 0.85rem; font-weight: 600; margin: 2px 0; }
-.weather-detail { font-size: 0.68rem; opacity: 0.9; margin-top: 4px; }
+.weather-emoji { font-size: 3.2rem; margin-bottom: 6px; }
+.weather-temp { font-size: 2.2rem; font-weight: 800; line-height: 1.1; }
+.weather-temp-lo { font-size: 1rem; font-weight: 400; opacity: 0.8; }
+.weather-desc { font-size: 0.95rem; font-weight: 600; margin: 2px 0; }
+.weather-detail { font-size: 0.78rem; opacity: 0.9; margin-top: 4px; }
 @media (max-width: 768px) {
     .daily-left-col { flex-direction: column; width: 100%; }
     .daily-weather { width: 100%; }
@@ -1010,9 +1010,9 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     background: linear-gradient(135deg, #fefce8, #fef9c3);
     border: 1px solid #eab308;
     border-radius: var(--radius);
-    padding: 12px;
-    font-size: 0.85rem;
-    line-height: 1.8;
+    padding: 14px;
+    font-size: 0.92rem;
+    line-height: 1.9;
 }
 .almanac-solar { text-align: center; margin-bottom: 6px; }
 .almanac-year { font-size: 1.1rem; font-weight: 700; }

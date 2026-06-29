@@ -6,6 +6,7 @@ let tasksData = { active: [], archived: [] };
 let sortBy = 'priority';
 let filterStage = 'all';
 let isPrioritySort = true;
+let sortAsc = true;
 
 document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('stageFilter').addEventListener('change', (e) => {
@@ -15,6 +16,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('sortSelect').addEventListener('change', (e) => {
         sortBy = e.target.value;
         isPrioritySort = (sortBy === 'priority');
+        loadTasks();
+    });
+    document.getElementById('sortDir').addEventListener('click', () => {
+        sortAsc = !sortAsc;
+        document.getElementById('sortDir').textContent = sortAsc ? '▲' : '▼';
         loadTasks();
     });
     await loadTasks();
@@ -33,7 +39,9 @@ async function loadTasks() {
             activeList = activeList.filter(t => t.stage === filterStage);
         }
         if (sortBy === 'priority') {
-            activeList.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+            activeList.sort((a, b) => sortAsc ? (a.priority||999) - (b.priority||999) : (b.priority||999) - (a.priority||999));
+        } else {
+            activeList.sort((a, b) => sortAsc ? a.id - b.id : b.id - a.id);
         }
         tasksData = { active: activeList, archived: archived.data || [] };
         renderTasksTable(tasksData.active, 'tasksTableBody', false);

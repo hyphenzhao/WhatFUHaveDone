@@ -18,6 +18,7 @@ $page_content = <<<HTML
             <option value="priority">按优先级</option>
             <option value="updated_at">按更新时间</option>
         </select>
+        <button class="btn btn-ghost btn-sm" id="sortDir" title="升序/降序">▲</button>
         <button class="btn btn-primary" onclick="showTaskModal()">＋ 新建任务</button>
     </div>
 </div>

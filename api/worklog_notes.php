@@ -20,14 +20,12 @@ if ($method === 'GET') {
     $latest_all = isset($_GET['latest_all']);
 
     if ($latest_all) {
-        // Return the latest note for every task that has worklogs
-        $sql = "SELECT wl.task_id, wn.content as latest_note
+        // Return the single most recent note per task (across all worklogs)
+        $sql = "SELECT wl.task_id, wn.content as latest_note, MAX(wn.created_at) as note_time
                 FROM worklog_notes wn
                 JOIN work_logs wl ON wn.worklog_id = wl.id
-                WHERE wn.id IN (
-                    SELECT MAX(id) FROM worklog_notes GROUP BY worklog_id
-                )
-                ORDER BY wn.created_at DESC";
+                GROUP BY wl.task_id
+                ORDER BY note_time DESC";
         json_success($db->query($sql)->fetchAll());
     } elseif ($worklog_id) {
         $stmt = $db->prepare('SELECT * FROM worklog_notes WHERE worklog_id = ? ORDER BY created_at ASC');

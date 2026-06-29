@@ -1012,22 +1012,22 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     border: 1px solid #eab308;
     border-radius: var(--radius);
     padding: 14px;
-    font-size: 0.92rem;
-    line-height: 1.9;
+    font-size: 1rem;
+    line-height: 2;
 }
 .almanac-solar { text-align: center; margin-bottom: 6px; }
-.almanac-year { font-size: 1.1rem; font-weight: 700; }
-.almanac-month { font-size: 1.1rem; font-weight: 700; }
-.almanac-day { font-size: 1.4rem; font-weight: 800; color: #e53e3e; }
-.almanac-sep { font-size: 0.75rem; color: var(--color-text-secondary); margin: 0 2px; }
-.almanac-weekday { font-size: 0.85rem; font-weight: 600; margin-left: 6px; }
-.almanac-lunar { text-align: center; margin-bottom: 8px; font-size: 0.82rem; }
+.almanac-year { font-size: 1.4rem; font-weight: 700; }
+.almanac-month { font-size: 1.4rem; font-weight: 700; }
+.almanac-day { font-size: 1.8rem; font-weight: 800; color: #e53e3e; }
+.almanac-sep { font-size: 0.85rem; color: var(--color-text-secondary); margin: 0 2px; }
+.almanac-weekday { font-size: 1rem; font-weight: 600; margin-left: 6px; }
+.almanac-lunar { text-align: center; margin-bottom: 8px; font-size: 0.95rem; }
 .almanac-lunar-text { font-weight: 600; margin: 0 4px; }
-.almanac-term { color: #38a169; font-weight: 700; font-size: 0.78rem; }
-.almanac-ganzhi { font-size: 0.8rem; }
-.almanac-gz-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
-.almanac-gz-label { width: 32px; font-size: 0.72rem; color: var(--color-text-secondary); }
-.almanac-gz-sx { font-size: 0.72rem; color: var(--color-text-secondary); margin-left: 4px; }
+.almanac-term { color: #38a169; font-weight: 700; font-size: 0.9rem; }
+.almanac-ganzhi { font-size: 0.92rem; }
+.almanac-gz-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+.almanac-gz-label { width: 36px; font-size: 0.82rem; color: var(--color-text-secondary); }
+.almanac-gz-sx { font-size: 0.82rem; color: var(--color-text-secondary); margin-left: 4px; }
 @media (max-width: 768px) {
     .daily-body { flex-direction: column; }
     .daily-almanac { width: 100%; }

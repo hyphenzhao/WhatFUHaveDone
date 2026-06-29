@@ -1,7 +1,7 @@
-FROM php:8.1-apache
+FROM php:8.2-apache
 
 # 安装依赖
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --fix-missing \
     libcurl4-openssl-dev \
     poppler-utils \
     && docker-php-ext-install curl mysqli pdo pdo_mysql mbstring \

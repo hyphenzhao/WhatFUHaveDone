@@ -247,7 +247,8 @@ const IM = {
                     html += `<div class="im-card"><div class="im-card-name">📅 ${escapeHtml(t.name)}</div><div class="im-card-tags">${(t.tags||[]).map(tg=>`<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('')}</div></div>`;
                 });
             }
-            html += '</div><div class="im-col"><div class="im-col-title">🔄 进行中 <button class="im-add-task-btn" onclick="IM.showAddTask()">＋</button> <button class="btn btn-ghost btn-sm" onclick="IM.toggleSort()" style="font-size:0.65rem;">${(localStorage.getItem('taskSort')||'priority')==='deadline'?'📅截止':'🔢优先级'}</button></div>';
+            const sortLabel = (localStorage.getItem('taskSort') || 'priority') === 'deadline' ? '📅截止' : '🔢优先级';
+            html += '</div><div class="im-col"><div class="im-col-title">🔄 进行中 <button class="im-add-task-btn" onclick="IM.showAddTask()">＋</button> <button class="btn btn-ghost btn-sm" onclick="IM.toggleSort()" style="font-size:0.65rem;">' + sortLabel + '</button></div>';
             inProgress.sort((a, b) => {
                 const sort = localStorage.getItem('taskSort') || 'priority';
                 if (sort === 'deadline') {

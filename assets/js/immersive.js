@@ -87,9 +87,9 @@ const IM = {
         const clk = document.getElementById('imClock'), date = document.getElementById('imDate');
         if (!clk) return;
         const now = new Date();
-        clk.textContent = this.clockFmt24
-            ? now.toLocaleTimeString('en-US', { timeZone: this.clockTz, hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit' })
-            : now.toLocaleTimeString('en-US', { timeZone: this.clockTz, hour12: true, hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        const t24 = now.toLocaleTimeString('en-US', { timeZone: this.clockTz, hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        const t12 = now.toLocaleTimeString('en-US', { timeZone: this.clockTz, hour12: true, hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        clk.innerHTML = this.clockFmt24 ? t24 : t12.replace(/(AM|PM)/, '<span class="clock-ampm">$1</span>');
         if (date) date.textContent = this.date;
     },
 

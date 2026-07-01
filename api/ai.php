@@ -389,6 +389,57 @@ function get_tool_definitions(): array {
             'requires_confirmation' => false,
             'handler' => 'handle_get_relationships',
         ],
+        // ===== BAZI & CALENDAR =====
+        [
+            'name' => 'get_user_profile',
+            'description' => '获取用户的个人侧写，包含八字四柱、紫微命盘、简历、目标等完整信息',
+            'parameters' => ['type' => 'object', 'properties' => []],
+            'requires_confirmation' => false,
+            'handler' => 'handle_get_user_profile',
+        ],
+        [
+            'name' => 'get_bazi_analysis',
+            'description' => '获取指定日期的八字大运/流年/流月/流日分析。type可选: dayun/liunian/liuyue/liuri。分析包含干支、十神和AI解析文字。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'date' => ['type' => 'string', 'description' => '日期 YYYY-MM-DD（必填）'],
+                    'type' => ['type' => 'string', 'description' => '分析类型: dayun/liunian/liuyue/liuri'],
+                ],
+                'required' => ['date'],
+            ],
+            'requires_confirmation' => false,
+            'handler' => 'handle_get_bazi_analysis',
+        ],
+        [
+            'name' => 'save_bazi_analysis',
+            'description' => '保存或更新指定日期的八字分析。用于AI重新分析后更新流日/流年/流月/大运的解析文字。type必须是dayun/liunian/liuyue/liuri之一。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'date' => ['type' => 'string', 'description' => '日期 YYYY-MM-DD（必填）'],
+                    'type' => ['type' => 'string', 'description' => '分析类型: dayun/liunian/liuyue/liuri（必填）'],
+                    'period_label' => ['type' => 'string', 'description' => '时期标签，如"大运""流年"'],
+                    'gan_zhi' => ['type' => 'string', 'description' => '干支，如"丙午"'],
+                    'shi_shen' => ['type' => 'string', 'description' => '十神'],
+                    'analysis' => ['type' => 'string', 'description' => 'AI解析文字（必填）'],
+                ],
+                'required' => ['date', 'type', 'analysis'],
+            ],
+            'requires_confirmation' => true,
+            'handler' => 'handle_save_bazi_analysis',
+        ],
+        [
+            'name' => 'get_calendar_meta',
+            'description' => '获取指定日期的农历、节气、节假日等黄历信息',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => ['date' => ['type' => 'string', 'description' => '日期 YYYY-MM-DD（必填）']],
+                'required' => ['date'],
+            ],
+            'requires_confirmation' => false,
+            'handler' => 'handle_get_calendar_meta',
+        ],
     ];
 }
 
@@ -573,6 +624,42 @@ function handle_get_relationships(PDO $db, array $args): array {
     return ['people' => $people];
 }
 
+function handle_get_user_profile(PDO $db, array $args): ?array {
+    $stmt = $db->query('SELECT * FROM user_profile WHERE id = 1');
+    return $stmt->fetch() ?: null;
+}
+
+function handle_get_bazi_analysis(PDO $db, array $args): array {
+    $date = $args['date'];
+    $type = $args['type'] ?? null;
+    $sql = 'SELECT * FROM bazi_analysis WHERE date_key = ?';
+    $params = [$date];
+    if ($type) { $sql .= ' AND type = ?'; $params[] = $type; }
+    $sql .= ' ORDER BY FIELD(type,"dayun","liunian","liuyue","liuri"), id';
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+function handle_save_bazi_analysis(PDO $db, array $args): array {
+    $stmt = $db->prepare('INSERT INTO bazi_analysis (date_key, type, period_label, gan_zhi, shi_shen, analysis)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE gan_zhi=VALUES(gan_zhi), shi_shen=VALUES(shi_shen), analysis=VALUES(analysis)');
+    $stmt->execute([
+        $args['date'], $args['type'],
+        $args['period_label'] ?? '', $args['gan_zhi'] ?? '',
+        $args['shi_shen'] ?? '', $args['analysis'],
+    ]);
+    return ['saved' => true];
+}
+
+function handle_get_calendar_meta(PDO $db, array $args): array {
+    $date = $args['date'];
+    $stmt = $db->prepare('SELECT * FROM calendar_meta WHERE date = ?');
+    $stmt->execute([$date]);
+    return $stmt->fetchAll();
+}
+
 // --- Reuse helpers from tasks.php ---
 function get_task_full(PDO $db, int $id): ?array {
     $stmt = $db->prepare('SELECT * FROM tasks WHERE id = ?');
@@ -754,6 +841,17 @@ For EVERY user request, follow this process:
 - Present data in Chinese with appropriate emoji. Use Markdown tables for structured data.
 - For fate analysis or task prioritization, reference the user's BaZi and skills.
 - Be concise but thorough. Answer in Chinese.
+## BAZI SYSTEM
+This app has a full BaZi (八字) fortune analysis system:
+- User's birth chart (四柱) is in the profile (get_user_profile)
+- Daily 大运/流年/流月/流日 pillars are computed and can be read via get_bazi_analysis
+- You can read existing analyses and save new/updated analyses via save_bazi_analysis
+- Calendar metadata (lunar dates, solar terms) is available via get_calendar_meta
+- When the user asks about 流日/流年/流月/大运, use get_bazi_analysis to check existing analysis
+- If the user wants to update an analysis, use save_bazi_analysis (requires confirmation)
+- The save_bazi_analysis tool stores: date, type (dayun/liunian/liuyue/liuri), period_label, gan_zhi, shi_shen, and analysis text
+- Always read the user's profile first before analyzing — their BaZi pillars are needed for correct interpretation
+
 PROMPT;
 
     return ['role' => 'system', 'content' => $prompt . $almanacContext . ($profile ? "\n" . $profile : '') . $skills];

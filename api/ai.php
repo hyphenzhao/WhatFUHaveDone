@@ -389,6 +389,44 @@ function get_tool_definitions(): array {
             'requires_confirmation' => false,
             'handler' => 'handle_get_relationships',
         ],
+        // ===== WEATHER =====
+        [
+            'name' => 'get_weather',
+            'description' => '获取指定日期的天气数据（温度、天气状况、湿度、风速）',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => ['date' => ['type' => 'string', 'description' => '日期 YYYY-MM-DD（必填）']],
+                'required' => ['date'],
+            ],
+            'requires_confirmation' => false,
+            'handler' => 'handle_get_weather',
+        ],
+        // ===== WORKLOG NOTES =====
+        [
+            'name' => 'get_worklog_notes',
+            'description' => '获取某个工作量记录的备注列表',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => ['worklog_id' => ['type' => 'integer', 'description' => '工作量记录ID（必填）']],
+                'required' => ['worklog_id'],
+            ],
+            'requires_confirmation' => false,
+            'handler' => 'handle_get_worklog_notes',
+        ],
+        [
+            'name' => 'add_worklog_note',
+            'description' => '为某个工作量记录添加备注',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'worklog_id' => ['type' => 'integer', 'description' => '工作量记录ID（必填）'],
+                    'content' => ['type' => 'string', 'description' => '备注内容（必填）'],
+                ],
+                'required' => ['worklog_id', 'content'],
+            ],
+            'requires_confirmation' => true,
+            'handler' => 'handle_add_worklog_note',
+        ],
         // ===== BAZI & CALENDAR =====
         [
             'name' => 'get_user_profile',
@@ -651,6 +689,31 @@ function handle_save_bazi_analysis(PDO $db, array $args): array {
         $args['shi_shen'] ?? '', $args['analysis'],
     ]);
     return ['saved' => true];
+}
+
+function handle_get_weather(PDO $db, array $args): array {
+    $date = $args['date'];
+    $stmt = $db->prepare("SELECT data_json FROM weather_cache WHERE date = ? AND city = (SELECT JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.city')) FROM weather_cache WHERE date = '2000-01-01' AND city = '__location__' LIMIT 1)");
+    $stmt->execute([$date]);
+    $row = $stmt->fetch();
+    if ($row) return json_decode($row['data_json'], true) ?: [];
+    // Fallback: get any city's weather for this date
+    $stmt2 = $db->prepare('SELECT data_json FROM weather_cache WHERE date = ? ORDER BY updated_at DESC LIMIT 1');
+    $stmt2->execute([$date]);
+    $row2 = $stmt2->fetch();
+    return $row2 ? (json_decode($row2['data_json'], true) ?: []) : [];
+}
+
+function handle_get_worklog_notes(PDO $db, array $args): array {
+    $stmt = $db->prepare('SELECT * FROM worklog_notes WHERE worklog_id = ? ORDER BY created_at ASC');
+    $stmt->execute([(int)$args['worklog_id']]);
+    return $stmt->fetchAll();
+}
+
+function handle_add_worklog_note(PDO $db, array $args): array {
+    $stmt = $db->prepare('INSERT INTO worklog_notes (worklog_id, content) VALUES (?, ?)');
+    $stmt->execute([(int)$args['worklog_id'], $args['content']]);
+    return ['id' => (int)$db->lastInsertId(), 'content' => $args['content']];
 }
 
 function handle_get_calendar_meta(PDO $db, array $args): array {

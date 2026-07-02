@@ -279,7 +279,9 @@ const IM = {
     },
     async changeStage(taskId, stage) {
         if (!stage) return;
-        try { await API.tasks.update(taskId, { stage, stage_number: 1 }); await this.loadTasks(); if (typeof refreshAll==='function') refreshAll(); Toast.success('已更新'); } catch(e) { Toast.error('操作失败'); }
+        const data = { stage };
+        if (stage === 'completed' || stage === 'stage_complete') data.deadline = '';
+        try { await API.tasks.update(taskId, data); await this.loadTasks(); if (typeof refreshAll==='function') refreshAll(); Toast.success('已更新'); } catch(e) { Toast.error('操作失败'); }
     },
     addPlan(taskId) {
         Modal.open({

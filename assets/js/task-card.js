@@ -142,9 +142,12 @@ const TaskCard = {
         try {
             const task = await API.tasks.get(taskId);
             const data = { name: task.data.name, description: task.data.description || '', stage: newStage, stage_number: task.data.stage_number };
-            // If transitioning to stage_complete from in_progress, increment stage_number
             if (newStage === 'stage_complete' && task.data.stage === 'in_progress') {
                 data.stage_number = task.data.stage_number + 1;
+            }
+            // Clear deadline when completing
+            if (newStage === 'completed' || newStage === 'stage_complete') {
+                data.deadline = '';
             }
             await API.tasks.update(taskId, data);
             if (typeof refreshAll === 'function') await refreshAll();

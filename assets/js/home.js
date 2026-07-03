@@ -286,11 +286,10 @@ async function renderBaziPillars(dateStr) {
     const lySS_G = getShiShenLabel(dayGan, lyG);
     const lySS_Z = getZhiShiShen(dayGan, lyZ);
 
-    const selMonth = selDate.getMonth() + 1;
-    const lnPeriod = lnGz + ' (' + selDate.getFullYear() + '年)';
-    const lyPeriod = lyGz + ' (' + selDate.getFullYear() + '年' + selMonth + '月)';
+    const lunarYear = selLunar.getYear();
 
     let daYunGz = '', daYunPeriod = '';
+    let liuNian = null;
     let dySS_G = '', dySS_Z = '';
     let dyG = '', dyZ = '';
     let hasYun = false;
@@ -322,7 +321,26 @@ async function renderBaziPillars(dateStr) {
         dySS_G = getShiShenLabel(dayGan, dyG);
         dySS_Z = getZhiShiShen(dayGan, dyZ);
         daYunPeriod = daYunGz + ' (' + Math.floor(daYun.getStartAge()) + '-' + Math.floor(daYun.getEndAge()) + '虚岁)';
+        const liuNians = daYun.getLiuNian();
+        let liuNianIdx = -1;
+        for (let i = 0; i < liuNians.length; i++) {
+            if (liuNians[i].getYear() === lunarYear) { liuNianIdx = i; break; }
+        }
+        if (liuNianIdx < 0) liuNianIdx = Math.max(0, Math.floor(xuAge - daYun.getStartAge()));
+        liuNian = liuNians[liuNianIdx];
         hasYun = true;
+    }
+
+    // Period labels based on lunar calendar
+    const lnPeriod = lnGz + ' (' + lunarYear + '年)';
+    let lyPeriod = lyGz;
+    if (hasYun && liuNian) {
+        const liuYues = liuNian.getLiuYue();
+        for (const lly of liuYues) {
+            if (lly.getGanZhi() === lyGz) { lyPeriod = lyGz + ' (' + lunarYear + '年' + lly.getMonthInChinese() + ')'; break; }
+        }
+    } else {
+        lyPeriod = lyGz + ' (' + lunarYear + '年' + selLunar.getMonthInChinese() + ')';
     }
 
     // Fetch existing analyses — search nearby dates for same pillars

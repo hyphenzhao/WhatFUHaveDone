@@ -107,6 +107,7 @@ $current_page = $current_page ?? 'home';
     <script src="/assets/js/task-card.js"></script>
     <script src="/assets/js/calendar.js"></script>
     <script src="/assets/js/ai-assistant.js"></script>
+    <script src="/assets/js/mood-note.js"></script>
     <script src="/assets/js/home.js"></script>
     <?php elseif ($current_page === 'people'): ?>
     <script src="/assets/js/people.js"></script>

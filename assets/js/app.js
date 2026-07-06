@@ -68,6 +68,7 @@ const App = {
 
     setDate(dateStr) {
         this.selectedDate = dateStr;
+        document.dispatchEvent(new CustomEvent('app:datechange', { detail: { date: dateStr } }));
     },
 };
 

@@ -107,6 +107,12 @@ const API = {
         remove(id) { return API.delete(`/worklog_notes/${id}`); },
     },
 
+    // --- Daily Mood Notes ---
+    moodNotes: {
+        get(date) { return API.get(`/mood_notes?date=${encodeURIComponent(date)}`); },
+        save(date, mood, content) { return API.post('/mood_notes', { date, mood, content }); },
+    },
+
     // --- Weather ---
     weather: {
         get(date, city, lat, lon) {

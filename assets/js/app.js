@@ -96,6 +96,16 @@ function starHtml(name, val) {
 function getStarVal(id) { return document.querySelectorAll('#' + id + ' .star.filled').length; }
 function setStar(id, v) { const el = document.getElementById(id); if (!el) return; el.querySelectorAll('.star').forEach((s, i) => s.classList.toggle('filled', i < v)); }
 
+function timeAgo(dateStr) {
+    if (!dateStr) return '';
+    const diff = (new Date() - new Date(dateStr.replace(' ', 'T') + 'Z')) / 1000;
+    if (diff < 60) return '刚刚';
+    if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
+    if (diff < 86400) return Math.floor(diff / 3600) + '小时前';
+    if (diff < 2592000) return Math.floor(diff / 86400) + '天前';
+    return Math.floor(diff / 2592000) + '个月前';
+}
+
 function getDeadlineBadge(deadline) {
     if (!deadline) return '';
     if (deadline === '自由') return '<span class="deadline-badge deadline-free">自由</span>';

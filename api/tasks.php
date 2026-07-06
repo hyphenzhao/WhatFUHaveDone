@@ -144,6 +144,9 @@ if (in_array($f, ['stage_number', 'priority', 'importance', 'necessity'])) $para
         }
     }
     if ($fields) {
+        if (array_key_exists('stage', $data)) {
+            $fields[] = 'stage_changed_at = NOW()';
+        }
         $params[] = $id;
         $db->prepare('UPDATE tasks SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
     }

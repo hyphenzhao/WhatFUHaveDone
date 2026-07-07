@@ -268,10 +268,6 @@ const TaskCard = {
                     <label>等级</label>
                     <input type="text" class="form-input" id="newResultLevel" placeholder="如: A, B, C">
                 </div>
-                <div class="form-group">
-                    <label>耗时（可选）</label>
-                    <input type="text" class="form-input" id="resultDuration" placeholder="如: 2h / 30m / 1.5h">
-                </div>
             `,
             footer: `
                 <button class="btn btn-ghost" onclick="Modal.close()">取消</button>
@@ -309,7 +305,6 @@ const TaskCard = {
                         task_id: taskId,
                         result_id: resultId,
                         date: date,
-                        duration: document.getElementById('resultDuration').value.trim(),
                     }),
                 });
 

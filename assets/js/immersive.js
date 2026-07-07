@@ -219,9 +219,12 @@ const IM = {
                     : '';
                 const noteHtml = note ? `<div class="im-card-note">📝 ${escapeHtml(note)}</div>` : '';
                 const deadlineHtml = typeof getDeadlineBadge !== 'undefined' ? getDeadlineBadge(t.deadline) : '';
+                const dur = t.duration || '';
+                const durHtml = showWorklog ? `<span class="im-dur-tag" onclick="showDurPicker(${(t.work_log_id||0)},'${escapeHtml(dur)}')">${dur?'⏱️ '+escapeHtml(dur):'⏱️ 耗时'}</span>` : '';
                 return `<div class="im-card">
                     <div class="im-card-name">${escapeHtml(t.name)}${deadlineHtml}</div>
                     <div class="im-card-tags">${tags}</div>
+                    ${durHtml}
                     ${noteHtml}
                     <div class="im-card-actions">
                         ${wlBtn}
@@ -244,7 +247,10 @@ const IM = {
                     html += `<div class="im-card"><div class="im-card-name">🏆 ${escapeHtml(t.name)}</div><div class="im-card-tags">${(t.tags||[]).map(tg=>`<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('')}</div></div>`;
                 });
                 planTasks.forEach(t => {
-                    html += `<div class="im-card"><div class="im-card-name">📅 ${escapeHtml(t.name)}</div><div class="im-card-tags">${(t.tags||[]).map(tg=>`<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('')}</div></div>`;
+                    const pt = t.plan_time || '';
+                    const pet = t.plan_end_time || '';
+                    const timeLabel = pt ? '⏰ ' + (pt + (pet ? '-' + pet : '')) : '📅 全天';
+                    html += `<div class="im-card"><div class="im-card-name">📅 ${escapeHtml(t.name)}</div><div class="im-card-tags">${(t.tags||[]).map(tg=>`<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('')}</div><span class="im-dur-tag" onclick="showPlanTimePicker(${t.plan_id},'${escapeHtml(pt)}','${escapeHtml(pet)}')">${timeLabel}</span><button class="plan-exec-btn" onclick="execPlan(${t.id},'${IM.date}',${t.plan_id})" style="margin-left:4px;" title="标记已执行">✓</button></div>`;
                 });
             }
             const sortLabel = (localStorage.getItem('taskSort') || 'priority') === 'deadline' ? '📅截止' : '🔢优先级';

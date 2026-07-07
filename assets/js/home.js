@@ -831,7 +831,17 @@ async function loadDailyStatus(date) {
 
         planTasks.forEach(t => {
             const tags = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${tg.color}">${tg.name}</span>`).join('');
-            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>📅 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">计划任务</div></div><button class="daily-card-close" onclick="cancelPlan(${t.plan_id})" title="取消">✕</button></div></div>`;
+            let timeLabel = '全天';
+            if (t.plan_time) {
+                const fmtTime = (tm) => {
+                    if (!tm) return '';
+                    if (clockFmt24) return tm;
+                    const [h, m] = tm.split(':'); const hh = parseInt(h);
+                    return (hh > 12 ? hh - 12 : hh === 0 ? 12 : hh) + ':' + m + (hh >= 12 ? ' PM' : ' AM');
+                };
+                timeLabel = fmtTime(t.plan_time) + (t.plan_end_time ? ' - ' + fmtTime(t.plan_end_time) : '');
+            }
+            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>📅 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">${t.plan_time ? '⏰ ' + timeLabel : '📅 全天'}</div></div><button class="daily-card-close" onclick="cancelPlan(${t.plan_id})" title="取消">✕</button></div></div>`;
         });
 
         container.innerHTML = html || '<div class="no-daily-data">📭 当日暂无记录</div>';

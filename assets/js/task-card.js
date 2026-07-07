@@ -212,21 +212,20 @@ const TaskCard = {
         Modal.open({
             title: '添加计划',
             body: `
-                <div class="form-group">
-                    <label>选择计划日期</label>
-                    <input type="date" class="form-input" id="planDateInput" value="${App.selectedDate}">
+                <div class="form-group"><label>计划日期</label><input type="date" class="form-input" id="planDateInput" value="${App.selectedDate}"></div>
+                <div class="form-row-2">
+                    <div class="form-group"><label>开始时间</label><input type="time" class="form-input" id="planTimeInput"></div>
+                    <div class="form-group"><label>结束时间（可选）</label><input type="time" class="form-input" id="planEndTimeInput"></div>
                 </div>
+                <div style="font-size:0.72rem;color:var(--color-text-secondary);">留空=全天任务</div>
             `,
-            footer: `
-                <button class="btn btn-ghost" onclick="Modal.close()">取消</button>
-                <button class="btn btn-primary" id="confirmPlan">确认添加</button>
-            `,
+            footer: `<button class="btn btn-ghost" onclick="Modal.close()">取消</button><button class="btn btn-primary" id="confirmPlan">确认添加</button>`,
         });
         document.getElementById('confirmPlan').addEventListener('click', async () => {
             const plannedDate = document.getElementById('planDateInput').value;
             if (!plannedDate) { Toast.error('请选择日期'); return; }
             try {
-                await API.plans.add(taskId, plannedDate);
+                await API.plans.add(taskId, plannedDate, document.getElementById('planTimeInput').value, document.getElementById('planEndTimeInput').value);
                 Modal.close();
                 if (typeof refreshAll === 'function') await refreshAll();
                 Toast.success('计划已添加');

@@ -116,7 +116,7 @@ if ($type === 'daily') {
     $result_tasks = $stmt->fetchAll();
 
     // Tasks planned for this date
-    $sql = "SELECT t.*, p.id as plan_id
+    $sql = "SELECT t.*, p.id as plan_id, p.plan_time, p.plan_end_time
             FROM tasks t
             JOIN plans p ON t.id = p.task_id
             WHERE p.planned_date = ? AND t.archived = 0";

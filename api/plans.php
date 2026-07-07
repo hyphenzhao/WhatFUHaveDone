@@ -41,13 +41,17 @@ if ($method === 'POST') {
     if (!$task_id) json_error('task_id required');
     if (!$planned_date || !validate_date($planned_date)) json_error('Valid planned_date required (YYYY-MM-DD)');
 
-    $stmt = $db->prepare('INSERT INTO plans (task_id, planned_date) VALUES (?, ?)');
-    $stmt->execute([$task_id, $planned_date]);
+    $plan_time = optional_string($data, 'plan_time');
+    $plan_end_time = optional_string($data, 'plan_end_time');
+    $stmt = $db->prepare('INSERT INTO plans (task_id, planned_date, plan_time, plan_end_time) VALUES (?, ?, ?, ?)');
+    $stmt->execute([$task_id, $planned_date, $plan_time, $plan_end_time]);
 
     json_success([
         'id' => (int)$db->lastInsertId(),
         'task_id' => $task_id,
         'planned_date' => $planned_date,
+        'plan_time' => $plan_time,
+        'plan_end_time' => $plan_end_time,
     ], 'Plan added');
 }
 

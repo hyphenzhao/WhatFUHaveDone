@@ -285,11 +285,13 @@ const IM = {
     },
     addPlan(taskId) {
         Modal.open({
-            title: '添加计划', body: `<input type="date" class="form-input" id="imPlanDate" value="${this.date}">`,
+            title: '添加计划',
+            body: `<div class="form-group"><label>日期</label><input type="date" class="form-input" id="imPlanDate" value="${this.date}"></div>
+                <div class="form-row-2"><div><label>开始时间</label><input type="time" class="form-input" id="imPlanTime"></div><div><label>结束时间</label><input type="time" class="form-input" id="imPlanEndTime"></div></div>`,
             footer: '<button class="btn btn-ghost" onclick="Modal.close()">取消</button><button class="btn btn-primary" id="imPlanOk">确认</button>',
         });
         document.getElementById('imPlanOk').addEventListener('click', async () => {
-            try { await API.plans.add(taskId, document.getElementById('imPlanDate').value); Modal.close(); await this.loadTasks(); } catch(e) { Toast.error('失败'); }
+            try { await API.plans.add(taskId, document.getElementById('imPlanDate').value, document.getElementById('imPlanTime').value, document.getElementById('imPlanEndTime').value); Modal.close(); await this.loadTasks(); } catch(e) { Toast.error('失败'); }
         });
     },
     openAiChat() {

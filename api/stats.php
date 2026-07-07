@@ -106,7 +106,7 @@ if ($type === 'daily') {
     $work_tasks = $stmt->fetchAll();
 
     // Tasks with results logged on this date
-    $sql = "SELECT t.*, rl.id as result_log_id, rl.result_id, r.name as result_name
+    $sql = "SELECT t.*, rl.id as result_log_id, rl.result_id, rl.duration, r.name as result_name
             FROM tasks t
             JOIN result_logs rl ON t.id = rl.task_id
             JOIN results r ON rl.result_id = r.id

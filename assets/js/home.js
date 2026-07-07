@@ -826,7 +826,8 @@ async function loadDailyStatus(date) {
 
         resultTasks.forEach(t => {
             const tags = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${tg.color}">${tg.name}</span>`).join('');
-            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>🏆 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">产出: ${escapeHtml(t.result_name || '')}</div></div><button class="daily-card-close" onclick="cancelResultLog(${t.result_log_id})" title="取消">✕</button></div></div>`;
+            const dur = t.duration ? ' · ⏱️ ' + escapeHtml(t.duration) : '';
+            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>🏆 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">产出: ${escapeHtml(t.result_name || '')}${dur}</div></div><button class="daily-card-close" onclick="cancelResultLog(${t.result_log_id})" title="取消">✕</button></div></div>`;
         });
 
         planTasks.forEach(t => {

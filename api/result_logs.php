@@ -43,8 +43,9 @@ if ($method === 'POST') {
     if (!$result_id) json_error('result_id required');
     if (!validate_date($date)) json_error('Invalid date format (YYYY-MM-DD)');
 
-    $stmt = $db->prepare('INSERT INTO result_logs (task_id, result_id, log_date) VALUES (?, ?, ?)');
-    $stmt->execute([$task_id, $result_id, $date]);
+    $duration = optional_string($data, 'duration');
+    $stmt = $db->prepare('INSERT INTO result_logs (task_id, result_id, log_date, duration) VALUES (?, ?, ?, ?)');
+    $stmt->execute([$task_id, $result_id, $date, $duration]);
 
     // Also link result to task in task_results if not already linked
     $check = $db->prepare('SELECT 1 FROM task_results WHERE task_id = ? AND result_id = ?');

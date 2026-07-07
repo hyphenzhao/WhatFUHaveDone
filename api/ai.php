@@ -339,6 +339,7 @@ function get_tool_definitions(): array {
                     'task_id' => ['type' => 'integer', 'description' => '任务ID（必填）'],
                     'result_id' => ['type' => 'integer', 'description' => '成果ID（必填）'],
                     'date' => ['type' => 'string', 'description' => '日期 YYYY-MM-DD'],
+                    'duration' => ['type' => 'string', 'description' => '耗时，如: 2h / 30m / 1.5h（可选）'],
                 ],
                 'required' => ['task_id', 'result_id'],
             ],
@@ -621,8 +622,9 @@ function handle_add_plan(PDO $db, array $args): array {
 }
 
 function handle_add_result_log(PDO $db, array $args): array {
-    $stmt = $db->prepare('INSERT INTO result_logs (task_id, result_id, log_date) VALUES (?, ?, ?)');
-    $stmt->execute([(int)$args['task_id'], (int)$args['result_id'], $args['date'] ?? today()]);
+    $duration = $args['duration'] ?? '';
+    $stmt = $db->prepare('INSERT INTO result_logs (task_id, result_id, log_date, duration) VALUES (?, ?, ?, ?)');
+    $stmt->execute([(int)$args['task_id'], (int)$args['result_id'], $args['date'] ?? today(), $duration]);
     return ['id' => (int)$db->lastInsertId()];
 }
 

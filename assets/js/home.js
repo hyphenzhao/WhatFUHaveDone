@@ -773,7 +773,30 @@ async function loadWorklogNotes(wlId) {
     } catch(e) {}
 }
 async function setWorklogDuration(wlId, duration) {
-    try { await fetch('/api/worklogs', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id: wlId, duration}) }); } catch(e) {}
+    try { await fetch('/api/worklogs', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id: wlId, duration}) }); refreshAll(); } catch(e) {}
+}
+
+function showDurPicker(wlId, current) {
+    const presets = ['1h','1.5h','2h','2.5h','3h','3.5h','4h','5h','6h','7h','8h'];
+    const now = new Date();
+    const curH = String(now.getHours()).padStart(2,'0'), curM = String(now.getMinutes()).padStart(2,'0');
+    Modal.open({
+        title: '⏱️ 选择耗时',
+        body: `
+            <div style="margin-bottom:8px;"><strong>快捷时长</strong></div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+                ${presets.map(p => `<span class="dur-chip${current===p?' selected':''}" onclick="setWorklogDuration(${wlId},'${p}');Modal.close()">${p}</span>`).join('')}
+                <span class="dur-chip" onclick="setWorklogDuration(${wlId},'');Modal.close()">清除</span>
+            </div>
+            <div style="margin-bottom:8px;"><strong>时间段</strong></div>
+            <div style="display:flex;gap:6px;align-items:center;">
+                <input type="time" class="form-input" id="durStart" value="${current&&current.includes('-')?current.split('-')[0]:curH+':'+curM}" style="flex:1;">
+                <span>至</span>
+                <input type="time" class="form-input" id="durEnd" value="${current&&current.includes('-')?current.split('-')[1]:''}" style="flex:1;">
+                <button class="btn btn-primary btn-sm" onclick="const s=document.getElementById('durStart').value,e=document.getElementById('durEnd').value;if(s&&e){setWorklogDuration(${wlId},s+'-'+e);Modal.close();}">确认</button>
+            </div>`,
+        footer: '<button class="btn btn-ghost" onclick="Modal.close()">取消</button>',
+    });
 }
 
 async function addWorklogNote(wlId) {
@@ -823,9 +846,9 @@ async function loadDailyStatus(date) {
             const wlId = t.work_log_id;
             const tags = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${tg.color}">${tg.name}</span>`).join('');
             const dur = t.duration || '';
-            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>💪 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">工作量 +1${dur ? ' · ⏱️ ' + escapeHtml(dur) : ''}</div>
+            const durLabel = dur ? '⏱️ ' + escapeHtml(dur) : '⏱️ 耗时';
+            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>💪 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">工作量 +1 · <span class="wl-dur-tag" onclick="showDurPicker(${wlId},'${escapeHtml(dur)}')">${durLabel}</span></div>
                 <div class="wl-notes" id="wl-notes-${wlId}"></div>
-                <div class="wl-dur"><input class="wl-dur-input" id="wl-dur-${wlId}" placeholder="耗时(如2h)" value="${escapeHtml(t.duration||'')}" onchange="setWorklogDuration(${wlId},this.value)"></div>
                 <div class="wl-note-add"><input class="wl-note-input" id="wl-input-${wlId}" placeholder="添加备注..." maxlength="200" onkeydown="if(event.key==='Enter')addWorklogNote(${wlId})"><button class="wl-note-btn" onclick="addWorklogNote(${wlId})">+</button></div>
             </div><button class="daily-card-close" onclick="cancelWorklog(${t.id},'${date}')" title="取消">✕</button></div></div>`;
         });

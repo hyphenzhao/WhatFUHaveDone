@@ -1521,3 +1521,10 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .deadline-normal { background: #fff; color: #333; border: 1.5px solid #333; }
 .deadline-overdue { background: #991b1b; color: #fff; }
 .task-tags-left { display: flex; gap: 4px; flex-wrap: wrap; } .task-tags-right { flex-shrink: 0; }
+
+/* Duration tag */
+.wl-dur-tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 0.7rem; cursor: pointer; background: #f0fdf4; color: #166534; border: 1px solid #86efac; margin-left: 4px; }
+.wl-dur-tag:hover { background: #dcfce7; }
+.dur-chip { display: inline-block; padding: 4px 12px; border-radius: 16px; font-size: 0.8rem; cursor: pointer; background: #f0f4f8; border: 1px solid #cbd5e1; }
+.dur-chip:hover { background: #e2e8f0; }
+.dur-chip.selected { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }

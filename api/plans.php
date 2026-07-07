@@ -55,6 +55,19 @@ if ($method === 'POST') {
     ], 'Plan added');
 }
 
+// PUT /api/plans/{id} — update time
+if ($method === 'PUT') {
+    $parts = get_path_parts();
+    $id = isset($parts[2]) ? (int)$parts[2] : 0;
+    if (!$id) json_error('ID required');
+    $data = get_json_input();
+    $fields = []; $params = [];
+    if (array_key_exists('plan_time', $data)) { $fields[] = 'plan_time = ?'; $params[] = $data['plan_time']; }
+    if (array_key_exists('plan_end_time', $data)) { $fields[] = 'plan_end_time = ?'; $params[] = $data['plan_end_time']; }
+    if ($fields) { $params[] = $id; $db->prepare('UPDATE plans SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params); }
+    json_success(null, 'Plan updated');
+}
+
 // DELETE /api/plans/{id} — remove plan
 if ($method === 'DELETE') {
     $parts = get_path_parts();

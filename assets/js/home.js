@@ -776,6 +776,25 @@ async function setWorklogDuration(wlId, duration) {
     try { await fetch('/api/worklogs', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id: wlId, duration}) }); refreshAll(); } catch(e) {}
 }
 
+function showPlanTimePicker(planId, pt, pet) {
+    Modal.open({
+        title: '⏰ 设置计划时间',
+        body: `<div style="display:flex;gap:6px;align-items:center;">
+            <input type="time" class="form-input" id="ptStart" value="${pt}" style="flex:1;" placeholder="开始">
+            <span>至</span>
+            <input type="time" class="form-input" id="ptEnd" value="${pet}" style="flex:1;" placeholder="结束(可选)">
+        </div>
+        <div style="margin-top:8px;display:flex;gap:6px;">
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ptStart').value='';document.getElementById('ptEnd').value='';savePlanTime(${planId},'','');Modal.close();">📅 全天</button>
+            <button class="btn btn-primary btn-sm" onclick="savePlanTime(${planId},document.getElementById('ptStart').value,document.getElementById('ptEnd').value);Modal.close();">确认</button>
+        </div>`,
+        footer: '<button class="btn btn-ghost" onclick="Modal.close()">取消</button>',
+    });
+}
+async function savePlanTime(id, pt, pet) {
+    try { await API.put('/plans/' + id, { plan_time: pt, plan_end_time: pet }); refreshAll(); } catch(e) {}
+}
+
 function showDurPicker(wlId, current) {
     const presets = ['1h','1.5h','2h','2.5h','3h','3.5h','4h','5h','6h','7h','8h'];
     const now = new Date();
@@ -871,7 +890,8 @@ async function loadDailyStatus(date) {
                 };
                 timeLabel = fmtTime(t.plan_time) + (t.plan_end_time ? ' - ' + fmtTime(t.plan_end_time) : '');
             }
-            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>📅 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">${t.plan_time ? '⏰ ' + timeLabel : '📅 全天'}</div></div><button class="daily-card-close" onclick="cancelPlan(${t.plan_id})" title="取消">✕</button></div></div>`;
+            const planTimeTag = `<span class="wl-dur-tag" onclick="showPlanTimePicker(${t.plan_id},'${escapeHtml(t.plan_time||'')}','${escapeHtml(t.plan_end_time||'')}')" style="margin-left:4px;">${t.plan_time ? '⏰ ' + timeLabel : '📅 全天'}</span>`;
+            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>📅 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">${planTimeTag}</div></div><button class="daily-card-close" onclick="cancelPlan(${t.plan_id})" title="取消">✕</button></div></div>`;
         });
 
         container.innerHTML = html || '<div class="no-daily-data">📭 当日暂无记录</div>';

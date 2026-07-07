@@ -317,17 +317,33 @@ function get_tool_definitions(): array {
         // ===== PLANS =====
         [
             'name' => 'add_plan',
-            'description' => '为任务添加计划日期',
+            'description' => '为任务添加计划。可指定具体时间或时间段。开始时间和结束时间留空表示全天任务。',
             'parameters' => [
                 'type' => 'object',
                 'properties' => [
                     'task_id' => ['type' => 'integer', 'description' => '任务ID（必填）'],
                     'planned_date' => ['type' => 'string', 'description' => '计划日期 YYYY-MM-DD（必填）'],
+                    'plan_time' => ['type' => 'string', 'description' => '开始时间 HH:MM（可选，留空=全天）'],
+                    'plan_end_time' => ['type' => 'string', 'description' => '结束时间 HH:MM（可选，留空=单点时间）'],
                 ],
                 'required' => ['task_id', 'planned_date'],
             ],
             'requires_confirmation' => true,
             'handler' => 'handle_add_plan',
+        ],
+        [
+            'name' => 'update_worklog_duration',
+            'description' => '设置某条工作量记录的耗时。duration可以是时长(如2h,1.5h)或时间段(如14:00-16:00)',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer', 'description' => '工作量记录ID（必填）'],
+                    'duration' => ['type' => 'string', 'description' => '耗时（必填）'],
+                ],
+                'required' => ['id', 'duration'],
+            ],
+            'requires_confirmation' => true,
+            'handler' => 'handle_update_worklog_duration',
         ],
         // ===== RESULT LOGS =====
         [
@@ -615,9 +631,17 @@ function handle_get_worklogs_by_date(PDO $db, array $args): array {
 }
 
 function handle_add_plan(PDO $db, array $args): array {
-    $stmt = $db->prepare('INSERT INTO plans (task_id, planned_date) VALUES (?, ?)');
-    $stmt->execute([(int)$args['task_id'], $args['planned_date']]);
+    $pt = $args['plan_time'] ?? '';
+    $pet = $args['plan_end_time'] ?? '';
+    $stmt = $db->prepare('INSERT INTO plans (task_id, planned_date, plan_time, plan_end_time) VALUES (?, ?, ?, ?)');
+    $stmt->execute([(int)$args['task_id'], $args['planned_date'], $pt, $pet]);
     return ['id' => (int)$db->lastInsertId(), 'task_id' => (int)$args['task_id'], 'planned_date' => $args['planned_date']];
+}
+
+function handle_update_worklog_duration(PDO $db, array $args): array {
+    $stmt = $db->prepare('UPDATE work_logs SET duration = ? WHERE id = ?');
+    $stmt->execute([$args['duration'], (int)$args['id']]);
+    return ['updated' => true];
 }
 
 function handle_add_result_log(PDO $db, array $args): array {

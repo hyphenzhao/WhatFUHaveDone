@@ -757,6 +757,21 @@ async function cancelWorklog(taskId, date) {
 async function cancelResultLog(logId) {
     try { await API.resultLogs.remove(logId); refreshAll(); } catch(e) { Toast.error('取消失败'); }
 }
+async function execPlan(taskId, date, planId) {
+    try {
+        // Add worklog
+        const wlRes = await API.worklogs.toggle(taskId, date);
+        if (wlRes.data && wlRes.data.id) {
+            // Add auto note
+            await API.worklogNotes.add(wlRes.data.id, '已按计划执行');
+        }
+        // Delete the plan
+        await API.plans.remove(planId);
+        refreshAll();
+        Toast.success('已执行');
+    } catch(e) { Toast.error('操作失败'); }
+}
+
 async function cancelPlan(planId) {
     try { await API.plans.remove(planId); refreshAll(); } catch(e) { Toast.error('取消失败'); }
 }
@@ -891,7 +906,7 @@ async function loadDailyStatus(date) {
                 timeLabel = fmtTime(t.plan_time) + (t.plan_end_time ? ' - ' + fmtTime(t.plan_end_time) : '');
             }
             const planTimeTag = `<span class="wl-dur-tag" onclick="showPlanTimePicker(${t.plan_id},'${escapeHtml(t.plan_time||'')}','${escapeHtml(t.plan_end_time||'')}')" style="margin-left:4px;">${t.plan_time ? '⏰ ' + timeLabel : '📅 全天'}</span>`;
-            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>📅 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">${planTimeTag}</div></div><button class="daily-card-close" onclick="cancelPlan(${t.plan_id})" title="取消">✕</button></div></div>`;
+            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>📅 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">${planTimeTag}</div></div><div style="display:flex;flex-direction:column;gap:4px;"><button class="plan-exec-btn" onclick="execPlan(${t.id},'${date}',${t.plan_id})" title="标记为已执行">✓</button><button class="daily-card-close" onclick="cancelPlan(${t.plan_id})" title="取消">✕</button></div></div></div>`;
         });
 
         container.innerHTML = html || '<div class="no-daily-data">📭 当日暂无记录</div>';

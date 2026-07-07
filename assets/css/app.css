@@ -1044,6 +1044,9 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .wl-note-add { display: flex; gap: 4px; margin-top: 4px; }
 .wl-note-input { flex: 1; padding: 3px 6px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 0.72rem; background: var(--color-surface); }
 .wl-note-input:focus { outline: none; border-color: var(--color-primary); }
+.wl-dur { margin-top: 4px; }
+.wl-dur-input { width: 100%; padding: 2px 6px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 0.68rem; background: var(--color-surface); text-align: right; }
+.wl-dur-input:focus { outline: none; border-color: var(--color-primary); }
 .wl-note-btn { padding: 3px 8px; border: 1px solid var(--color-primary); border-radius: var(--radius-sm); background: var(--color-primary); color: #fff; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
 .wl-note-btn:hover { opacity: 0.9; }
 /* Almanac (黄历) card */

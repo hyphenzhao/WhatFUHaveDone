@@ -772,6 +772,10 @@ async function loadWorklogNotes(wlId) {
         `).join('');
     } catch(e) {}
 }
+async function setWorklogDuration(wlId, duration) {
+    try { await fetch('/api/worklogs', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id: wlId, duration}) }); } catch(e) {}
+}
+
 async function addWorklogNote(wlId) {
     const input = document.getElementById('wl-input-' + wlId);
     if (!input) return;
@@ -818,8 +822,10 @@ async function loadDailyStatus(date) {
         workTasks.forEach(t => {
             const wlId = t.work_log_id;
             const tags = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${tg.color}">${tg.name}</span>`).join('');
-            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>💪 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">工作量 +1</div>
+            const dur = t.duration || '';
+            html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>💪 ${escapeHtml(t.name)}</h4>${tags ? tags : ''}<div class="daily-card-meta">工作量 +1${dur ? ' · ⏱️ ' + escapeHtml(dur) : ''}</div>
                 <div class="wl-notes" id="wl-notes-${wlId}"></div>
+                <div class="wl-dur"><input class="wl-dur-input" id="wl-dur-${wlId}" placeholder="耗时(如2h)" value="${escapeHtml(t.duration||'')}" onchange="setWorklogDuration(${wlId},this.value)"></div>
                 <div class="wl-note-add"><input class="wl-note-input" id="wl-input-${wlId}" placeholder="添加备注..." maxlength="200" onkeydown="if(event.key==='Enter')addWorklogNote(${wlId})"><button class="wl-note-btn" onclick="addWorklogNote(${wlId})">+</button></div>
             </div><button class="daily-card-close" onclick="cancelWorklog(${t.id},'${date}')" title="取消">✕</button></div></div>`;
         });

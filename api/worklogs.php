@@ -33,6 +33,18 @@ if ($method === 'GET') {
     }
 }
 
+// PUT /api/worklogs — update duration
+if ($method === 'PUT') {
+    $data = get_json_input();
+    $id = (int)($data['id'] ?? 0);
+    $duration = optional_string($data, 'duration');
+    if ($id) {
+        $db->prepare('UPDATE work_logs SET duration = ? WHERE id = ?')->execute([$duration, $id]);
+        json_success(null, 'Duration updated');
+    }
+    json_error('id required');
+}
+
 // POST /api/worklogs — toggle
 if ($method === 'POST') {
     $data = get_json_input();

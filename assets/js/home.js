@@ -371,10 +371,28 @@ async function renderBaziPillars(dateStr) {
     } catch(e) {}
 
     // Helper: render pillar card with dual 十神
-    function pillarCard(type, label, icon, period, g, z, ss_g, ss_z, existing, dateStr) {
+    function refreshBaziCard(dateStr, type, label, gz, ss, analysis) {
+    // Find the card element by type
+    const el = document.getElementById('baziCard-' + type);
+    if (!el) return renderBaziPillars(dateStr);
+    const g = gz[0] || '', z = gz[1] || '';
+    const ssLabel = ss || '';
+    el.querySelector('.bazi-card-analysis')?.remove();
+    el.querySelector('.bazi-typing')?.remove();
+    el.querySelector('button')?.remove();
+    // Remove any progress indicator
+    const prog = el.querySelector('.bazi-progress');
+    if (prog) prog.remove();
+    const analysisDiv = document.createElement('div');
+    analysisDiv.className = 'bazi-card-analysis';
+    analysisDiv.innerHTML = md(analysis) + `<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','${type}','${label}','${gz}','${ssLabel}')" style="margin-top:4px;">🔄 重新分析</button>`;
+    el.appendChild(analysisDiv);
+}
+
+function pillarCard(type, label, icon, period, g, z, ss_g, ss_z, existing, dateStr) {
         const gz = g + z;
         const ssLabel = [ss_g, ss_z].filter(Boolean).join(' / ');
-        return `<div class="bazi-pillar-card">
+        return `<div class="bazi-pillar-card" id="baziCard-${type}">
             <div class="bazi-card-header">
                 <span class="bazi-card-icon">${icon}</span>
                 <strong>${label}</strong>
@@ -467,14 +485,14 @@ async function analyzeBazi(dateStr, type, label, gz, ss) {
             await API.post('/bazi_analysis', {
                 date_key: dateStr, type: type, period_label: label, gan_zhi: gz, shi_shen: ss, analysis: data.content
             });
-            // Final render with proper Markdown
-            renderBaziPillars(dateStr);
+            // Refresh only the analyzed card, not the whole section
+            refreshBaziCard(dateStr, type, label, gz, ss, data.content);
         }
     } catch(e) {
         console.error('BaZi analysis error:', e);
         const progressEl = document.getElementById(progressId);
         const msg = e.message || (typeof e === 'string' ? e : JSON.stringify(e).substring(0, 200));
-        if (progressEl) progressEl.innerHTML = '<span style="color:#e53e3e;">❌ 解析失败: ' + escapeHtml(msg || '未知错误') + ' <button class="btn btn-ghost btn-sm" onclick="renderBaziPillars(\'' + dateStr + '\')" style="margin-left:8px;">重试</button></span>';
+        if (progressEl) progressEl.innerHTML = '<span style="color:#e53e3e;">❌ 解析失败: ' + escapeHtml(msg || '未知错误') + ' <button class="btn btn-ghost btn-sm" onclick="analyzeBazi(\'' + dateStr + '\',\'' + type + '\',\'' + label + '\',\'' + gz + '\',\'' + ss + '\')" style="margin-left:8px;">重试</button></span>';
     }
 }
 

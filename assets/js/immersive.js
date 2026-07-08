@@ -144,17 +144,19 @@ const IM = {
     },
 
     async getExistingAnalysis() {
-        // Same lookup as full mode: check current date + nearby dates
         let analyses = {};
-        try { const res = await API.get('/bazi_analysis?date=' + this.date); (res.data||[]).forEach(a => analyses[a.type]=a); } catch(e) {}
-        // Also search nearby dates for 大运/流年/流月
-        if (!analyses['dayun'] || !analyses['liunian'] || !analyses['liuyue']) {
+        const info = await this.getPillarInfo();
+        const pillarGz = info ? { dayun: info.dayun.gz, liunian: info.liunian.gz, liuyue: info.liuyue.gz, liuri: info.liuri.gz } : {};
+        // Match by type AND 干支
+        try { const res = await API.get('/bazi_analysis?date=' + this.date); (res.data||[]).forEach(a => { if (!analyses[a.type] && a.gan_zhi === pillarGz[a.type]) analyses[a.type]=a; }); } catch(e) {}
+        // Search nearby for non-liuri
+        for (const type of ['dayun','liunian','liuyue']) {
+            if (analyses[type] || !pillarGz[type]) continue;
             const base = new Date(this.date + 'T12:00:00');
-            for (let back = 1; back <= 31; back++) {
+            for (let back = 1; back <= 90; back++) {
                 const prev = new Date(base); prev.setDate(base.getDate() - back);
-                const prevStr = prev.toISOString().split('T')[0];
-                try { const r = await API.get('/bazi_analysis?date=' + prevStr); (r.data||[]).forEach(a => { if (a.type !== 'liuri' && !analyses[a.type]) analyses[a.type] = a; }); } catch(e) {}
-                if (analyses['dayun'] && analyses['liunian'] && analyses['liuyue']) break;
+                try { const r = await API.get('/bazi_analysis?date=' + prev.toISOString().split('T')[0]); for (const a of (r.data||[])) { if (a.type === type && a.gan_zhi === pillarGz[type]) { analyses[type] = a; break; } } } catch(e) {}
+                if (analyses[type]) break;
             }
         }
         return analyses;

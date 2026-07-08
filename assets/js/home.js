@@ -348,19 +348,24 @@ async function renderBaziPillars(dateStr) {
     try {
         // Get analyses for current date, plus look back 30 days for matching 大运/流年/流月
         const res = await API.get('/bazi_analysis?date=' + dateStr);
-        (res.data || []).forEach(a => { analyses[a.type] = a; });
+        // Match analyses by type AND period_label (干支), not just type
+        const pillarGz = { dayun: daYunGz, liunian: lnGz, liuyue: lyGz, liuri: lrGz };
+        (res.data || []).forEach(a => {
+            if (!analyses[a.type] && a.gan_zhi === pillarGz[a.type]) analyses[a.type] = a;
+        });
 
-        // For 大运/流年/流月, search nearby dates if not found for today
-        if (!analyses['dayun'] || !analyses['liunian'] || !analyses['liuyue']) {
+        // For 大运/流年/流月, search nearby dates if not matched today
+        for (const type of ['dayun','liunian','liuyue']) {
+            if (analyses[type] || !pillarGz[type]) continue;
             const base = new Date(dateStr + 'T12:00:00');
-            for (let back = 1; back <= 31; back++) {
+            for (let back = 1; back <= 90; back++) {
                 const prev = new Date(base); prev.setDate(base.getDate() - back);
                 const prevStr = prev.toISOString().split('T')[0];
                 const prevRes = await API.get('/bazi_analysis?date=' + prevStr);
                 for (const a of (prevRes.data || [])) {
-                    if (a.type !== 'liuri' && !analyses[a.type]) analyses[a.type] = a;
+                    if (a.type === type && a.gan_zhi === pillarGz[type]) { analyses[type] = a; break; }
                 }
-                if (analyses['dayun'] && analyses['liunian'] && analyses['liuyue']) break;
+                if (analyses[type]) break;
             }
         }
     } catch(e) {}

@@ -250,6 +250,21 @@ function gzSpan(g, z) {
     return `<span style="color:${WX2[WX_GAN[g]]}">${g}</span><span style="color:${WX2[WX_ZHI[z]]}">${z}</span>`;
 }
 
+function refreshBaziCard(dateStr, type, label, gz, ss, analysis) {
+    const el = document.getElementById('baziCard-' + type);
+    if (!el) { renderBaziPillars(dateStr); return; }
+    el.querySelector('.bazi-card-analysis')?.remove();
+    el.querySelector('.bazi-typing')?.remove();
+    el.querySelector('button')?.remove();
+    const prog = el.querySelector('.bazi-progress');
+    if (prog) prog.remove();
+    const g = gz[0] || '', z = gz[1] || '';
+    const analysisDiv = document.createElement('div');
+    analysisDiv.className = 'bazi-card-analysis';
+    analysisDiv.innerHTML = md(analysis) + `<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','${type}','${label}','${gz}','${ss}')" style="margin-top:4px;">🔄 重新分析</button>`;
+    el.appendChild(analysisDiv);
+}
+
 async function renderBaziPillars(dateStr) {
     const grid = document.getElementById('baziPillarsGrid');
     const dateLabel = document.getElementById('baziPillarsDate');
@@ -371,23 +386,6 @@ async function renderBaziPillars(dateStr) {
     } catch(e) {}
 
     // Helper: render pillar card with dual 十神
-    function refreshBaziCard(dateStr, type, label, gz, ss, analysis) {
-    // Find the card element by type
-    const el = document.getElementById('baziCard-' + type);
-    if (!el) return renderBaziPillars(dateStr);
-    const g = gz[0] || '', z = gz[1] || '';
-    const ssLabel = ss || '';
-    el.querySelector('.bazi-card-analysis')?.remove();
-    el.querySelector('.bazi-typing')?.remove();
-    el.querySelector('button')?.remove();
-    // Remove any progress indicator
-    const prog = el.querySelector('.bazi-progress');
-    if (prog) prog.remove();
-    const analysisDiv = document.createElement('div');
-    analysisDiv.className = 'bazi-card-analysis';
-    analysisDiv.innerHTML = md(analysis) + `<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','${type}','${label}','${gz}','${ssLabel}')" style="margin-top:4px;">🔄 重新分析</button>`;
-    el.appendChild(analysisDiv);
-}
 
 function pillarCard(type, label, icon, period, g, z, ss_g, ss_z, existing, dateStr) {
         const gz = g + z;

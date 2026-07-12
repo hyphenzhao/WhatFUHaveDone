@@ -103,7 +103,7 @@ if ($method === 'POST') {
         $stmt->execute();
         $pri = (int)$stmt->fetch()['next_pri'];
     }
-    $stmt = $db->prepare('INSERT INTO tasks (name, description, stage, stage_number, priority, importance, necessity, deadline) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    $stmt = $db->prepare('INSERT INTO tasks (name, description, stage, stage_number, priority, importance, necessity, deadline, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
     $stmt->execute([$name, optional_string($data, 'description'), optional_string($data, 'stage', 'in_progress'), optional_int($data, 'stage_number', 1), $pri, $imp, $nec, optional_string($data, 'deadline')]);
     $id = $db->lastInsertId();
 
@@ -135,7 +135,7 @@ if ($method === 'PUT') {
     $data = get_json_input();
     $fields = [];
     $params = [];
-    foreach (['name', 'description', 'stage', 'stage_number', 'archived', 'priority', 'importance', 'necessity', 'deadline'] as $f) {
+    foreach (['name', 'description', 'stage', 'stage_number', 'archived', 'priority', 'importance', 'necessity', 'deadline', 'location'] as $f) {
         if (array_key_exists($f, $data)) {
             $fields[] = "$f = ?";
 if (in_array($f, ['stage_number', 'priority', 'importance', 'necessity'])) $params[] = optional_int($data, $f, $f === 'stage_number' ? 1 : 3);

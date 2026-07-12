@@ -135,6 +135,7 @@ async function showTaskModal(taskId = null) {
                 <div class="form-group"><label>重要度</label>${starHtml('importance', imp)}</div>
                 <div class="form-group"><label>必要度</label>${starHtml('necessity', nec)}</div>
             </div>
+            <div class="form-group"><label>地点</label><input type="text" class="form-input" id="taskLocation" value="${escapeHtml(task?.location||'')}" placeholder="可选"></div>
             <div class="form-group"><label>截止日期</label>
                 <div style="display:flex;gap:6px;align-items:center;">
                     <select class="form-select" id="taskDeadlineType" onchange="document.getElementById('taskDeadlineDate').style.display=this.value==='date'?'':'none';if(this.value!=='date')document.getElementById('taskDeadlineDate').value=this.value;" style="width:auto;">
@@ -155,6 +156,7 @@ async function showTaskModal(taskId = null) {
             people_ids: getSelectedTagIds('people'), tag_ids: getSelectedTagIds('tags'),
             importance: getStarVal('star_importance'), necessity: getStarVal('star_necessity'),
             deadline: (() => { const t = document.getElementById('taskDeadlineType').value; return t === 'date' ? document.getElementById('taskDeadlineDate').value : t; })(),
+            location: document.getElementById('taskLocation').value.trim(),
         };
         try {
             if (taskId) { await API.tasks.update(taskId, data); }

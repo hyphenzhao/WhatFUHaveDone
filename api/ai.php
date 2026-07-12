@@ -518,8 +518,8 @@ function handle_get_task(PDO $db, array $args): ?array {
 }
 
 function handle_create_task(PDO $db, array $args): array {
-    $stmt = $db->prepare('INSERT INTO tasks (name, description, stage) VALUES (?, ?, ?)');
-    $stmt->execute([$args['name'], $args['description'] ?? '', $args['stage'] ?? 'in_progress']);
+    $stmt = $db->prepare('INSERT INTO tasks (name, description, stage, location) VALUES (?, ?, ?, ?)');
+    $stmt->execute([$args['name'], $args['description'] ?? '', $args['stage'] ?? 'in_progress', $args['location'] ?? '']);
     $id = (int)$db->lastInsertId();
     if (!empty($args['people_ids'])) attach_people($db, $id, $args['people_ids']);
     if (!empty($args['tag_ids'])) attach_task_tags($db, $id, $args['tag_ids']);
@@ -529,7 +529,7 @@ function handle_create_task(PDO $db, array $args): array {
 function handle_update_task(PDO $db, array $args): array {
     $id = (int)$args['id'];
     $fields = []; $params = [];
-    foreach (['name', 'description', 'stage', 'stage_number', 'archived'] as $f) {
+    foreach (['name', 'description', 'stage', 'stage_number', 'archived', 'priority', 'importance', 'necessity', 'deadline', 'location'] as $f) {
         if (array_key_exists($f, $args)) { $fields[] = "$f = ?"; $params[] = $args[$f]; }
     }
     if ($fields) { $params[] = $id; $db->prepare('UPDATE tasks SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params); }

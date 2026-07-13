@@ -104,7 +104,7 @@ if ($method === 'POST') {
         $pri = (int)$stmt->fetch()['next_pri'];
     }
     $stmt = $db->prepare('INSERT INTO tasks (name, description, stage, stage_number, priority, importance, necessity, deadline, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-    $stmt->execute([$name, optional_string($data, 'description'), optional_string($data, 'stage', 'in_progress'), optional_int($data, 'stage_number', 1), $pri, $imp, $nec, optional_string($data, 'deadline')]);
+    $stmt->execute([$name, optional_string($data, 'description'), optional_string($data, 'stage', 'in_progress'), optional_int($data, 'stage_number', 1), $pri, $imp, $nec, optional_string($data, 'deadline'), optional_string($data, 'location')]);
     $id = $db->lastInsertId();
 
     if (isset($data['people_ids'])) attach_people($db, $id, optional_array($data, 'people_ids'));

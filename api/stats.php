@@ -54,7 +54,7 @@ if ($type === 'calendar') {
             JOIN work_logs wl ON t.id = wl.task_id
             WHERE wl.log_date BETWEEN ? AND ? AND t.archived = 0
             UNION ALL
-            SELECT DISTINCT t.id, t.name, p.planned_date as event_date, 'plan' as event_type
+            SELECT DISTINCT t.id, t.name, p.planned_date as event_date, 'plan' as event_type, p.plan_time, p.plan_end_time
             FROM tasks t
             JOIN plans p ON t.id = p.task_id
             WHERE p.planned_date BETWEEN ? AND ? AND t.archived = 0

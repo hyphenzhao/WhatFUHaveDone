@@ -120,16 +120,34 @@ const Calendar = {
         });
 
         let dotsHtml = '';
+        const planEvents = [];
         uniqueEvents.forEach(e => {
             const color = e.tag?.color || '#94a3b8';
             const title = `${escapeHtml(e.name)} (${e.event_type === 'work' ? '工作量' : e.event_type === 'result' ? '成果' : '计划'})`;
-            dotsHtml += `<span class="calendar-dot" style="background:${color}" title="${title}" data-task-id="${e.id}"></span>`;
+            if (e.event_type === 'plan') {
+                planEvents.push(e);
+            } else {
+                dotsHtml += `<span class="calendar-dot" style="background:${color}" title="${title}" data-task-id="${e.id}"></span>`;
+            }
         });
+
+        // Plan text lines, sorted by time
+        let planLinesHtml = '';
+        if (planEvents.length > 0) {
+            planEvents.sort((a, b) => {
+                const ta = a.plan_time || '99:99', tb = b.plan_time || '99:99';
+                return ta.localeCompare(tb);
+            });
+            planLinesHtml = '<div class="calendar-plans">' + planEvents.map(e => {
+                const time = e.plan_time ? e.plan_time.substring(0,5) + (e.plan_end_time ? '-' + e.plan_end_time.substring(0,5) : '') : '';
+                const label = time ? time + ' ' + escapeHtml(e.name) : escapeHtml(e.name);
+                return '<div class="calendar-plan-line" title="' + escapeHtml(e.name) + '">' + label + '</div>';
+            }).join('') + '</div>';
+        }
 
         // Check if there are work logs for this date
         const hasWork = uniqueEvents.some(e => e.event_type === 'work');
         const hasResult = uniqueEvents.some(e => e.event_type === 'result');
-        const hasPlan = uniqueEvents.some(e => e.event_type === 'plan');
         let bgStyle = '';
         if (hasWork && hasResult) bgStyle = 'background:linear-gradient(135deg, rgba(59,130,246,0.08), rgba(245,158,11,0.08));';
 
@@ -169,6 +187,7 @@ const Calendar = {
                 ${termHtml}
                 ${holidayHtml}
                 ${workdayHtml}
+                ${planLinesHtml}
                 <div class="calendar-dots">${dotsHtml}</div>
             </div>
         `;

@@ -1134,13 +1134,14 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     padding: 6px 0;
 }
 .calendar-day {
-    min-height: 64px;
+    min-height: 80px;
     border-radius: var(--radius-sm);
     padding: 4px;
     cursor: pointer;
     transition: all var(--transition);
     border: 1px solid transparent;
     position: relative;
+    overflow: hidden;
 }
 .calendar-day:hover { background: var(--color-bg); border-color: var(--color-border); }
 .calendar-day.today { border-color: var(--color-primary); background: rgba(59,130,246,0.05); }

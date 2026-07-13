@@ -35,10 +35,11 @@ if ($method === 'POST') {
     $name = optional_string($data, 'name');
     if (!$name) json_error('Name is required');
 
-    $stmt = $db->prepare('INSERT INTO people (name, relationship, importance, usefulness, closeness) VALUES (?, ?, ?, ?, ?)');
+    $stmt = $db->prepare('INSERT INTO people (name, relationship, bio, importance, usefulness, closeness) VALUES (?, ?, ?, ?, ?, ?)');
     $stmt->execute([
         $name,
         optional_string($data, 'relationship'),
+        optional_string($data, 'bio'),
         optional_int($data, 'importance', 0, 0, 5),
         optional_int($data, 'usefulness', 0, 0, 5),
         optional_int($data, 'closeness', 0, 0, 5),
@@ -66,7 +67,7 @@ if ($method === 'PUT') {
         json_error('Cannot archive the "Me" record', 403);
     }
 
-    foreach (['name', 'relationship', 'importance', 'usefulness', 'closeness', 'archived'] as $f) {
+    foreach (['name', 'relationship', 'bio', 'importance', 'usefulness', 'closeness', 'archived'] as $f) {
         if (array_key_exists($f, $data)) {
             $fields[] = "$f = ?";
             if (in_array($f, ['importance', 'usefulness', 'closeness'])) $params[] = optional_int($data, $f, 0, 0, 5);

@@ -218,6 +218,7 @@ function get_tool_definitions(): array {
                 'properties' => [
                     'name' => ['type' => 'string', 'description' => '姓名（必填）'],
                     'relationship' => ['type' => 'string', 'description' => '关系'],
+                    'bio' => ['type' => 'string', 'description' => '简介/简历'],
                     'importance' => ['type' => 'integer', 'description' => '重要性 0-5'],
                     'usefulness' => ['type' => 'integer', 'description' => '有用程度 0-5'],
                 ],
@@ -235,6 +236,7 @@ function get_tool_definitions(): array {
                     'id' => ['type' => 'integer', 'description' => '人物ID（必填）'],
                     'name' => ['type' => 'string'],
                     'relationship' => ['type' => 'string'],
+                    'bio' => ['type' => 'string', 'description' => '简介/简历'],
                     'importance' => ['type' => 'integer'],
                     'usefulness' => ['type' => 'integer'],
                     'archived' => ['type' => 'integer'],
@@ -559,8 +561,8 @@ function handle_get_person(PDO $db, array $args): ?array {
 }
 
 function handle_create_person(PDO $db, array $args): array {
-    $stmt = $db->prepare('INSERT INTO people (name, relationship, importance, usefulness) VALUES (?, ?, ?, ?)');
-    $stmt->execute([$args['name'], $args['relationship'] ?? '', $args['importance'] ?? 0, $args['usefulness'] ?? 0]);
+    $stmt = $db->prepare('INSERT INTO people (name, relationship, bio, importance, usefulness) VALUES (?, ?, ?, ?, ?)');
+    $stmt->execute([$args['name'], $args['relationship'] ?? '', $args['bio'] ?? '', $args['importance'] ?? 0, $args['usefulness'] ?? 0]);
     $stmt = $db->prepare('SELECT * FROM people WHERE id = ?');
     $stmt->execute([(int)$db->lastInsertId()]);
     return $stmt->fetch();
@@ -569,7 +571,7 @@ function handle_create_person(PDO $db, array $args): array {
 function handle_update_person(PDO $db, array $args): array {
     $id = (int)$args['id'];
     $fields = []; $params = [];
-    foreach (['name', 'relationship', 'importance', 'usefulness', 'archived'] as $f) {
+    foreach (['name', 'relationship', 'bio', 'importance', 'usefulness', 'archived'] as $f) {
         if (array_key_exists($f, $args)) { $fields[] = "$f = ?"; $params[] = $args[$f]; }
     }
     if ($fields) { $params[] = $id; $db->prepare('UPDATE people SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params); }

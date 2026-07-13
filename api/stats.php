@@ -49,7 +49,7 @@ if ($type === 'calendar') {
     $end = date('Y-m-t', strtotime($start));
 
     // Get all tasks that have work logs or plans in this month range
-    $sql = "SELECT DISTINCT t.id, t.name, wl.log_date as event_date, 'work' as event_type
+    $sql = "SELECT DISTINCT t.id, t.name, wl.log_date as event_date, 'work' as event_type, '' as plan_time, '' as plan_end_time
             FROM tasks t
             JOIN work_logs wl ON t.id = wl.task_id
             WHERE wl.log_date BETWEEN ? AND ? AND t.archived = 0
@@ -59,7 +59,7 @@ if ($type === 'calendar') {
             JOIN plans p ON t.id = p.task_id
             WHERE p.planned_date BETWEEN ? AND ? AND t.archived = 0
             UNION ALL
-            SELECT DISTINCT t.id, t.name, rl.log_date as event_date, 'result' as event_type
+            SELECT DISTINCT t.id, t.name, rl.log_date as event_date, 'result' as event_type, '' as plan_time, '' as plan_end_time
             FROM tasks t
             JOIN result_logs rl ON t.id = rl.task_id
             WHERE rl.log_date BETWEEN ? AND ? AND t.archived = 0

@@ -801,7 +801,7 @@ async function loadWorklogNotes(wlId) {
     const el = document.getElementById('wl-notes-' + wlId);
     if (!el) return;
     try {
-        const res = await API.worklogNotes.list(wlId);
+        const res = await API.worklogNotes.forTask(taskId);
         const notes = res.data || [];
         el.innerHTML = notes.map(n => `
             <div class="wl-note"><span class="wl-note-text">${escapeHtml(n.content)}</span><button class="wl-note-del" onclick="delWorklogNote(${n.id},${wlId})" title="删除">−</button></div>
@@ -903,7 +903,7 @@ async function loadDailyStatus(date) {
             const dur = t.duration || '';
             const durLabel = dur ? '⏱️ ' + escapeHtml(dur) : '⏱️ 耗时';
             html += `<div class="daily-card"><div class="daily-card-row"><div class="daily-card-info"><h4>💪 ${escapeHtml(t.name)}${t.location ? " 📍 " + escapeHtml(t.location) : ""}</h4>${tags ? tags : ''}<div class="daily-card-meta">工作量 +1 · <span class="wl-dur-tag" onclick="showDurPicker(${wlId},'${escapeHtml(dur)}')">${durLabel}</span></div>
-                <span class="wl-log-btn" onclick="showWorklogHistory(${wlId})">📋 工作日志</span><div class="wl-notes" id="wl-notes-${wlId}"></div>
+                <span class="wl-log-btn" onclick="showWorklogHistory(${t.id})">📋 工作日志</span><div class="wl-notes" id="wl-notes-${wlId}"></div>
                 <div class="wl-note-add"><input class="wl-note-input" id="wl-input-${wlId}" placeholder="添加备注..." maxlength="200" onkeydown="if(event.key==='Enter')addWorklogNote(${wlId})"><button class="wl-note-btn" onclick="addWorklogNote(${wlId})">+</button></div>
             </div><button class="daily-card-close" onclick="cancelWorklog(${t.id},'${date}')" title="取消">✕</button></div></div>`;
         });
@@ -1137,14 +1137,14 @@ if (!document.getElementById('imApp')) {
     });
 }
 
-async function showWorklogHistory(wlId) {
+async function showWorklogHistory(taskId) {
     Modal.open({ title: '📋 工作日志', body: '<div style="text-align:center;padding:20px;">加载中...</div>' });
     try {
-        const notes = (await API.worklogNotes.list(wlId)).data || [];
+        const notes = (await API.worklogNotes.forTask(taskId)).data || [];
         if (notes.length === 0) { Modal.setBody('<div class="no-daily-data">暂无记录</div>'); return; }
         // Group by date
         const groups = {};
-        notes.forEach(n => { const d = n.created_at.substring(0,10); if (!groups[d]) groups[d] = []; groups[d].push(n); });
+        notes.forEach(n => { const d = n.log_date; if (!groups[d]) groups[d] = []; groups[d].push(n); });
         const sorted = Object.keys(groups).sort().reverse();
         let html = '';
         sorted.forEach(date => {

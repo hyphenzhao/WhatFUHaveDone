@@ -17,9 +17,17 @@ $db = get_db();
 
 if ($method === 'GET') {
     $worklog_id = (int)($_GET['worklog_id'] ?? 0);
+    $task_id = (int)($_GET['task_id'] ?? 0);
     $latest_all = isset($_GET['latest_all']);
 
-    if ($latest_all) {
+    if ($task_id) {
+        $sql = "SELECT wn.*, wl.log_date, wl.task_id FROM worklog_notes wn
+                JOIN work_logs wl ON wn.worklog_id = wl.id
+                WHERE wl.task_id = ? ORDER BY wn.created_at DESC";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$task_id]);
+        json_success($stmt->fetchAll());
+    } elseif ($latest_all) {
         // Return the single most recent note per task (across all worklogs)
         $sql = "SELECT wl.task_id, wn.content as latest_note
                 FROM worklog_notes wn

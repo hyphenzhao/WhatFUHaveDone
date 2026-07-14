@@ -219,6 +219,7 @@ const IM = {
                 const wlBtn = showWorklog
                     ? `<button class="im-btn-worklog${wlActive?' active':''}" onclick="IM.toggleWL(${t.id},'${this.date}')">${wlActive?'😊':'+1'}</button>`
                     : '';
+                    const wlLogBtn = showWorklog ? `<span class="im-log-btn" onclick="showWorklogHistory(${(t.work_log_id||0)})">📋 日志</span>` : '';
                 const noteHtml = note ? `<div class="im-card-note">📝 ${escapeHtml(note)}</div>` : '';
                 const deadlineHtml = typeof getDeadlineBadge !== 'undefined' ? getDeadlineBadge(t.deadline) : '';
                 const dur = t.duration || '';
@@ -227,6 +228,7 @@ const IM = {
                     <div class="im-card-name">${escapeHtml(t.name)}${t.location?" 📍 "+escapeHtml(t.location):""}${deadlineHtml}</div>
                     <div class="im-card-tags">${tags}</div>
                     ${durHtml}
+                    ${wlLogBtn}
                     ${noteHtml}
                     <div class="im-card-actions">
                         ${wlBtn}

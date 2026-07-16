@@ -801,7 +801,7 @@ async function loadWorklogNotes(wlId) {
     const el = document.getElementById('wl-notes-' + wlId);
     if (!el) return;
     try {
-        const res = await API.worklogNotes.forTask(taskId);
+        const res = await API.worklogNotes.list(wlId);
         const notes = res.data || [];
         el.innerHTML = notes.map(n => `
             <div class="wl-note"><span class="wl-note-text">${escapeHtml(n.content)}</span><button class="wl-note-del" onclick="delWorklogNote(${n.id},${wlId})" title="删除">−</button></div>

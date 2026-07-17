@@ -1089,6 +1089,88 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     padding: 20px;
 }
 
+/* ============ DAILY MOOD NOTE ============ */
+.mood-note {
+    background: linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%);
+    border: 1px solid #f5d79c;
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+}
+.mood-note-header,
+.mood-note-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.mood-note-header h3 { font-size: 1rem; font-weight: 700; }
+.mood-note-date,
+.mood-note-status,
+.mood-note-footer span {
+    color: var(--color-text-secondary);
+    font-size: 0.78rem;
+}
+.mood-note-date { display: inline-block; margin-top: 3px; }
+.mood-note-status.error { color: #dc2626; }
+.mood-note-body {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    margin: 12px 0 8px;
+}
+.mood-picker { display: flex; gap: 5px; align-items: flex-start; }
+.mood-picker button {
+    width: 38px;
+    height: 38px;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.65);
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.mood-picker button:hover { transform: translateY(-2px); background: #fff; }
+.mood-picker button.selected {
+    border-color: #f59e0b;
+    background: #fef3c7;
+    transform: scale(1.08);
+}
+#moodNoteContent {
+    width: 100%;
+    min-height: 76px;
+    resize: vertical;
+    border: 1px solid #ead7b7;
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.72);
+    color: var(--color-text);
+    font: inherit;
+    line-height: 1.6;
+}
+#moodNoteContent:focus {
+    outline: none;
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.12);
+    background: #fff;
+}
+#moodNoteSave {
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 6px 13px;
+    background: #d97706;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+#moodNoteSave:hover { background: #b45309; }
+#moodNoteSave:disabled { opacity: 0.55; cursor: wait; }
+@media (max-width: 768px) {
+    .mood-note-body { grid-template-columns: 1fr; }
+    .mood-picker { flex-wrap: wrap; }
+}
+
 /* ============ CALENDAR ============ */
 .calendar-container {
     background: var(--color-surface);

@@ -655,13 +655,47 @@ function handle_add_result_log(PDO $db, array $args): array {
 }
 
 function handle_get_workload_stats(PDO $db, array $args): array {
-    $sql = "SELECT t.id, t.name, t.color, COUNT(wl.id) as total_workload FROM tags t JOIN task_tags tt ON t.id = tt.tag_id JOIN work_logs wl ON tt.task_id = wl.task_id WHERE t.archived = 0 GROUP BY t.id, t.name, t.color ORDER BY total_workload DESC";
-    return $db->query($sql)->fetchAll();
+    $period = $args['period'] ?? 'all';
+    $ref_date = $args['ref_date'] ?? date('Y-m-d');
+    $ts = strtotime($ref_date);
+    $start = match ($period) {
+        'week' => date('Y-m-d', strtotime('monday this week', $ts)),
+        'month' => date('Y-m-01', $ts),
+        'year' => date('Y-01-01', $ts),
+        default => null,
+    };
+    $sql = "SELECT t.id, t.name, t.color, COUNT(wl.id) as total_workload FROM tags t JOIN task_tags tt ON t.id = tt.tag_id JOIN work_logs wl ON tt.task_id = wl.task_id WHERE t.archived = 0";
+    $params = [];
+    if ($start) {
+        $sql .= " AND wl.log_date >= ?";
+        $params[] = $start;
+    }
+    $sql .= " GROUP BY t.id, t.name, t.color ORDER BY total_workload DESC";
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
 }
 
 function handle_get_results_stats(PDO $db, array $args): array {
-    $sql = "SELECT t.id, t.name, t.color, COUNT(rl.id) as total_results FROM tags t JOIN task_tags tt ON t.id = tt.tag_id JOIN result_logs rl ON tt.task_id = rl.task_id WHERE t.archived = 0 GROUP BY t.id, t.name, t.color ORDER BY total_results DESC";
-    return $db->query($sql)->fetchAll();
+    $period = $args['period'] ?? 'all';
+    $ref_date = $args['ref_date'] ?? date('Y-m-d');
+    $ts = strtotime($ref_date);
+    $start = match ($period) {
+        'week' => date('Y-m-d', strtotime('monday this week', $ts)),
+        'month' => date('Y-m-01', $ts),
+        'year' => date('Y-01-01', $ts),
+        default => null,
+    };
+    $sql = "SELECT t.id, t.name, t.color, COUNT(rl.id) as total_results FROM tags t JOIN task_tags tt ON t.id = tt.tag_id JOIN result_logs rl ON tt.task_id = rl.task_id WHERE t.archived = 0";
+    $params = [];
+    if ($start) {
+        $sql .= " AND rl.log_date >= ?";
+        $params[] = $start;
+    }
+    $sql .= " GROUP BY t.id, t.name, t.color ORDER BY total_results DESC";
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
 }
 
 function handle_get_calendar_data(PDO $db, array $args): array {

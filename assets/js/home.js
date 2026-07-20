@@ -591,11 +591,17 @@ function toggleSection(header) {
     header.parentElement.classList.toggle('collapsed');
 }
 
-async function loadLeaderboards() {
+function getActivePeriod() {
+    const activeBtn = document.querySelector('.period-btn.active');
+    return activeBtn ? activeBtn.dataset.period : 'all';
+}
+
+async function loadLeaderboards(period = 'all') {
     try {
+        const refDate = App.selectedDate || today();
         const [workload, results] = await Promise.all([
-            API.stats.workload(),
-            API.stats.results(),
+            API.stats.workload(period, refDate),
+            API.stats.results(period, refDate),
         ]);
 
         renderLeaderboard('workloadLeaderboard', '💪 工作量排行', workload.data || [], true);
@@ -631,9 +637,19 @@ function renderLeaderboard(containerId, title, items, isWorkload) {
         `;
     }).join('') || '<div class="no-daily-data">暂无数据</div>';
 
-    container.innerHTML = `<h3>${title}</h3>${html}`;
+    // Preserve the leaderboard-header (h3 + period-selector) and only replace the list body
+    const header = container.querySelector('.leaderboard-header');
+    if (header) {
+        container.innerHTML = '';
+        container.appendChild(header);
+        const bodyDiv = document.createElement('div');
+        bodyDiv.innerHTML = html;
+        container.appendChild(bodyDiv);
+    } else {
+        container.innerHTML = `<div class="leaderboard-header"><h3>${title}</h3></div>${html}`;
+    }
 
-    // Delegated click handler
+    // Delegated click handler for leaderboard items
     container.querySelectorAll('.leaderboard-item').forEach(el => {
         el.addEventListener('click', () => {
             const tagId = parseInt(el.dataset.tagId);
@@ -644,6 +660,22 @@ function renderLeaderboard(containerId, title, items, isWorkload) {
             } else {
                 showResultsDetail(tagId, tagName);
             }
+        });
+    });
+}
+
+// One-time delegated handler for period selector buttons
+function initPeriodSelectors() {
+    document.querySelectorAll('.leaderboard-panel').forEach(panel => {
+        panel.addEventListener('click', (e) => {
+            const btn = e.target.closest('.period-btn');
+            if (!btn) return;
+            const period = btn.dataset.period;
+            // Update active state in both panels
+            document.querySelectorAll('.period-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.period === period);
+            });
+            loadLeaderboards(period);
         });
     });
 }
@@ -707,7 +739,7 @@ async function showWorkloadDetail(tagId, tagName, tagColor) {
         body: '<div style="text-align:center;padding:20px;">加载中...</div>',
     });
     try {
-        const res = await API.stats.workloadDetail(tagId);
+        const res = await API.stats.workloadDetail(tagId, getActivePeriod(), App.selectedDate);
         const tasks = res.data?.tasks || [];
 
         let taskListHtml;
@@ -748,7 +780,7 @@ async function showResultsDetail(tagId, tagName) {
         body: '<div style="text-align:center;padding:20px;">加载中...</div>',
     });
     try {
-        const res = await API.stats.resultsDetail(tagId);
+        const res = await API.stats.resultsDetail(tagId, getActivePeriod(), App.selectedDate);
         const results = res.data?.results || [];
 
         let html;
@@ -1092,7 +1124,7 @@ async function refreshAll() {
             _refreshPending = false;
             await Promise.all([
                 loadRightPanel(),
-                loadLeaderboards(),
+                loadLeaderboards(getActivePeriod()),
                 loadDailyStatus(App.selectedDate),
             ]);
             await Calendar.loadMonth();
@@ -1131,6 +1163,7 @@ function initPanelTabs() {
 // Skip full dashboard init on immersive page
 if (!document.getElementById('imApp')) {
     document.addEventListener('DOMContentLoaded', async () => {
+        initPeriodSelectors();
         await Calendar.init();
         await refreshAll();
         initPanelTabs();

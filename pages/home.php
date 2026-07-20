@@ -59,11 +59,27 @@ $page_content = <<<HTML
 <!-- Leaderboards -->
 <div class="leaderboards">
     <div class="leaderboard-panel" id="workloadLeaderboard">
-        <h3>💪 工作量排行</h3>
+        <div class="leaderboard-header">
+            <h3>💪 工作量排行</h3>
+            <div class="period-selector" data-board="workload">
+                <button class="period-btn active" data-period="all">全部</button>
+                <button class="period-btn" data-period="year">年度</button>
+                <button class="period-btn" data-period="month">月度</button>
+                <button class="period-btn" data-period="week">周度</button>
+            </div>
+        </div>
         <div class="no-daily-data">加载中...</div>
     </div>
     <div class="leaderboard-panel" id="resultsLeaderboard">
-        <h3>🏆 成果排行</h3>
+        <div class="leaderboard-header">
+            <h3>🏆 成果排行</h3>
+            <div class="period-selector" data-board="results">
+                <button class="period-btn active" data-period="all">全部</button>
+                <button class="period-btn" data-period="year">年度</button>
+                <button class="period-btn" data-period="month">月度</button>
+                <button class="period-btn" data-period="week">周度</button>
+            </div>
+        </div>
         <div class="no-daily-data">加载中...</div>
     </div>
 </div>

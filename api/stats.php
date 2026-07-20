@@ -17,29 +17,56 @@ if ($method !== 'GET') json_error('Method not allowed', 405);
 
 $db = get_db();
 $type = $_GET['type'] ?? '';
+$period = $_GET['period'] ?? 'all';
+$ref_date = $_GET['ref_date'] ?? date('Y-m-d');
+
+// Helper: compute start date for period filtering based on a reference date
+function get_period_start(string $period, string $ref_date): string|null {
+    $ts = strtotime($ref_date);
+    return match ($period) {
+        'week'   => date('Y-m-d', strtotime('monday this week', $ts)),
+        'month'  => date('Y-m-01', $ts),
+        'year'   => date('Y-01-01', $ts),
+        default  => null,  // 'all' or unknown — no filter
+    };
+}
 
 // Workload leaderboard by tag
 if ($type === 'workload') {
+    $start = get_period_start($period, $ref_date);
     $sql = "SELECT t.id, t.name, t.color, COUNT(wl.id) as total_workload
             FROM tags t
             JOIN task_tags tt ON t.id = tt.tag_id
             JOIN work_logs wl ON tt.task_id = wl.task_id
-            WHERE t.archived = 0
-            GROUP BY t.id, t.name, t.color
-            ORDER BY total_workload DESC";
-    json_success($db->query($sql)->fetchAll());
+            WHERE t.archived = 0";
+    $params = [];
+    if ($start) {
+        $sql .= " AND wl.log_date >= ?";
+        $params[] = $start;
+    }
+    $sql .= " GROUP BY t.id, t.name, t.color ORDER BY total_workload DESC";
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    json_success($stmt->fetchAll());
 }
 
 // Results leaderboard by tag
 if ($type === 'results') {
+    $start = get_period_start($period, $ref_date);
     $sql = "SELECT t.id, t.name, t.color, COUNT(rl.id) as total_results
             FROM tags t
             JOIN task_tags tt ON t.id = tt.tag_id
             JOIN result_logs rl ON tt.task_id = rl.task_id
-            WHERE t.archived = 0
-            GROUP BY t.id, t.name, t.color
-            ORDER BY total_results DESC";
-    json_success($db->query($sql)->fetchAll());
+            WHERE t.archived = 0";
+    $params = [];
+    if ($start) {
+        $sql .= " AND rl.log_date >= ?";
+        $params[] = $start;
+    }
+    $sql .= " GROUP BY t.id, t.name, t.color ORDER BY total_results DESC";
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    json_success($stmt->fetchAll());
 }
 
 // Calendar data for a month
@@ -148,6 +175,7 @@ if ($type === 'daily') {
 if ($type === 'workload_detail') {
     $tag_id = (int)($_GET['tag_id'] ?? 0);
     if (!$tag_id) json_error('tag_id required');
+    $start = get_period_start($period, $ref_date);
 
     $sql = "SELECT t.id, t.name, COUNT(wl.id) as work_days,
                    GROUP_CONCAT(DISTINCT p.name ORDER BY p.name SEPARATOR ', ') as people_names
@@ -156,11 +184,15 @@ if ($type === 'workload_detail') {
             JOIN work_logs wl ON t.id = wl.task_id
             LEFT JOIN task_people tp ON t.id = tp.task_id
             LEFT JOIN people p ON tp.people_id = p.id
-            WHERE tt.tag_id = ? AND t.archived = 0
-            GROUP BY t.id, t.name
-            ORDER BY work_days DESC";
+            WHERE tt.tag_id = ? AND t.archived = 0";
+    $params = [(int)$tag_id];
+    if ($start) {
+        $sql .= " AND wl.log_date >= ?";
+        $params[] = $start;
+    }
+    $sql .= " GROUP BY t.id, t.name ORDER BY work_days DESC";
     $stmt = $db->prepare($sql);
-    $stmt->execute([$tag_id]);
+    $stmt->execute($params);
     $tasks = $stmt->fetchAll();
 
     json_success([
@@ -173,6 +205,7 @@ if ($type === 'workload_detail') {
 if ($type === 'results_detail') {
     $tag_id = (int)($_GET['tag_id'] ?? 0);
     if (!$tag_id) json_error('tag_id required');
+    $start = get_period_start($period, $ref_date);
 
     $sql = "SELECT r.id, r.name, r.level, r.quantity, t.name as task_name,
                    rl.log_date, rl.id as log_id
@@ -180,10 +213,15 @@ if ($type === 'results_detail') {
             JOIN results r ON rl.result_id = r.id
             JOIN tasks t ON rl.task_id = t.id
             JOIN task_tags tt ON t.id = tt.task_id
-            WHERE tt.tag_id = ?
-            ORDER BY r.level ASC, r.name ASC";
+            WHERE tt.tag_id = ?";
+    $params = [(int)$tag_id];
+    if ($start) {
+        $sql .= " AND rl.log_date >= ?";
+        $params[] = $start;
+    }
+    $sql .= " ORDER BY r.level ASC, r.name ASC";
     $stmt = $db->prepare($sql);
-    $stmt->execute([$tag_id]);
+    $stmt->execute($params);
     $results = $stmt->fetchAll();
 
     json_success([

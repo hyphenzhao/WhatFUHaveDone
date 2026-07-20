@@ -91,12 +91,12 @@ const API = {
 
     // --- Stats ---
     stats: {
-        workload() { return API.get('/stats?type=workload'); },
-        results() { return API.get('/stats?type=results'); },
+        workload(period, refDate) { return API.get(`/stats?type=workload${period && period !== 'all' ? '&period=' + period + '&ref_date=' + (refDate || today()) : ''}`); },
+        results(period, refDate) { return API.get(`/stats?type=results${period && period !== 'all' ? '&period=' + period + '&ref_date=' + (refDate || today()) : ''}`); },
         calendar(month) { return API.get(`/stats?type=calendar&month=${month}`); },
         daily(date) { return API.get(`/stats?type=daily&date=${date}`); },
-        workloadDetail(tagId) { return API.get(`/stats?type=workload_detail&tag_id=${tagId}`); },
-        resultsDetail(tagId) { return API.get(`/stats?type=results_detail&tag_id=${tagId}`); },
+        workloadDetail(tagId, period, refDate) { return API.get(`/stats?type=workload_detail&tag_id=${tagId}${period && period !== 'all' ? '&period=' + period + '&ref_date=' + (refDate || today()) : ''}`); },
+        resultsDetail(tagId, period, refDate) { return API.get(`/stats?type=results_detail&tag_id=${tagId}${period && period !== 'all' ? '&period=' + period + '&ref_date=' + (refDate || today()) : ''}`); },
     },
 
     // --- Worklog Notes ---

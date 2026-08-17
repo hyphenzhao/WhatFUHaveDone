@@ -28,6 +28,31 @@ $page_content = <<<HTML
     </div>
 </div>
 
+<!-- Daily Mood Note -->
+<section class="mood-note" id="moodNote">
+    <div class="mood-note-header">
+        <div>
+            <h3>📝 每日心情便签</h3>
+            <span class="mood-note-date" id="moodNoteDate"></span>
+        </div>
+        <span class="mood-note-status" id="moodNoteStatus">正在读取...</span>
+    </div>
+    <div class="mood-note-body">
+        <div class="mood-picker" id="moodPicker" aria-label="选择今天的心情">
+            <button type="button" data-mood="开心" title="开心">😄</button>
+            <button type="button" data-mood="平静" title="平静">😌</button>
+            <button type="button" data-mood="一般" title="一般">😐</button>
+            <button type="button" data-mood="疲惫" title="疲惫">😮‍💨</button>
+            <button type="button" data-mood="难过" title="难过">😔</button>
+        </div>
+        <textarea id="moodNoteContent" maxlength="5000" placeholder="写下今天的心情、念头，或想留给自己的话…"></textarea>
+    </div>
+    <div class="mood-note-footer">
+        <span id="moodNoteCount">0 / 5000</span>
+        <button type="button" id="moodNoteSave">保存便签</button>
+    </div>
+</section>
+
 <!-- Calendar -->
 <div class="calendar-container" id="calendarContainer">
     <div class="calendar-header">

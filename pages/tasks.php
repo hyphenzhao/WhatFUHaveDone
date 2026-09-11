@@ -37,7 +37,7 @@ $page_content = <<<HTML
         </tr>
     </thead>
     <tbody id="tasksTableBody">
-        <tr><td colspan="6" style="text-align:center;color:var(--color-text-secondary);">加载中...</td></tr>
+        <tr><td colspan="8" style="text-align:center;color:var(--color-text-secondary);">加载中...</td></tr>
     </tbody>
 </table>
 

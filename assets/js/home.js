@@ -71,7 +71,7 @@ async function renderWeather(dateStr) {
         const res = await API.weather.get(dateStr);
         const w = res.data;
         if (!w) {
-            const isToday = dateStr === new Date().toISOString().split('T')[0];
+            const isToday = dateStr === today();
             container.innerHTML = `<div class="weather-card" style="background:linear-gradient(135deg,#f0f4f8,#e2e8f0)">
                 <div class="weather-emoji">📭</div><div class="weather-desc">${isToday?'天气加载失败':'无天气数据'}</div>
                 ${!isToday ? '<button class="btn btn-ghost btn-sm" onclick="fetchWeather(\''+dateStr+'\')" style="margin-top:4px;">📡 获取天气</button>' : ''}
@@ -97,7 +97,7 @@ async function renderWeather(dateStr) {
                     <button class="weather-time-fmt" id="weatherTimeFmt" onclick="toggleTimeFmt()" title="切换12/24小时">12h</button>
                 </div>
             </div>
-            ${dateStr !== new Date().toISOString().split('T')[0] ? '<button class="btn btn-ghost btn-sm" onclick="fetchWeather(\''+dateStr+'\')" style="margin-top:2px;font-size:0.7rem;">🔄 刷新</button>' : '<div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-top:2px;">自动更新</div>'}
+            ${dateStr !== today() ? '<button class="btn btn-ghost btn-sm" onclick="fetchWeather(\''+dateStr+'\')" style="margin-top:2px;font-size:0.7rem;">🔄 刷新</button>' : '<div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-top:2px;">自动更新</div>'}
         </div>`;
         startClock(tz);
     } catch(e) {
@@ -196,6 +196,8 @@ function renderAlmanac(dateStr) {
                             <div class="almanac-gz-row"><span class="almanac-gz-label">年柱</span>${gz(yGan, yZhi)}<span class="almanac-gz-sx">${escapeHtml(shengXiao)}</span></div>
                     <div class="almanac-gz-row"><span class="almanac-gz-label">月柱</span>${gz(mGan, mZhi)}</div>
                     <div class="almanac-gz-row"><span class="almanac-gz-label">日柱</span>${gz(dGan, dZhi)}</div>
+                        </div>
+                    </div>
                 </div>
             </div>`;
     } catch (e) {
@@ -437,23 +439,26 @@ async function analyzeBazi(dateStr, type, label, gz, ss) {
     const grid = document.getElementById('baziPillarsGrid');
     const liuriEl = document.getElementById('dailyLiuri');
     const targetEl = type === 'liuri' ? liuriEl : grid;
-    if (!targetEl) return;
+    // targetEl may be absent (e.g. immersive mode, which has no #baziPillarsGrid/#dailyLiuri).
+    // In that case we still run the AI request and save to DB, just without the inline UI —
+    // the caller re-reads the saved analysis from the DB afterwards.
 
     const progressId = 'bazi-progress-' + type;
-    targetEl.innerHTML = '<div id="' + progressId + '" class="bazi-progress"><span class="ai-step-icon">🤔</span> 解析中...</div>';
+    if (targetEl) {
+        targetEl.innerHTML = '<div id="' + progressId + '" class="bazi-progress"><span class="ai-step-icon">🤔</span> 解析中...</div>';
+    }
 
     try {
         const prompt = type === 'liuri'
-            ? `用户八字: 年${p.bazi_year} 月${p.bazi_month} 日${p.bazi_day} 时${p.bazi_time}。当前${label}: ${gz}，十神: ${ss}。请结合用户八字和当前${label}，用不超过100字简短分析今日能量特点和建议重点工作方向。`
+            ? `用户八字: 年${p.bazi_year} 月${p.bazi_month} 日${p.bazi_day} 时${p.bazi_time}。当前${label}: ${gz}，十神: ${ss}。请结合用户八字和当前${label}，用不超过200字简短分析今日能量特点和建议重点工作方向。`
             : `用户八字: 年${p.bazi_year} 月${p.bazi_month} 日${p.bazi_day} 时${p.bazi_time}。简历: ${p.resume||'无'}。目标: ${p.goals||'无'}。当前${label}: ${gz}，十神: ${ss}。请结合用户八字和${label}，用100-200字分析此阶段的能量特点，并给出重点工作方向的建议。`;
 
         const res = await API.post('/ai/chat', { messages: [{ role: 'user', content: prompt }] });
         const data = res.data || {};
         const progressEl = document.getElementById(progressId);
-        if (!progressEl) return;
 
-        // Show thinking steps
-        if (data.steps) {
+        // Show thinking steps (only when the inline progress UI is present)
+        if (progressEl && data.steps) {
             for (const step of data.steps) {
                 const icon = step.type === 'think' ? '💭' : step.status === 'done' ? '✅' : '⏳';
                 const txt = step.type === 'think' ? step.content : (step.name || '');
@@ -462,29 +467,31 @@ async function analyzeBazi(dateStr, type, label, gz, ss) {
             }
         }
 
-        // Clear progress, type out result
         if (data.content) {
-            progressEl.innerHTML = '<div class="bazi-typing" id="bazi-typing-' + type + '"><span class="typing-cursor">|</span></div>';
-            const typeEl = document.getElementById('bazi-typing-' + type);
-            const text = data.content;
-            let i = 0;
-            await new Promise(resolve => {
-                const tick = () => {
-                    if (i >= text.length) { resolve(); return; }
-                    i = Math.min(i + 3, text.length);
-                    typeEl.innerHTML = md(text.substring(0, i)) + '<span class="typing-cursor">|</span>';
-                    setTimeout(tick, 15);
-                };
-                tick();
-            });
-            typeEl.querySelector('.typing-cursor')?.remove();
+            // Type out result (only when the inline progress UI is present)
+            if (progressEl) {
+                progressEl.innerHTML = '<div class="bazi-typing" id="bazi-typing-' + type + '"><span class="typing-cursor">|</span></div>';
+                const typeEl = document.getElementById('bazi-typing-' + type);
+                const text = data.content;
+                let i = 0;
+                await new Promise(resolve => {
+                    const tick = () => {
+                        if (i >= text.length) { resolve(); return; }
+                        i = Math.min(i + 3, text.length);
+                        typeEl.innerHTML = md(text.substring(0, i)) + '<span class="typing-cursor">|</span>';
+                        setTimeout(tick, 15);
+                    };
+                    tick();
+                });
+                typeEl.querySelector('.typing-cursor')?.remove();
+            }
 
-            // Save
+            // Save (always — this is what immersive mode relies on)
             await API.post('/bazi_analysis', {
                 date_key: dateStr, type: type, period_label: label, gan_zhi: gz, shi_shen: ss, analysis: data.content
             });
-            // Refresh only the analyzed card, not the whole section
-            refreshBaziCard(dateStr, type, label, gz, ss, data.content);
+            // Refresh only the analyzed card when the desktop section exists
+            if (targetEl) refreshBaziCard(dateStr, type, label, gz, ss, data.content);
         }
     } catch(e) {
         console.error('BaZi analysis error:', e);
@@ -812,8 +819,12 @@ async function cancelResultLog(logId) {
 }
 async function execPlan(taskId, date, planId) {
     try {
-        // Add worklog
-        const wlRes = await API.worklogs.toggle(taskId, date);
+        // Ensure a worklog exists for this task+date. toggle() removes an existing log,
+        // so if one was already there (active===false), toggle again to restore the +1.
+        let wlRes = await API.worklogs.toggle(taskId, date);
+        if (wlRes.data && wlRes.data.active === false) {
+            wlRes = await API.worklogs.toggle(taskId, date);
+        }
         if (wlRes.data && wlRes.data.id) {
             // Add auto note
             await API.worklogNotes.add(wlRes.data.id, '已按计划执行');
@@ -836,7 +847,7 @@ async function loadWorklogNotes(wlId) {
         const res = await API.worklogNotes.list(wlId);
         const notes = res.data || [];
         el.innerHTML = notes.map(n => `
-            <div class="wl-note"><span class="wl-note-text">${escapeHtml(n.content)}</span><button class="wl-note-del" onclick="delWorklogNote(${n.id},${wlId})" title="删除">−</button></div>
+            <div class="wl-note"><span class="wl-note-text">${escapeHtml(n.content)}</span><button class="wl-note-attach" onclick="Attach.openModal('worklog_note',${n.id},'备注附件')" title="附件">📎</button><button class="wl-note-del" onclick="delWorklogNote(${n.id},${wlId})" title="删除">−</button></div>
         `).join('');
     } catch(e) {}
 }
@@ -1184,7 +1195,7 @@ async function showWorklogHistory(taskId) {
             html += `<div style="font-weight:700;margin:8px 0 4px;font-size:0.85rem;">📅 ${date}</div>`;
             groups[date].forEach(n => {
                 const time = n.created_at.substring(11,16);
-                html += `<div style="padding:4px 0;border-bottom:1px solid var(--color-border);font-size:0.82rem;"><span style="color:var(--color-text-secondary);font-size:0.7rem;">${time}</span> ${escapeHtml(n.content)}</div>`;
+                html += `<div style="padding:4px 0;border-bottom:1px solid var(--color-border);font-size:0.82rem;"><span style="color:var(--color-text-secondary);font-size:0.7rem;">${time}</span> ${escapeHtml(n.content)} <button class="wl-note-attach" onclick="Attach.openModal('worklog_note',${n.id},'备注附件')" title="附件" style="border:none;background:none;cursor:pointer;">📎</button></div>`;
             });
         });
         Modal.setBody(html);

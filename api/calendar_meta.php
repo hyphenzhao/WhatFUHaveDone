@@ -58,6 +58,7 @@ if ($method === 'POST') {
 
     $inserted = 0;
     foreach ($dates as $d) {
+        if (!is_array($d) || empty($d['date']) || !validate_date((string)$d['date'])) continue;
         $stmt->execute([
             $d['date'],
             $d['lunar_month'] ?? '',

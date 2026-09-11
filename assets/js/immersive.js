@@ -137,7 +137,12 @@ const IM = {
         }
         if (dayGan && typeof getShiShenLabel !== 'undefined') {
             for (const k of Object.keys(info)) {
-                if (info[k].gz) info[k].ss = getShiShenLabel(dayGan, info[k].gz[0]) + ' / ' + getShiShenLabel(dayGan, info[k].gz[1]);
+                if (!info[k].gz) continue;
+                // gz[0] is a heavenly stem (天干), gz[1] an earthly branch (地支) — they need
+                // different lookups; getShiShenLabel only maps stems.
+                const ganSS = getShiShenLabel(dayGan, info[k].gz[0]);
+                const zhiSS = (typeof getZhiShiShen !== 'undefined') ? getZhiShiShen(dayGan, info[k].gz[1]) : '';
+                info[k].ss = [ganSS, zhiSS].filter(Boolean).join(' / ');
             }
         }
         return info;

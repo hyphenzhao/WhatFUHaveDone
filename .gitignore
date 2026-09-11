@@ -5,6 +5,9 @@
 ollama.deb
 vendor/
 
+# Uploaded attachments (persisted files)
+uploads/
+
 # OS files
 .DS_Store
 Thumbs.db

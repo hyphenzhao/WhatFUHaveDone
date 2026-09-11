@@ -22,7 +22,7 @@ $page_content = <<<HTML
         </tr>
     </thead>
     <tbody id="peopleTableBody">
-        <tr><td colspan="5" style="text-align:center;color:var(--color-text-secondary);">加载中...</td></tr>
+        <tr><td colspan="6" style="text-align:center;color:var(--color-text-secondary);">加载中...</td></tr>
     </tbody>
 </table>
 

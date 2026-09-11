@@ -75,8 +75,11 @@ function weather_meta(int $code): array {
 }
 
 function fetch_weather(float $lat, float $lon, string $date, string $city = ''): array {
+    // Note: relative_humidity_2m has no daily aggregation in Open-Meteo (hourly only),
+    // so we request it via hourly= and take the day's max below.
     $url = "https://api.open-meteo.com/v1/forecast?latitude={$lat}&longitude={$lon}"
-         . "&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_sum,windspeed_10m_max,relative_humidity_2m_max"
+         . "&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_sum,windspeed_10m_max"
+         . "&hourly=relative_humidity_2m"
          . "&timezone=Asia/Shanghai&start_date={$date}&end_date={$date}";
 
     $ch = curl_init($url);
@@ -97,17 +100,22 @@ function fetch_weather(float $lat, float $lon, string $date, string $city = ''):
     $code = (int)($daily['weathercode'][0] ?? 0);
     $meta = weather_meta($code);
 
+    // Aggregate hourly relative humidity to the day's max (guard empty/missing).
+    $humidityHours = $data['hourly']['relative_humidity_2m'] ?? [];
+    $humidityHours = array_filter($humidityHours, fn($v) => $v !== null);
+    $humidity = !empty($humidityHours) ? (int)max($humidityHours) : 0;
+
     return [
         'date' => $date,
         'city' => $city,
-        'timezone' => $daily['timezone'][0] ?? 'Asia/Shanghai',
+        'timezone' => $data['timezone'] ?? 'Asia/Shanghai',
         'code' => $code,
         'emoji' => $meta[0],
         'desc' => $meta[1],
         'gradient' => $meta[2],
         'temp_max' => (float)($daily['temperature_2m_max'][0] ?? 0),
         'temp_min' => (float)($daily['temperature_2m_min'][0] ?? 0),
-        'humidity' => (int)($daily['relative_humidity_2m_max'][0] ?? 0),
+        'humidity' => $humidity,
         'wind' => (float)($daily['windspeed_10m_max'][0] ?? 0),
         'rain' => (float)($daily['precipitation_sum'][0] ?? 0),
     ];

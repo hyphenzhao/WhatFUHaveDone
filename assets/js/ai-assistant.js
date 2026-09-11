@@ -12,6 +12,7 @@ const AiChat = {
     pendingCalls: null,
     typingTimer: null,
     requestController: null,
+    pendingFile: null, // { name, content } for attached file
 
     async init(container) {
         this.element = container;
@@ -22,7 +23,13 @@ const AiChat = {
                     <button class="ai-conv-del" id="aiConvDel" title="删除当前对话">🗑️</button>
                 </div>
                 <div class="ai-messages" id="aiMessages"></div>
+                <div class="ai-file-tag" id="aiFileTag" style="display:none;">
+                    <span class="ai-file-name"></span>
+                    <button class="ai-file-remove" title="移除文件">✕</button>
+                </div>
                 <div class="ai-input-area">
+                    <input type="file" id="aiFileInput" accept=".pdf,.docx,.txt,.md,.json,.png,.jpg,.jpeg" style="display:none;">
+                    <button class="ai-attach-btn" id="aiAttachBtn" title="上传文件">📎</button>
                     <textarea class="ai-input" id="aiInput" rows="1" placeholder="输入消息... (Enter 发送)"></textarea>
                     <button class="ai-send-btn" id="aiSendBtn">发送</button>
                 </div>
@@ -49,6 +56,13 @@ const AiChat = {
 
         document.getElementById('aiConvSelect').addEventListener('change', () => this._switchConv());
         document.getElementById('aiConvDel').addEventListener('click', () => this._deleteConv());
+
+        // File upload bindings
+        const attachBtn = container.querySelector('#aiAttachBtn');
+        const fileInput = container.querySelector('#aiFileInput');
+        attachBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => this._onFileSelected(fileInput));
+        container.querySelector('#aiFileTag').querySelector('.ai-file-remove').addEventListener('click', () => this._removeFile());
 
         await this._loadConvList();
         this._startNew();
@@ -109,6 +123,36 @@ const AiChat = {
         this._addWelcome();
     },
 
+    // ===== FILE UPLOAD =====
+    async _onFileSelected(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const tag = document.getElementById('aiFileTag');
+        const nameEl = tag.querySelector('.ai-file-name');
+        tag.style.display = 'flex';
+        nameEl.textContent = '⏳ ' + file.name + ' 上传中...';
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/api/upload', { method: 'POST', body: formData }).then(r => r.json());
+            if (res.error) throw new Error(res.message);
+            this.pendingFile = { name: res.data.name, content: res.data.content };
+            nameEl.textContent = '📄 ' + res.data.name + ' (' + (res.data.content.length > 200 ? '已提取文本' : res.data.content.length + ' 字符') + ')';
+        } catch (e) {
+            nameEl.textContent = '❌ 上传失败: ' + (e.message || '未知错误');
+            this.pendingFile = null;
+        }
+        // Reset input so same file can be re-selected
+        input.value = '';
+    },
+
+    _removeFile() {
+        this.pendingFile = null;
+        const tag = document.getElementById('aiFileTag');
+        if (tag) tag.style.display = 'none';
+    },
+
     async _saveConv(title) {
         try {
             if (this.convId) {
@@ -126,10 +170,20 @@ const AiChat = {
     async send(text) {
         if (this.isWaiting) return;
         text = text || this.inputEl.value.trim();
-        if (!text) return;
+        if (!text && !this.pendingFile) return;
 
-        this._addMsg('user', text, true);
-        this.messages.push({ role: 'user', content: text });
+        // Build full message: file content + user text
+        let fullContent = text || '';
+        let displayContent = text || '';
+        if (this.pendingFile) {
+            const fileBlock = `[上传文件: ${this.pendingFile.name}]\n文件内容:\n${this.pendingFile.content}\n\n---\n`;
+            fullContent = fileBlock + (text ? `用户消息: ${text}` : '请分析以上文件内容');
+            displayContent = `📎 ${this.pendingFile.name}\n${text || '请分析文件内容'}`;
+        }
+
+        this._addMsg('user', displayContent, true);
+        this.messages.push({ role: 'user', content: fullContent });
+        this._removeFile();
         this.inputEl.value = '';
         this.inputEl.style.height = 'auto';
         this.isWaiting = true;

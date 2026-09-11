@@ -22,9 +22,9 @@ const TaskCard = {
         if (stage === 'in_progress') {
             actionsHtml = this._renderInProgressActions(task, date, workLogActive);
         } else if (stage === 'stage_complete') {
-            actionsHtml = this._renderStageCompleteActions(task);
+            actionsHtml = this._renderStageCompleteActions(task, date, workLogActive);
         } else if (stage === 'completed') {
-            actionsHtml = this._renderCompletedActions(task);
+            actionsHtml = this._renderCompletedActions(task, date, workLogActive);
         } else if (stage === 'failed') {
             actionsHtml = this._renderFailedActions(task);
         }
@@ -45,13 +45,22 @@ const TaskCard = {
         `;
     },
 
-    _renderInProgressActions(task, date, workLogActive) {
-        const worklogClass = workLogActive ? 'btn-worklog active' : 'btn-worklog';
-        const worklogText = workLogActive ? '😊' : '+1';
-        const worklogTitle = workLogActive ? '取消今日工作量' : '增加今日工作量';
+    _renderWorklogBtn(task) {
+        return `<button class="btn-log" onclick="showWorklogHistory(${task.id})" title="查看工作日志">📋 日志</button>`;
+    },
 
+    // Shared +1 daily-workload toggle button (usable in any stage).
+    _renderWorklogToggleBtn(task, date, workLogActive) {
+        const cls = workLogActive ? 'btn-worklog active' : 'btn-worklog';
+        const txt = workLogActive ? '😊' : '+1';
+        const title = workLogActive ? '取消今日工作量' : '增加今日工作量';
+        return `<button class="${cls}" onclick="TaskCard.toggleWorklog(${task.id}, '${date}')" title="${title}">${txt}</button>`;
+    },
+
+    _renderInProgressActions(task, date, workLogActive) {
         return `
             <div class="task-card-actions-left">
+                ${this._renderWorklogBtn(task)}
                 <button class="btn-plan" onclick="TaskCard.addPlan(${task.id})" title="添加计划">📅 计划</button>
             </div>
             <div class="task-card-actions-right">
@@ -61,9 +70,7 @@ const TaskCard = {
                     <option value="completed">已完成</option>
                     <option value="failed">失败/放弃</option>
                 </select>
-                <button class="${worklogClass}" onclick="TaskCard.toggleWorklog(${task.id}, '${date}')" title="${worklogTitle}">
-                    ${worklogText}
-                </button>
+                ${this._renderWorklogToggleBtn(task, date, workLogActive)}
                 <button class="btn-trophy" onclick="TaskCard.addResult(${task.id}, '${date}')" title="添加产出成果">
                     🏆+1
                 </button>
@@ -71,9 +78,11 @@ const TaskCard = {
         `;
     },
 
-    _renderStageCompleteActions(task) {
+    _renderStageCompleteActions(task, date, workLogActive) {
         return `
             <div class="task-card-actions-left">
+                ${this._renderWorklogBtn(task)}
+                ${this._renderWorklogToggleBtn(task, date, workLogActive)}
                 <button class="btn-plan" onclick="TaskCard.addPlan(${task.id})" title="添加计划">📅 计划</button>
             </div>
             <div class="task-card-actions-right">
@@ -90,9 +99,11 @@ const TaskCard = {
         `;
     },
 
-    _renderCompletedActions(task) {
+    _renderCompletedActions(task, date, workLogActive) {
         return `
             <div class="task-card-actions-left">
+                ${this._renderWorklogBtn(task)}
+                ${this._renderWorklogToggleBtn(task, date, workLogActive)}
                 <button class="btn-continue" onclick="TaskCard.continueTask(${task.id})">
                     🔄 继续任务
                 </button>
@@ -111,6 +122,7 @@ const TaskCard = {
     _renderFailedActions(task) {
         return `
             <div class="task-card-actions-left">
+                ${this._renderWorklogBtn(task)}
                 <button class="btn-ghost btn-sm" onclick="TaskCard.changeStage(${task.id}, 'in_progress')">重新开始</button>
             </div>
             <div class="task-card-actions-right">
@@ -298,7 +310,7 @@ const TaskCard = {
                 }
 
                 // Log the result via result_logs API
-                await fetch('/api/result_logs', {
+                const logRes = await fetch('/api/result_logs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -306,7 +318,8 @@ const TaskCard = {
                         result_id: resultId,
                         date: date,
                     }),
-                });
+                }).then(r => r.json());
+                if (logRes.error) throw new Error(logRes.message || '记录失败');
 
                 Modal.close();
                 if (typeof refreshAll === 'function') await refreshAll();

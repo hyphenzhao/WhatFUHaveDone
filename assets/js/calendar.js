@@ -91,6 +91,7 @@ const Calendar = {
                 App.setDate(dateStr);
                 if (typeof loadDailyStatus === 'function') loadDailyStatus(dateStr);
                 if (typeof loadRightPanel === 'function') loadRightPanel();
+                if (typeof Calendar.onSelect === 'function') Calendar.onSelect(dateStr);
             });
         });
 
@@ -145,11 +146,15 @@ const Calendar = {
             }).join('') + '</div>';
         }
 
-        // Check if there are work logs for this date
+        // Color days that have results; both work + result gets the gradient
         const hasWork = uniqueEvents.some(e => e.event_type === 'work');
         const hasResult = uniqueEvents.some(e => e.event_type === 'result');
         let bgStyle = '';
-        if (hasWork && hasResult) bgStyle = 'background:linear-gradient(135deg, rgba(59,130,246,0.08), rgba(245,158,11,0.08));';
+        if (hasResult) {
+            bgStyle = hasWork
+                ? 'background:linear-gradient(135deg, rgba(59,130,246,0.08), rgba(245,158,11,0.08));'
+                : 'background:rgba(245,158,11,0.08);';
+        }
 
         // Lunar date
         let lunarHtml = '';
@@ -222,6 +227,7 @@ const Calendar = {
             this.render();
             if (typeof loadDailyStatus === 'function') loadDailyStatus(today());
             if (typeof loadRightPanel === 'function') loadRightPanel();
+            if (typeof Calendar.onSelect === 'function') Calendar.onSelect(today());
         });
     },
 };

@@ -41,7 +41,11 @@ async function loadTasks() {
         if (sortBy === 'priority') {
             activeList.sort((a, b) => sortAsc ? (a.priority||999) - (b.priority||999) : (b.priority||999) - (a.priority||999));
         } else {
-            activeList.sort((a, b) => sortAsc ? a.id - b.id : b.id - a.id);
+            // "按更新时间" — sort by updated_at (string YYYY-MM-DD HH:MM:SS compares lexically)
+            activeList.sort((a, b) => {
+                const cmp = String(a.updated_at || '').localeCompare(String(b.updated_at || ''));
+                return sortAsc ? cmp : -cmp;
+            });
         }
         tasksData = { active: activeList, archived: archived.data || [] };
         renderTasksTable(tasksData.active, 'tasksTableBody', false);

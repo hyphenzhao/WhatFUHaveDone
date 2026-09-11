@@ -26,9 +26,14 @@ function renderResultsTable(results, tbodyId, isArchived) {
     }
     tbody.innerHTML = results.map(r => {
         const tagSpans = (r.tags || []).map(t => `<span class="task-card-tag" style="background:${t.color}">${escapeHtml(t.name)}</span>`).join(' ') || '-';
-        if (isArchived) return `<tr><td><strong>${escapeHtml(r.name)}</strong></td><td>${r.quantity||1}</td><td>${escapeHtml(r.level||'-')}</td><td><div class="table-actions"><button class="btn btn-outline btn-sm" onclick="restoreResult(${r.id})">恢复</button><button class="btn btn-danger btn-sm" onclick="deleteResult(${r.id})">删除</button></div></td></tr>`;
-        return `<tr><td><strong>${escapeHtml(r.name)}</strong></td><td>${tagSpans}</td><td>${r.quantity||1}</td><td>${escapeHtml(r.level||'-')}</td><td><div class="table-actions"><button class="btn btn-outline btn-sm" onclick="editResult(${r.id})">编辑</button><button class="btn btn-ghost btn-sm" onclick="archiveResult(${r.id})">归档</button></div></td></tr>`;
+        if (isArchived) return `<tr><td><strong>${escapeHtml(r.name)}</strong></td><td>${r.quantity||1}</td><td>${escapeHtml(r.level||'-')}</td><td><div class="table-actions"><button class="btn btn-ghost btn-sm" onclick="openResultAttach(${r.id})" title="附件">📎</button><button class="btn btn-outline btn-sm" onclick="restoreResult(${r.id})">恢复</button><button class="btn btn-danger btn-sm" onclick="deleteResult(${r.id})">删除</button></div></td></tr>`;
+        return `<tr><td><strong>${escapeHtml(r.name)}</strong></td><td>${tagSpans}</td><td>${r.quantity||1}</td><td>${escapeHtml(r.level||'-')}</td><td><div class="table-actions"><button class="btn btn-ghost btn-sm" onclick="openResultAttach(${r.id})" title="附件">📎</button><button class="btn btn-outline btn-sm" onclick="editResult(${r.id})">编辑</button><button class="btn btn-ghost btn-sm" onclick="archiveResult(${r.id})">归档</button></div></td></tr>`;
     }).join('');
+}
+
+function openResultAttach(id) {
+    const r = (resultsData.active || []).concat(resultsData.archived || []).find(x => x.id === id);
+    Attach.openModal('result', id, r ? r.name : '');
 }
 
 async function showResultModal(resultId = null) {

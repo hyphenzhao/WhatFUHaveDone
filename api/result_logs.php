@@ -11,21 +11,23 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 $method = get_method();
 $db = get_db();
+$uid = current_user_id();
 
 if ($method === 'GET') {
     $date = $_GET['date'] ?? null;
     $task_id = $_GET['task_id'] ?? null;
 
     if ($date) {
-        $stmt = $db->prepare('SELECT rl.*, t.name as task_name, r.name as result_name FROM result_logs rl JOIN tasks t ON rl.task_id = t.id JOIN results r ON rl.result_id = r.id WHERE rl.log_date = ?');
-        $stmt->execute([$date]);
+        $stmt = $db->prepare('SELECT rl.*, t.name as task_name, r.name as result_name FROM result_logs rl JOIN tasks t ON rl.task_id = t.id JOIN results r ON rl.result_id = r.id WHERE rl.log_date = ? AND t.user_id = ?');
+        $stmt->execute([$date, $uid]);
         json_success($stmt->fetchAll());
     } elseif ($task_id) {
-        $stmt = $db->prepare('SELECT rl.*, r.name as result_name FROM result_logs rl JOIN results r ON rl.result_id = r.id WHERE rl.task_id = ? ORDER BY rl.log_date DESC');
-        $stmt->execute([(int)$task_id]);
+        $stmt = $db->prepare('SELECT rl.*, r.name as result_name FROM result_logs rl JOIN results r ON rl.result_id = r.id JOIN tasks t ON rl.task_id = t.id WHERE rl.task_id = ? AND t.user_id = ? ORDER BY rl.log_date DESC');
+        $stmt->execute([(int)$task_id, $uid]);
         json_success($stmt->fetchAll());
     } else {
         json_error('date or task_id required');
@@ -43,9 +45,15 @@ if ($method === 'POST') {
     if (!$result_id) json_error('result_id required');
     if (!validate_date($date)) json_error('Invalid date format (YYYY-MM-DD)');
 
-    $duration = optional_string($data, 'duration');
-    $stmt = $db->prepare('INSERT INTO result_logs (task_id, result_id, log_date, duration) VALUES (?, ?, ?, ?)');
-    $stmt->execute([$task_id, $result_id, $date, $duration]);
+    $chk = $db->prepare('SELECT 1 FROM tasks WHERE id = ? AND user_id = ?');
+    $chk->execute([$task_id, $uid]);
+    if (!$chk->fetchColumn()) json_error('Task not found', 404);
+    $chk = $db->prepare('SELECT 1 FROM results WHERE id = ? AND user_id = ?');
+    $chk->execute([$result_id, $uid]);
+    if (!$chk->fetchColumn()) json_error('Result not found', 404);
+
+    $stmt = $db->prepare('INSERT INTO result_logs (task_id, result_id, log_date) VALUES (?, ?, ?)');
+    $stmt->execute([$task_id, $result_id, $date]);
 
     // Also link result to task in task_results if not already linked
     $check = $db->prepare('SELECT 1 FROM task_results WHERE task_id = ? AND result_id = ?');
@@ -67,7 +75,7 @@ if ($method === 'DELETE') {
     $parts = get_path_parts();
     $id = isset($parts[2]) ? (int)$parts[2] : 0;
     if ($id) {
-        $db->prepare('DELETE FROM result_logs WHERE id = ?')->execute([$id]);
+        $db->prepare('DELETE rl FROM result_logs rl JOIN tasks t ON rl.task_id = t.id WHERE rl.id = ? AND t.user_id = ?')->execute([$id, $uid]);
         json_success(null, 'Result log removed');
     }
     json_error('ID required');

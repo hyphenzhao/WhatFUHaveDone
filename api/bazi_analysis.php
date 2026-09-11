@@ -9,16 +9,18 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 $method = get_method();
 $db = get_db();
+$uid = current_user_id();
 
 if ($method === 'GET') {
     $date = $_GET['date'] ?? today();
     $type = $_GET['type'] ?? null;
 
-    $sql = 'SELECT * FROM bazi_analysis WHERE date_key = ?';
-    $params = [$date];
+    $sql = 'SELECT * FROM bazi_analysis WHERE date_key = ? AND user_id = ?';
+    $params = [$date, $uid];
     if ($type) { $sql .= ' AND type = ?'; $params[] = $type; }
     $sql .= ' ORDER BY FIELD(type,"dayun","liunian","liuyue","liuri"), id';
 
@@ -38,10 +40,10 @@ if ($method === 'POST') {
 
     if (!$type || !$period_label) json_error('type and period_label required');
 
-    $stmt = $db->prepare('INSERT INTO bazi_analysis (date_key, type, period_label, gan_zhi, shi_shen, analysis)
-        VALUES (?, ?, ?, ?, ?, ?)
+    $stmt = $db->prepare('INSERT INTO bazi_analysis (user_id, date_key, type, period_label, gan_zhi, shi_shen, analysis)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE gan_zhi=VALUES(gan_zhi), shi_shen=VALUES(shi_shen), analysis=VALUES(analysis)');
-    $stmt->execute([$date_key, $type, $period_label, $gan_zhi, $shi_shen, $analysis]);
+    $stmt->execute([$uid, $date_key, $type, $period_label, $gan_zhi, $shi_shen, $analysis]);
 
     json_success(['date_key' => $date_key, 'type' => $type, 'period_label' => $period_label], 'Analysis saved');
 }

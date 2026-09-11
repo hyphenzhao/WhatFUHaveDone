@@ -20,10 +20,26 @@
  */
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = trim($uri, '/');
 $parts = $uri ? explode('/', $uri) : [];
+
+// Authentication guard (login page and auth API are public)
+auth_boot();
+$is_api = ($parts[0] ?? '') === 'api';
+$is_public = ($uri === 'login') || ($is_api && ($parts[1] ?? '') === 'auth');
+if (!$is_public && empty($_SESSION['user_id'])) {
+    if ($is_api) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => true, 'message' => 'Unauthorized'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    header('Location: /login');
+    exit;
+}
 
 // AI routes (handles sub-paths: /api/ai/chat, /api/ai/config, etc.)
 if (($parts[0] ?? '') === 'api' && ($parts[1] ?? '') === 'ai') {
@@ -51,6 +67,7 @@ $page_map = [
     'people'        => 'people',
     'tasks'         => 'tasks',
     'results'       => 'results',
+    'reports'       => 'reports',
     'tags'          => 'tags',
     'relationships' => 'relationships',
     'calendar-admin' => 'calendar-admin',
@@ -58,6 +75,8 @@ $page_map = [
     'profile' => 'profile',
     'skills' => 'skills',
     'immersive' => 'immersive',
+    'login' => 'login',
+    'users' => 'users',
 ];
 
 $page = $page_map[$uri] ?? null;

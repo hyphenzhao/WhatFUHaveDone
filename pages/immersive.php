@@ -7,8 +7,8 @@ $current_page = 'immersive';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>🕶️ 沉浸模式 — WorkLog</title>
-    <link rel="stylesheet" href="/assets/css/app.css">
-    <link rel="stylesheet" href="/assets/css/immersive.css">
+    <link rel="stylesheet" href="/assets/css/app.css?v=20260911">
+    <link rel="stylesheet" href="/assets/css/immersive.css?v=20260911">
 </head>
 <body>
     <div id="imApp"></div>
@@ -23,13 +23,13 @@ $current_page = 'immersive';
     </div>
     <div class="toast-container" id="toastContainer"></div>
 
-    <script src="/assets/js/lunar.js"></script>
-    <script src="/assets/js/api.js"></script>
-    <script src="/assets/js/modal.js"></script>
-    <script src="/assets/js/app.js"></script>
-    <script src="/assets/js/calendar.js"></script>
-    <script src="/assets/js/ai-assistant.js"></script>
-    <script src="/assets/js/home.js"></script>
-    <script src="/assets/js/immersive.js"></script>
+    <script src="/assets/js/lunar.js?v=20260911"></script>
+    <script src="/assets/js/api.js?v=20260911"></script>
+    <script src="/assets/js/modal.js?v=20260911"></script>
+    <script src="/assets/js/app.js?v=20260911"></script>
+    <script src="/assets/js/calendar.js?v=20260911"></script>
+    <script src="/assets/js/ai-assistant.js?v=20260911"></script>
+    <script src="/assets/js/home.js?v=20260911"></script>
+    <script src="/assets/js/immersive.js?v=20260911"></script>
 </body>
 </html>

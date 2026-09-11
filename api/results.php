@@ -6,9 +6,12 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/attachments_util.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 $method = get_method();
 $db = get_db();
+$uid = current_user_id();
 
 // Helper: attach tags to a result
 function attach_tags(PDO $db, int $result_id, array $tag_ids): void {
@@ -20,9 +23,9 @@ function attach_tags(PDO $db, int $result_id, array $tag_ids): void {
 }
 
 // Helper: fetch result with tags
-function get_result_with_tags(PDO $db, int $id): ?array {
-    $stmt = $db->prepare('SELECT * FROM results WHERE id = ?');
-    $stmt->execute([$id]);
+function get_result_with_tags(PDO $db, int $id, int $uid): ?array {
+    $stmt = $db->prepare('SELECT * FROM results WHERE id = ? AND user_id = ?');
+    $stmt->execute([$id, $uid]);
     $result = $stmt->fetch();
     if (!$result) return null;
 
@@ -38,13 +41,13 @@ if ($method === 'GET') {
     $id = isset($parts[2]) ? (int)$parts[2] : null;
 
     if ($id) {
-        $result = get_result_with_tags($db, $id);
+        $result = get_result_with_tags($db, $id, $uid);
         if (!$result) json_error('Not found', 404);
         json_success($result);
     } else {
         $archived = isset($_GET['archived']) ? (int)$_GET['archived'] : 0;
-        $stmt = $db->prepare('SELECT * FROM results WHERE archived = ? ORDER BY created_at DESC');
-        $stmt->execute([$archived]);
+        $stmt = $db->prepare('SELECT * FROM results WHERE archived = ? AND user_id = ? ORDER BY created_at DESC');
+        $stmt->execute([$archived, $uid]);
         $results = $stmt->fetchAll();
         // Attach tags
         foreach ($results as &$r) {
@@ -62,8 +65,9 @@ if ($method === 'POST') {
     $name = optional_string($data, 'name');
     if (!$name) json_error('Name is required');
 
-    $stmt = $db->prepare('INSERT INTO results (name, quantity, level) VALUES (?, ?, ?)');
+    $stmt = $db->prepare('INSERT INTO results (user_id, name, quantity, level) VALUES (?, ?, ?, ?)');
     $stmt->execute([
+        $uid,
         $name,
         optional_int($data, 'quantity', 1),
         optional_string($data, 'level'),
@@ -73,7 +77,7 @@ if ($method === 'POST') {
     $tag_ids = optional_array($data, 'tag_ids');
     if ($tag_ids) attach_tags($db, $id, $tag_ids);
 
-    json_success(get_result_with_tags($db, $id), 'Result created');
+    json_success(get_result_with_tags($db, $id, $uid), 'Result created');
 }
 
 // PUT /api/results/{id} — update (partial updates supported)
@@ -95,14 +99,15 @@ if ($method === 'PUT') {
     }
     if ($fields) {
         $params[] = $id;
-        $db->prepare('UPDATE results SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
+        $params[] = $uid;
+        $db->prepare('UPDATE results SET ' . implode(', ', $fields) . ' WHERE id = ? AND user_id = ?')->execute($params);
     }
 
     if (isset($data['tag_ids'])) {
         attach_tags($db, $id, optional_array($data, 'tag_ids'));
     }
 
-    json_success(get_result_with_tags($db, $id), 'Result updated');
+    json_success(get_result_with_tags($db, $id, $uid), 'Result updated');
 }
 
 // DELETE /api/results/{id} — hard delete
@@ -111,7 +116,12 @@ if ($method === 'DELETE') {
     $id = isset($parts[2]) ? (int)$parts[2] : 0;
     if (!$id) json_error('ID required');
 
-    $db->prepare('DELETE FROM results WHERE id = ?')->execute([$id]);
+    $check = $db->prepare('SELECT id FROM results WHERE id = ? AND user_id = ?');
+    $check->execute([$id, $uid]);
+    if (!$check->fetch()) json_error('Not found', 404);
+
+    delete_attachments($db, 'result', [$id]);
+    $db->prepare('DELETE FROM results WHERE id = ? AND user_id = ?')->execute([$id, $uid]);
     json_success(null, 'Result deleted permanently');
 }
 

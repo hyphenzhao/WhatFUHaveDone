@@ -9,16 +9,20 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 $method = get_method();
 $db = get_db();
+$uid = current_user_id();
 
 if ($method === 'GET') {
-    $stmt = $db->query('SELECT * FROM user_profile WHERE id = 1');
+    $stmt = $db->prepare('SELECT * FROM user_profile WHERE user_id = ?');
+    $stmt->execute([$uid]);
     $profile = $stmt->fetch();
     if (!$profile) {
-        $db->exec("INSERT INTO user_profile (id, name) VALUES (1, '')");
-        $stmt = $db->query('SELECT * FROM user_profile WHERE id = 1');
+        $db->prepare("INSERT INTO user_profile (user_id, name) VALUES (?, '')")->execute([$uid]);
+        $stmt = $db->prepare('SELECT * FROM user_profile WHERE user_id = ?');
+        $stmt->execute([$uid]);
         $profile = $stmt->fetch();
     }
     json_success($profile);
@@ -32,11 +36,18 @@ if ($method === 'PUT') {
               'bazi_year','bazi_month','bazi_day','bazi_time','shishen','nayin','dayun','shengxiao'] as $f) {
         if (array_key_exists($f, $data)) { $fields[] = "`$f` = ?"; $params[] = $data[$f]; }
     }
-    if ($fields) {
-        $params[] = 1;
-        $db->prepare('UPDATE user_profile SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
+    // Ensure the row exists before UPDATE (lazy init for new users)
+    $chk = $db->prepare('SELECT 1 FROM user_profile WHERE user_id = ?');
+    $chk->execute([$uid]);
+    if (!$chk->fetchColumn()) {
+        $db->prepare("INSERT INTO user_profile (user_id, name) VALUES (?, '')")->execute([$uid]);
     }
-    $stmt = $db->query('SELECT * FROM user_profile WHERE id = 1');
+    if ($fields) {
+        $params[] = $uid;
+        $db->prepare('UPDATE user_profile SET ' . implode(', ', $fields) . ' WHERE user_id = ?')->execute($params);
+    }
+    $stmt = $db->prepare('SELECT * FROM user_profile WHERE user_id = ?');
+    $stmt->execute([$uid]);
     json_success($stmt->fetch(), 'Profile saved');
 }
 

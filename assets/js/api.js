@@ -13,6 +13,10 @@ const API = {
             opts.body = JSON.stringify(body);
         }
         const res = await fetch(this.base + path, opts);
+        if (res.status === 401) {
+            window.location.href = '/login';
+            throw new Error('未登录');
+        }
         const data = await res.json();
         if (!res.ok || data.error) {
             throw new Error(data.message || 'Request failed');
@@ -24,6 +28,33 @@ const API = {
     post(path, body) { return this.request('POST', path, body); },
     put(path, body) { return this.request('PUT', path, body); },
     delete(path, body) { return this.request('DELETE', path, body); },
+
+    // multipart/form-data upload (does NOT set JSON Content-Type)
+    async upload(path, formData) {
+        const res = await fetch(this.base + path, { method: 'POST', body: formData });
+        if (res.status === 401) {
+            window.location.href = '/login';
+            throw new Error('未登录');
+        }
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.message || 'Upload failed');
+        return data;
+    },
+
+    // --- Auth ---
+    auth: {
+        login(data) { return API.post('/auth/login', data); },
+        logout() { return API.post('/auth/logout'); },
+        me() { return API.get('/auth/me'); },
+    },
+
+    // --- Users (admin) ---
+    users: {
+        list() { return API.get('/users'); },
+        create(data) { return API.post('/users', data); },
+        update(id, data) { return API.put(`/users/${id}`, data); },
+        remove(id) { return API.delete(`/users/${id}`); },
+    },
 
     // --- People ---
     people: {
@@ -91,8 +122,8 @@ const API = {
 
     // --- Stats ---
     stats: {
-        workload(period, refDate) { return API.get(`/stats?type=workload${period && period !== 'all' ? '&period=' + period + '&ref_date=' + (refDate || today()) : ''}`); },
-        results(period, refDate) { return API.get(`/stats?type=results${period && period !== 'all' ? '&period=' + period + '&ref_date=' + (refDate || today()) : ''}`); },
+        workload(period, refDate, bounded) { return API.get(`/stats?type=workload${period && period !== 'all' ? '&period=' + period + '&ref_date=' + (refDate || today()) + (bounded ? '&bounded=1' : '') : ''}`); },
+        results(period, refDate, bounded) { return API.get(`/stats?type=results${period && period !== 'all' ? '&period=' + period + '&ref_date=' + (refDate || today()) + (bounded ? '&bounded=1' : '') : ''}`); },
         calendar(month) { return API.get(`/stats?type=calendar&month=${month}`); },
         daily(date) { return API.get(`/stats?type=daily&date=${date}`); },
         workloadDetail(tagId, period, refDate) { return API.get(`/stats?type=workload_detail&tag_id=${tagId}${period && period !== 'all' ? '&period=' + period + '&ref_date=' + (refDate || today()) : ''}`); },
@@ -135,5 +166,29 @@ const API = {
     // --- Relationships ---
     relationships: {
         get() { return API.get('/relationships'); },
+    },
+
+    // --- Attachments ---
+    attachments: {
+        list(entityType, entityId) { return API.get(`/attachments?entity_type=${encodeURIComponent(entityType)}&entity_id=${entityId}`); },
+        upload(entityType, entityId, file) {
+            const fd = new FormData();
+            fd.append('entity_type', entityType);
+            fd.append('entity_id', entityId);
+            fd.append('file', file);
+            return API.upload('/attachments', fd);
+        },
+        remove(id) { return API.delete(`/attachments/${id}`); },
+        downloadUrl(id) { return `/api/attachments/${id}/download`; },
+        inlineUrl(id) { return `/api/attachments/${id}/download?inline=1`; },
+    },
+
+    // --- Reports ---
+    reports: {
+        list() { return API.get('/reports'); },
+        get(id) { return API.get(`/reports/${id}`); },
+        byPeriod(periodType, periodKey) { return API.get(`/reports?period_type=${encodeURIComponent(periodType)}&period_key=${encodeURIComponent(periodKey)}`); },
+        generate(periodType, periodKey, extraNote) { return API.post('/reports', { period_type: periodType, period_key: periodKey, note: extraNote || '' }); },
+        remove(id) { return API.delete(`/reports/${id}`); },
     },
 };

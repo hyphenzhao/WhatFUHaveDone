@@ -12,10 +12,13 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
+require_once __DIR__ . '/../includes/auth.php';
+
 $method = get_method();
 if ($method !== 'GET') json_error('Method not allowed', 405);
 
 $db = get_db();
+$uid = current_user_id();
 $type = $_GET['type'] ?? '';
 $period = $_GET['period'] ?? 'all';
 $ref_date = $_GET['ref_date'] ?? date('Y-m-d');
@@ -31,6 +34,18 @@ function get_period_start(string $period, string $ref_date): string|null {
     };
 }
 
+// Helper: compute the END of the period (for bounded=1 requests, so stats reflect
+// the *selected* period only, not everything from its start onward).
+function get_period_end(string $period, string $ref_date): ?string {
+    $ts = strtotime($ref_date);
+    return match ($period) {
+        'week'   => date('Y-m-d', strtotime('sunday this week', $ts)),
+        'month'  => date('Y-m-t', $ts),
+        'year'   => date('Y-12-31', $ts),
+        default  => null,
+    };
+}
+
 // Workload leaderboard by tag
 if ($type === 'workload') {
     $start = get_period_start($period, $ref_date);
@@ -38,11 +53,15 @@ if ($type === 'workload') {
             FROM tags t
             JOIN task_tags tt ON t.id = tt.tag_id
             JOIN work_logs wl ON tt.task_id = wl.task_id
-            WHERE t.archived = 0";
-    $params = [];
+            WHERE t.archived = 0 AND t.user_id = ?";
+    $params = [$uid];
     if ($start) {
         $sql .= " AND wl.log_date >= ?";
         $params[] = $start;
+        if (isset($_GET['bounded']) && ($end = get_period_end($period, $ref_date))) {
+            $sql .= " AND wl.log_date <= ?";
+            $params[] = $end;
+        }
     }
     $sql .= " GROUP BY t.id, t.name, t.color ORDER BY total_workload DESC";
     $stmt = $db->prepare($sql);
@@ -57,11 +76,15 @@ if ($type === 'results') {
             FROM tags t
             JOIN task_tags tt ON t.id = tt.tag_id
             JOIN result_logs rl ON tt.task_id = rl.task_id
-            WHERE t.archived = 0";
-    $params = [];
+            WHERE t.archived = 0 AND t.user_id = ?";
+    $params = [$uid];
     if ($start) {
         $sql .= " AND rl.log_date >= ?";
         $params[] = $start;
+        if (isset($_GET['bounded']) && ($end = get_period_end($period, $ref_date))) {
+            $sql .= " AND rl.log_date <= ?";
+            $params[] = $end;
+        }
     }
     $sql .= " GROUP BY t.id, t.name, t.color ORDER BY total_results DESC";
     $stmt = $db->prepare($sql);
@@ -79,20 +102,20 @@ if ($type === 'calendar') {
     $sql = "SELECT DISTINCT t.id, t.name, wl.log_date as event_date, 'work' as event_type, '' as plan_time, '' as plan_end_time
             FROM tasks t
             JOIN work_logs wl ON t.id = wl.task_id
-            WHERE wl.log_date BETWEEN ? AND ? AND t.archived = 0
+            WHERE wl.log_date BETWEEN ? AND ? AND t.archived = 0 AND t.user_id = ?
             UNION ALL
             SELECT DISTINCT t.id, t.name, p.planned_date as event_date, 'plan' as event_type, p.plan_time, p.plan_end_time
             FROM tasks t
             JOIN plans p ON t.id = p.task_id
-            WHERE p.planned_date BETWEEN ? AND ? AND t.archived = 0
+            WHERE p.planned_date BETWEEN ? AND ? AND t.archived = 0 AND t.user_id = ?
             UNION ALL
             SELECT DISTINCT t.id, t.name, rl.log_date as event_date, 'result' as event_type, '' as plan_time, '' as plan_end_time
             FROM tasks t
             JOIN result_logs rl ON t.id = rl.task_id
-            WHERE rl.log_date BETWEEN ? AND ? AND t.archived = 0
+            WHERE rl.log_date BETWEEN ? AND ? AND t.archived = 0 AND t.user_id = ?
             ORDER BY event_date, id";
     $stmt = $db->prepare($sql);
-    $stmt->execute([$start, $end, $start, $end, $start, $end]);
+    $stmt->execute([$start, $end, $uid, $start, $end, $uid, $start, $end, $uid]);
     $events = $stmt->fetchAll();
 
     // Attach tags to each task
@@ -127,9 +150,9 @@ if ($type === 'daily') {
     $sql = "SELECT t.*, wl.id as work_log_id, wl.duration
             FROM tasks t
             JOIN work_logs wl ON t.id = wl.task_id
-            WHERE wl.log_date = ? AND t.archived = 0";
+            WHERE wl.log_date = ? AND t.archived = 0 AND t.user_id = ?";
     $stmt = $db->prepare($sql);
-    $stmt->execute([$date]);
+    $stmt->execute([$date, $uid]);
     $work_tasks = $stmt->fetchAll();
 
     // Tasks with results logged on this date
@@ -137,18 +160,18 @@ if ($type === 'daily') {
             FROM tasks t
             JOIN result_logs rl ON t.id = rl.task_id
             JOIN results r ON rl.result_id = r.id
-            WHERE rl.log_date = ? AND t.archived = 0";
+            WHERE rl.log_date = ? AND t.archived = 0 AND t.user_id = ?";
     $stmt = $db->prepare($sql);
-    $stmt->execute([$date]);
+    $stmt->execute([$date, $uid]);
     $result_tasks = $stmt->fetchAll();
 
     // Tasks planned for this date
     $sql = "SELECT t.*, p.id as plan_id, p.plan_time, p.plan_end_time
             FROM tasks t
             JOIN plans p ON t.id = p.task_id
-            WHERE p.planned_date = ? AND t.archived = 0";
+            WHERE p.planned_date = ? AND t.archived = 0 AND t.user_id = ?";
     $stmt = $db->prepare($sql);
-    $stmt->execute([$date]);
+    $stmt->execute([$date, $uid]);
     $plan_tasks = $stmt->fetchAll();
 
     // Attach tags to each task
@@ -184,8 +207,8 @@ if ($type === 'workload_detail') {
             JOIN work_logs wl ON t.id = wl.task_id
             LEFT JOIN task_people tp ON t.id = tp.task_id
             LEFT JOIN people p ON tp.people_id = p.id
-            WHERE tt.tag_id = ? AND t.archived = 0";
-    $params = [(int)$tag_id];
+            WHERE tt.tag_id = ? AND t.archived = 0 AND t.user_id = ?";
+    $params = [(int)$tag_id, $uid];
     if ($start) {
         $sql .= " AND wl.log_date >= ?";
         $params[] = $start;
@@ -213,8 +236,8 @@ if ($type === 'results_detail') {
             JOIN results r ON rl.result_id = r.id
             JOIN tasks t ON rl.task_id = t.id
             JOIN task_tags tt ON t.id = tt.task_id
-            WHERE tt.tag_id = ?";
-    $params = [(int)$tag_id];
+            WHERE tt.tag_id = ? AND t.user_id = ?";
+    $params = [(int)$tag_id, $uid];
     if ($start) {
         $sql .= " AND rl.log_date >= ?";
         $params[] = $start;

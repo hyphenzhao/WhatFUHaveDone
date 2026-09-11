@@ -1,0 +1,2 @@
+# 禁止通过 HTTP 访问迁移脚本
+Require all denied

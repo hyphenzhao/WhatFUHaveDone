@@ -11,13 +11,16 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 $method = get_method();
 $parts = get_path_parts();
 $db = get_db();
 $action = $parts[2] ?? '';
 
+// 技能库全局共享：所有登录用户可读，仅管理员可写（导入/启停）
 if ($method === 'GET' && $action === 'refresh') {
+    require_admin();
     // Scan skills/ directory for SKILL.md files
     $skillsDir = __DIR__ . '/../skills';
     if (!is_dir($skillsDir)) {
@@ -76,6 +79,7 @@ if ($method === 'GET' && is_numeric($action)) {
 }
 
 if ($method === 'PUT' && is_numeric($action)) {
+    require_admin();
     $data = get_json_input();
     $enabled = isset($data['enabled']) ? (int)$data['enabled'] : null;
     if ($enabled !== null) {

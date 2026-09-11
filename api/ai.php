@@ -12,20 +12,24 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 $method = get_method();
 $parts = get_path_parts();
 $db = get_db();
+$uid = current_user_id();
 $action = $parts[2] ?? 'chat';
 
 // --- Config helpers ---
 
 function load_ai_config(PDO $db): array {
-    $stmt = $db->query('SELECT * FROM ai_config ORDER BY id DESC LIMIT 1');
+    $uid = current_user_id();
+    $stmt = $db->prepare('SELECT * FROM ai_config WHERE user_id = ? LIMIT 1');
+    $stmt->execute([$uid]);
     $row = $stmt->fetch();
     if (!$row) {
-        $db->prepare('INSERT INTO ai_config (provider, endpoint, api_key, model) VALUES (?, ?, ?, ?)')
-           ->execute([AI_DEFAULT_PROVIDER, AI_DEFAULT_ENDPOINT, AI_DEFAULT_API_KEY, AI_DEFAULT_MODEL]);
+        $db->prepare('INSERT INTO ai_config (user_id, provider, endpoint, api_key, model) VALUES (?, ?, ?, ?, ?)')
+           ->execute([$uid, AI_DEFAULT_PROVIDER, AI_DEFAULT_ENDPOINT, AI_DEFAULT_API_KEY, AI_DEFAULT_MODEL]);
         return [
             'provider' => AI_DEFAULT_PROVIDER,
             'endpoint' => AI_DEFAULT_ENDPOINT,
@@ -84,6 +88,11 @@ function call_llm(array $config, array $messages, array $tools, int $timeout = 6
         '_model' => $data['model'] ?? '',
         '_finish_reason' => $data['choices'][0]['finish_reason'] ?? '',
     ];
+    // DeepSeek thinking mode: reasoning_content must be passed back with the
+    // assistant turn in every subsequent request, or the API errors out.
+    if (!empty($choice['reasoning_content'])) {
+        $msg['reasoning_content'] = $choice['reasoning_content'];
+    }
     if (!empty($choice['tool_calls'])) {
         $msg['tool_calls'] = $choice['tool_calls'];
     }
@@ -108,10 +117,17 @@ function normalize_conversation_history(array $history): array {
         if (!is_string($content)) $content = '';
         if ($content === '' && $role === 'assistant') continue;
 
-        $normalized[] = [
+        $msg = [
             'role' => $role,
             'content' => $content,
         ];
+        // Thinking-mode models (e.g. DeepSeek) require the assistant's
+        // reasoning_content to be sent back with its turn; tool_calls stay
+        // stripped per the comment above.
+        if ($role === 'assistant' && !empty($message['reasoning_content'])) {
+            $msg['reasoning_content'] = $message['reasoning_content'];
+        }
+        $normalized[] = $msg;
     }
     return $normalized;
 }
@@ -506,8 +522,8 @@ function get_tool_definitions(): array {
 function handle_list_tasks(PDO $db, array $args): array {
     $archived = $args['archived'] ?? 0;
     $stage = $args['stage'] ?? null;
-    $sql = 'SELECT id, name, description, stage, stage_number, archived FROM tasks WHERE archived = ?';
-    $params = [$archived];
+    $sql = 'SELECT id, name, description, stage, stage_number, archived FROM tasks WHERE archived = ? AND user_id = ?';
+    $params = [$archived, current_user_id()];
     if ($stage) { $sql .= ' AND stage = ?'; $params[] = $stage; }
     $sql .= ' ORDER BY updated_at DESC';
     $stmt = $db->prepare($sql);
@@ -520,8 +536,8 @@ function handle_get_task(PDO $db, array $args): ?array {
 }
 
 function handle_create_task(PDO $db, array $args): array {
-    $stmt = $db->prepare('INSERT INTO tasks (name, description, stage, location) VALUES (?, ?, ?, ?)');
-    $stmt->execute([$args['name'], $args['description'] ?? '', $args['stage'] ?? 'in_progress', $args['location'] ?? '']);
+    $stmt = $db->prepare('INSERT INTO tasks (user_id, name, description, stage, location) VALUES (?, ?, ?, ?, ?)');
+    $stmt->execute([current_user_id(), $args['name'], $args['description'] ?? '', $args['stage'] ?? 'in_progress', $args['location'] ?? '']);
     $id = (int)$db->lastInsertId();
     if (!empty($args['people_ids'])) attach_people($db, $id, $args['people_ids']);
     if (!empty($args['tag_ids'])) attach_task_tags($db, $id, $args['tag_ids']);
@@ -534,7 +550,7 @@ function handle_update_task(PDO $db, array $args): array {
     foreach (['name', 'description', 'stage', 'stage_number', 'archived', 'priority', 'importance', 'necessity', 'deadline', 'location'] as $f) {
         if (array_key_exists($f, $args)) { $fields[] = "$f = ?"; $params[] = $args[$f]; }
     }
-    if ($fields) { $params[] = $id; $db->prepare('UPDATE tasks SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params); }
+    if ($fields) { $params[] = $id; $params[] = current_user_id(); $db->prepare('UPDATE tasks SET ' . implode(', ', $fields) . ' WHERE id = ? AND user_id = ?')->execute($params); }
     if (isset($args['people_ids'])) attach_people($db, $id, $args['people_ids']);
     if (isset($args['tag_ids'])) attach_task_tags($db, $id, $args['tag_ids']);
     return get_task_full($db, $id);
@@ -543,26 +559,27 @@ function handle_update_task(PDO $db, array $args): array {
 function handle_delete_task(PDO $db, array $args): array {
     $id = (int)$args['id'];
     $task = get_task_full($db, $id);
-    $db->prepare('DELETE FROM tasks WHERE id = ?')->execute([$id]);
+    if (!$task) return ['error' => 'Task not found'];
+    $db->prepare('DELETE FROM tasks WHERE id = ? AND user_id = ?')->execute([$id, current_user_id()]);
     return ['deleted' => $task];
 }
 
 function handle_list_people(PDO $db, array $args): array {
     $archived = $args['archived'] ?? 0;
-    $stmt = $db->prepare('SELECT id, name, relationship, importance, usefulness FROM people WHERE archived = ? ORDER BY importance DESC, name ASC');
-    $stmt->execute([$archived]);
+    $stmt = $db->prepare('SELECT id, name, relationship, importance, usefulness FROM people WHERE archived = ? AND user_id = ? ORDER BY importance DESC, name ASC');
+    $stmt->execute([$archived, current_user_id()]);
     return $stmt->fetchAll();
 }
 
 function handle_get_person(PDO $db, array $args): ?array {
-    $stmt = $db->prepare('SELECT * FROM people WHERE id = ?');
-    $stmt->execute([(int)$args['id']]);
+    $stmt = $db->prepare('SELECT * FROM people WHERE id = ? AND user_id = ?');
+    $stmt->execute([(int)$args['id'], current_user_id()]);
     return $stmt->fetch() ?: null;
 }
 
 function handle_create_person(PDO $db, array $args): array {
-    $stmt = $db->prepare('INSERT INTO people (name, relationship, bio, importance, usefulness) VALUES (?, ?, ?, ?, ?)');
-    $stmt->execute([$args['name'], $args['relationship'] ?? '', $args['bio'] ?? '', $args['importance'] ?? 0, $args['usefulness'] ?? 0]);
+    $stmt = $db->prepare('INSERT INTO people (user_id, name, relationship, bio, importance, usefulness) VALUES (?, ?, ?, ?, ?, ?)');
+    $stmt->execute([current_user_id(), $args['name'], $args['relationship'] ?? '', $args['bio'] ?? '', $args['importance'] ?? 0, $args['usefulness'] ?? 0]);
     $stmt = $db->prepare('SELECT * FROM people WHERE id = ?');
     $stmt->execute([(int)$db->lastInsertId()]);
     return $stmt->fetch();
@@ -574,7 +591,7 @@ function handle_update_person(PDO $db, array $args): array {
     foreach (['name', 'relationship', 'bio', 'importance', 'usefulness', 'archived'] as $f) {
         if (array_key_exists($f, $args)) { $fields[] = "$f = ?"; $params[] = $args[$f]; }
     }
-    if ($fields) { $params[] = $id; $db->prepare('UPDATE people SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params); }
+    if ($fields) { $params[] = $id; $params[] = current_user_id(); $db->prepare('UPDATE people SET ' . implode(', ', $fields) . ' WHERE id = ? AND user_id = ?')->execute($params); }
     $stmt = $db->prepare('SELECT * FROM people WHERE id = ?');
     $stmt->execute([$id]);
     return $stmt->fetch();
@@ -582,14 +599,14 @@ function handle_update_person(PDO $db, array $args): array {
 
 function handle_list_tags(PDO $db, array $args): array {
     $archived = $args['archived'] ?? 0;
-    $stmt = $db->prepare('SELECT id, name, color FROM tags WHERE archived = ? ORDER BY name ASC');
-    $stmt->execute([$archived]);
+    $stmt = $db->prepare('SELECT id, name, color FROM tags WHERE archived = ? AND user_id = ? ORDER BY name ASC');
+    $stmt->execute([$archived, current_user_id()]);
     return $stmt->fetchAll();
 }
 
 function handle_create_tag(PDO $db, array $args): array {
-    $stmt = $db->prepare('INSERT INTO tags (name, color) VALUES (?, ?)');
-    $stmt->execute([$args['name'], $args['color'] ?? '#3B82F6']);
+    $stmt = $db->prepare('INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?)');
+    $stmt->execute([current_user_id(), $args['name'], $args['color'] ?? '#3B82F6']);
     $stmt = $db->prepare('SELECT * FROM tags WHERE id = ?');
     $stmt->execute([(int)$db->lastInsertId()]);
     return $stmt->fetch();
@@ -601,7 +618,7 @@ function handle_update_tag(PDO $db, array $args): array {
     foreach (['name', 'color', 'archived'] as $f) {
         if (array_key_exists($f, $args)) { $fields[] = "$f = ?"; $params[] = $args[$f]; }
     }
-    if ($fields) { $params[] = $id; $db->prepare('UPDATE tags SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params); }
+    if ($fields) { $params[] = $id; $params[] = current_user_id(); $db->prepare('UPDATE tags SET ' . implode(', ', $fields) . ' WHERE id = ? AND user_id = ?')->execute($params); }
     $stmt = $db->prepare('SELECT * FROM tags WHERE id = ?');
     $stmt->execute([$id]);
     return $stmt->fetch();
@@ -609,14 +626,17 @@ function handle_update_tag(PDO $db, array $args): array {
 
 function handle_list_results(PDO $db, array $args): array {
     $archived = $args['archived'] ?? 0;
-    $stmt = $db->prepare('SELECT id, name, quantity, level FROM results WHERE archived = ? ORDER BY name ASC');
-    $stmt->execute([$archived]);
+    $stmt = $db->prepare('SELECT id, name, quantity, level FROM results WHERE archived = ? AND user_id = ? ORDER BY name ASC');
+    $stmt->execute([$archived, current_user_id()]);
     return $stmt->fetchAll();
 }
 
 function handle_toggle_worklog(PDO $db, array $args): array {
     $task_id = (int)$args['task_id'];
     $date = $args['date'] ?? today();
+    $chk = $db->prepare('SELECT 1 FROM tasks WHERE id = ? AND user_id = ?');
+    $chk->execute([$task_id, current_user_id()]);
+    if (!$chk->fetchColumn()) return ['error' => 'Task not found'];
     $stmt = $db->prepare('SELECT id FROM work_logs WHERE task_id = ? AND log_date = ?');
     $stmt->execute([$task_id, $date]);
     $existing = $stmt->fetch();
@@ -629,26 +649,32 @@ function handle_toggle_worklog(PDO $db, array $args): array {
 }
 
 function handle_get_worklogs_by_date(PDO $db, array $args): array {
-    $stmt = $db->prepare('SELECT wl.*, t.name as task_name FROM work_logs wl JOIN tasks t ON wl.task_id = t.id WHERE wl.log_date = ?');
-    $stmt->execute([$args['date']]);
+    $stmt = $db->prepare('SELECT wl.*, t.name as task_name FROM work_logs wl JOIN tasks t ON wl.task_id = t.id WHERE wl.log_date = ? AND t.user_id = ?');
+    $stmt->execute([$args['date'], current_user_id()]);
     return $stmt->fetchAll();
 }
 
 function handle_add_plan(PDO $db, array $args): array {
     $pt = $args['plan_time'] ?? '';
     $pet = $args['plan_end_time'] ?? '';
+    $chk = $db->prepare('SELECT 1 FROM tasks WHERE id = ? AND user_id = ?');
+    $chk->execute([(int)$args['task_id'], current_user_id()]);
+    if (!$chk->fetchColumn()) return ['error' => 'Task not found'];
     $stmt = $db->prepare('INSERT INTO plans (task_id, planned_date, plan_time, plan_end_time) VALUES (?, ?, ?, ?)');
     $stmt->execute([(int)$args['task_id'], $args['planned_date'], $pt, $pet]);
     return ['id' => (int)$db->lastInsertId(), 'task_id' => (int)$args['task_id'], 'planned_date' => $args['planned_date']];
 }
 
 function handle_update_worklog_duration(PDO $db, array $args): array {
-    $stmt = $db->prepare('UPDATE work_logs SET duration = ? WHERE id = ?');
-    $stmt->execute([$args['duration'], (int)$args['id']]);
+    $stmt = $db->prepare('UPDATE work_logs wl JOIN tasks t ON wl.task_id = t.id SET wl.duration = ? WHERE wl.id = ? AND t.user_id = ?');
+    $stmt->execute([$args['duration'], (int)$args['id'], current_user_id()]);
     return ['updated' => true];
 }
 
 function handle_add_result_log(PDO $db, array $args): array {
+    $chk = $db->prepare('SELECT 1 FROM tasks WHERE id = ? AND user_id = ?');
+    $chk->execute([(int)$args['task_id'], current_user_id()]);
+    if (!$chk->fetchColumn()) return ['error' => 'Task not found'];
     $stmt = $db->prepare('INSERT INTO result_logs (task_id, result_id, log_date) VALUES (?, ?, ?)');
     $stmt->execute([(int)$args['task_id'], (int)$args['result_id'], $args['date'] ?? today()]);
     return ['id' => (int)$db->lastInsertId()];
@@ -664,8 +690,8 @@ function handle_get_workload_stats(PDO $db, array $args): array {
         'year' => date('Y-01-01', $ts),
         default => null,
     };
-    $sql = "SELECT t.id, t.name, t.color, COUNT(wl.id) as total_workload FROM tags t JOIN task_tags tt ON t.id = tt.tag_id JOIN work_logs wl ON tt.task_id = wl.task_id WHERE t.archived = 0";
-    $params = [];
+    $sql = "SELECT t.id, t.name, t.color, COUNT(wl.id) as total_workload FROM tags t JOIN task_tags tt ON t.id = tt.tag_id JOIN work_logs wl ON tt.task_id = wl.task_id WHERE t.archived = 0 AND t.user_id = ?";
+    $params = [current_user_id()];
     if ($start) {
         $sql .= " AND wl.log_date >= ?";
         $params[] = $start;
@@ -686,8 +712,8 @@ function handle_get_results_stats(PDO $db, array $args): array {
         'year' => date('Y-01-01', $ts),
         default => null,
     };
-    $sql = "SELECT t.id, t.name, t.color, COUNT(rl.id) as total_results FROM tags t JOIN task_tags tt ON t.id = tt.tag_id JOIN result_logs rl ON tt.task_id = rl.task_id WHERE t.archived = 0";
-    $params = [];
+    $sql = "SELECT t.id, t.name, t.color, COUNT(rl.id) as total_results FROM tags t JOIN task_tags tt ON t.id = tt.tag_id JOIN result_logs rl ON tt.task_id = rl.task_id WHERE t.archived = 0 AND t.user_id = ?";
+    $params = [current_user_id()];
     if ($start) {
         $sql .= " AND rl.log_date >= ?";
         $params[] = $start;
@@ -702,38 +728,41 @@ function handle_get_calendar_data(PDO $db, array $args): array {
     $month = $args['month'];
     $start = $month . '-01';
     $end = date('Y-m-t', strtotime($start));
-    $sql = "SELECT DISTINCT t.id, t.name, wl.log_date as event_date, 'work' as event_type FROM tasks t JOIN work_logs wl ON t.id = wl.task_id WHERE wl.log_date BETWEEN ? AND ? AND t.archived = 0";
+    $sql = "SELECT DISTINCT t.id, t.name, wl.log_date as event_date, 'work' as event_type FROM tasks t JOIN work_logs wl ON t.id = wl.task_id WHERE wl.log_date BETWEEN ? AND ? AND t.archived = 0 AND t.user_id = ?";
     $stmt = $db->prepare($sql);
-    $stmt->execute([$start, $end]);
+    $stmt->execute([$start, $end, current_user_id()]);
     return $stmt->fetchAll();
 }
 
 function handle_get_daily_status(PDO $db, array $args): array {
     $date = $args['date'];
-    $workStmt = $db->prepare('SELECT t.* FROM tasks t JOIN work_logs wl ON t.id = wl.task_id WHERE wl.log_date = ? AND t.archived = 0');
-    $workStmt->execute([$date]);
-    $resultStmt = $db->prepare('SELECT t.*, rl.result_id, r.name as result_name FROM tasks t JOIN result_logs rl ON t.id = rl.task_id JOIN results r ON rl.result_id = r.id WHERE rl.log_date = ? AND t.archived = 0');
-    $resultStmt->execute([$date]);
-    $planStmt = $db->prepare('SELECT t.* FROM tasks t JOIN plans p ON t.id = p.task_id WHERE p.planned_date = ? AND t.archived = 0');
-    $planStmt->execute([$date]);
+    $uid = current_user_id();
+    $workStmt = $db->prepare('SELECT t.* FROM tasks t JOIN work_logs wl ON t.id = wl.task_id WHERE wl.log_date = ? AND t.archived = 0 AND t.user_id = ?');
+    $workStmt->execute([$date, $uid]);
+    $resultStmt = $db->prepare('SELECT t.*, rl.result_id, r.name as result_name FROM tasks t JOIN result_logs rl ON t.id = rl.task_id JOIN results r ON rl.result_id = r.id WHERE rl.log_date = ? AND t.archived = 0 AND t.user_id = ?');
+    $resultStmt->execute([$date, $uid]);
+    $planStmt = $db->prepare('SELECT t.* FROM tasks t JOIN plans p ON t.id = p.task_id WHERE p.planned_date = ? AND t.archived = 0 AND t.user_id = ?');
+    $planStmt->execute([$date, $uid]);
     return ['work_tasks' => $workStmt->fetchAll(), 'result_tasks' => $resultStmt->fetchAll(), 'plan_tasks' => $planStmt->fetchAll()];
 }
 
 function handle_get_relationships(PDO $db, array $args): array {
-    $people = $db->query('SELECT id, name, relationship FROM people WHERE archived = 0')->fetchAll();
-    return ['people' => $people];
+    $stmt = $db->prepare('SELECT id, name, relationship FROM people WHERE archived = 0 AND user_id = ?');
+    $stmt->execute([current_user_id()]);
+    return ['people' => $stmt->fetchAll()];
 }
 
 function handle_get_user_profile(PDO $db, array $args): ?array {
-    $stmt = $db->query('SELECT * FROM user_profile WHERE id = 1');
+    $stmt = $db->prepare('SELECT * FROM user_profile WHERE user_id = ?');
+    $stmt->execute([current_user_id()]);
     return $stmt->fetch() ?: null;
 }
 
 function handle_get_bazi_analysis(PDO $db, array $args): array {
     $date = $args['date'];
     $type = $args['type'] ?? null;
-    $sql = 'SELECT * FROM bazi_analysis WHERE date_key = ?';
-    $params = [$date];
+    $sql = 'SELECT * FROM bazi_analysis WHERE date_key = ? AND user_id = ?';
+    $params = [$date, current_user_id()];
     if ($type) { $sql .= ' AND type = ?'; $params[] = $type; }
     $sql .= ' ORDER BY FIELD(type,"dayun","liunian","liuyue","liuri"), id';
     $stmt = $db->prepare($sql);
@@ -742,10 +771,11 @@ function handle_get_bazi_analysis(PDO $db, array $args): array {
 }
 
 function handle_save_bazi_analysis(PDO $db, array $args): array {
-    $stmt = $db->prepare('INSERT INTO bazi_analysis (date_key, type, period_label, gan_zhi, shi_shen, analysis)
-        VALUES (?, ?, ?, ?, ?, ?)
+    $stmt = $db->prepare('INSERT INTO bazi_analysis (user_id, date_key, type, period_label, gan_zhi, shi_shen, analysis)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE gan_zhi=VALUES(gan_zhi), shi_shen=VALUES(shi_shen), analysis=VALUES(analysis)');
     $stmt->execute([
+        current_user_id(),
         $args['date'], $args['type'],
         $args['period_label'] ?? '', $args['gan_zhi'] ?? '',
         $args['shi_shen'] ?? '', $args['analysis'],
@@ -767,12 +797,15 @@ function handle_get_weather(PDO $db, array $args): array {
 }
 
 function handle_get_worklog_notes(PDO $db, array $args): array {
-    $stmt = $db->prepare('SELECT * FROM worklog_notes WHERE worklog_id = ? ORDER BY created_at ASC');
-    $stmt->execute([(int)$args['worklog_id']]);
+    $stmt = $db->prepare('SELECT wn.* FROM worklog_notes wn JOIN work_logs wl ON wn.worklog_id = wl.id JOIN tasks t ON wl.task_id = t.id WHERE wn.worklog_id = ? AND t.user_id = ? ORDER BY wn.created_at ASC');
+    $stmt->execute([(int)$args['worklog_id'], current_user_id()]);
     return $stmt->fetchAll();
 }
 
 function handle_add_worklog_note(PDO $db, array $args): array {
+    $chk = $db->prepare('SELECT 1 FROM work_logs wl JOIN tasks t ON wl.task_id = t.id WHERE wl.id = ? AND t.user_id = ?');
+    $chk->execute([(int)$args['worklog_id'], current_user_id()]);
+    if (!$chk->fetchColumn()) return ['error' => 'Worklog not found'];
     $stmt = $db->prepare('INSERT INTO worklog_notes (worklog_id, content) VALUES (?, ?)');
     $stmt->execute([(int)$args['worklog_id'], $args['content']]);
     return ['id' => (int)$db->lastInsertId(), 'content' => $args['content']];
@@ -787,8 +820,8 @@ function handle_get_calendar_meta(PDO $db, array $args): array {
 
 // --- Reuse helpers from tasks.php ---
 function get_task_full(PDO $db, int $id): ?array {
-    $stmt = $db->prepare('SELECT * FROM tasks WHERE id = ?');
-    $stmt->execute([$id]);
+    $stmt = $db->prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?');
+    $stmt->execute([$id, current_user_id()]);
     $task = $stmt->fetch();
     if (!$task) return null;
     $stmt = $db->prepare('SELECT p.* FROM people p JOIN task_people tp ON p.id = tp.people_id WHERE tp.task_id = ?');
@@ -818,10 +851,12 @@ if ($action === 'config' && $method === 'GET') {
     json_success($config);
 }
 
-if ($action === 'config' && $method === 'POST') {
+if ($action === 'config' && ($parts[3] ?? '') === '' && $method === 'POST') {
     $data = get_json_input();
-    $stmt = $db->prepare('UPDATE ai_config SET provider=?, endpoint=?, api_key=?, model=? WHERE id=1');
+    $stmt = $db->prepare('INSERT INTO ai_config (user_id, provider, endpoint, api_key, model) VALUES (?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE provider=VALUES(provider), endpoint=VALUES(endpoint), api_key=VALUES(api_key), model=VALUES(model)');
     $stmt->execute([
+        $uid,
         optional_string($data, 'provider', AI_DEFAULT_PROVIDER),
         optional_string($data, 'endpoint', AI_DEFAULT_ENDPOINT),
         optional_string($data, 'api_key', ''),
@@ -830,7 +865,7 @@ if ($action === 'config' && $method === 'POST') {
     json_success(null, 'AI configuration saved');
 }
 
-if ($action === 'config' && $parts[3] === 'test' && $method === 'POST') {
+if ($action === 'config' && ($parts[3] ?? '') === 'test' && $method === 'POST') {
     $data = get_json_input();
     $testEndpoint = rtrim(optional_string($data, 'endpoint', AI_DEFAULT_ENDPOINT), '/') . '/chat/completions';
     $testModel = optional_string($data, 'model', AI_DEFAULT_MODEL);
@@ -894,7 +929,8 @@ function get_system_prompt(PDO $db, string $selectedDate = '', array $almanac = 
 
     // Load user profile
     $profile = '';
-    $stmt = $db->query('SELECT * FROM user_profile WHERE id = 1');
+    $stmt = $db->prepare('SELECT * FROM user_profile WHERE user_id = ?');
+    $stmt->execute([current_user_id()]);
     $p = $stmt->fetch();
     if ($needsPersonalContext && $p && !empty($p['name'])) {
         $profile = "=== USER PROFILE ===\n";
@@ -989,15 +1025,16 @@ PROMPT;
 if ($action === 'conversations' && $method === 'GET') {
     $id = isset($parts[3]) ? (int)$parts[3] : null;
     if ($id) {
-        $stmt = $db->prepare('SELECT * FROM ai_conversations WHERE id = ?');
-        $stmt->execute([$id]);
+        $stmt = $db->prepare('SELECT * FROM ai_conversations WHERE id = ? AND user_id = ?');
+        $stmt->execute([$id, $uid]);
         $conv = $stmt->fetch();
         if (!$conv) json_error('Not found', 404);
         $conv['messages'] = json_decode($conv['messages_json'], true) ?? [];
         unset($conv['messages_json']);
         json_success($conv);
     } else {
-        $stmt = $db->query('SELECT id, title, updated_at FROM ai_conversations ORDER BY updated_at DESC');
+        $stmt = $db->prepare('SELECT id, title, updated_at FROM ai_conversations WHERE user_id = ? ORDER BY updated_at DESC');
+        $stmt->execute([$uid]);
         json_success($stmt->fetchAll());
     }
 }
@@ -1006,8 +1043,8 @@ if ($action === 'conversations' && $method === 'POST') {
     $data = get_json_input();
     $title = optional_string($data, 'title', '新对话');
     $messages = json_encode($data['messages'] ?? [], JSON_UNESCAPED_UNICODE);
-    $stmt = $db->prepare('INSERT INTO ai_conversations (title, messages_json) VALUES (?, ?)');
-    $stmt->execute([$title, $messages]);
+    $stmt = $db->prepare('INSERT INTO ai_conversations (user_id, title, messages_json) VALUES (?, ?, ?)');
+    $stmt->execute([$uid, $title, $messages]);
     json_success(['id' => (int)$db->lastInsertId(), 'title' => $title]);
 }
 
@@ -1018,14 +1055,14 @@ if ($action === 'conversations' && $method === 'PUT') {
     $title = optional_string($data, 'title');
     $messages = isset($data['messages']) ? json_encode($data['messages'], JSON_UNESCAPED_UNICODE) : null;
     if ($title && $messages !== null) {
-        $stmt = $db->prepare('UPDATE ai_conversations SET title=?, messages_json=? WHERE id=?');
-        $stmt->execute([$title, $messages, $id]);
+        $stmt = $db->prepare('UPDATE ai_conversations SET title=?, messages_json=? WHERE id=? AND user_id=?');
+        $stmt->execute([$title, $messages, $id, $uid]);
     } elseif ($title) {
-        $stmt = $db->prepare('UPDATE ai_conversations SET title=? WHERE id=?');
-        $stmt->execute([$title, $id]);
+        $stmt = $db->prepare('UPDATE ai_conversations SET title=? WHERE id=? AND user_id=?');
+        $stmt->execute([$title, $id, $uid]);
     } elseif ($messages !== null) {
-        $stmt = $db->prepare('UPDATE ai_conversations SET messages_json=? WHERE id=?');
-        $stmt->execute([$messages, $id]);
+        $stmt = $db->prepare('UPDATE ai_conversations SET messages_json=? WHERE id=? AND user_id=?');
+        $stmt->execute([$messages, $id, $uid]);
     }
     json_success(null, 'Conversation updated');
 }
@@ -1033,7 +1070,7 @@ if ($action === 'conversations' && $method === 'PUT') {
 if ($action === 'conversations' && $method === 'DELETE') {
     $id = (int)($parts[3] ?? 0);
     if (!$id) json_error('ID required');
-    $db->prepare('DELETE FROM ai_conversations WHERE id=?')->execute([$id]);
+    $db->prepare('DELETE FROM ai_conversations WHERE id=? AND user_id=?')->execute([$id, $uid]);
     json_success(null, 'Conversation deleted');
 }
 
@@ -1194,6 +1231,8 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
             ]);
         }
 
+        // Strip internal-only metadata before echoing the assistant turn back to the LLM.
+        unset($response['_usage'], $response['_model'], $response['_finish_reason']);
         $messages[] = $response;
         $messages = array_merge($messages, $toolResults);
     }

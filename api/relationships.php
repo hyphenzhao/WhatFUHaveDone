@@ -9,18 +9,23 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
+require_once __DIR__ . '/../includes/auth.php';
+
 $method = get_method();
 if ($method !== 'GET') json_error('Method not allowed', 405);
 
 $db = get_db();
+$uid = current_user_id();
 
 // Get all non-archived people (excluding the "me" record from person nodes)
-$stmt = $db->prepare('SELECT * FROM people WHERE archived = 0 AND is_me = 0 ORDER BY name');
-$stmt->execute();
+$stmt = $db->prepare('SELECT * FROM people WHERE archived = 0 AND is_me = 0 AND user_id = ? ORDER BY name');
+$stmt->execute([$uid]);
 $people = $stmt->fetchAll();
 
 // Get the "me" record for the center node name
-$me = $db->query('SELECT * FROM people WHERE is_me = 1 LIMIT 1')->fetch();
+$stmt = $db->prepare('SELECT * FROM people WHERE is_me = 1 AND user_id = ? LIMIT 1');
+$stmt->execute([$uid]);
+$me = $stmt->fetch();
 
 $nodes = [];
 $edges = [];
@@ -42,9 +47,10 @@ foreach ($people as $person) {
         SELECT COUNT(wl.id) as cnt
         FROM work_logs wl
         JOIN task_people tp ON wl.task_id = tp.task_id
-        WHERE tp.people_id = ?
+        JOIN tasks t ON wl.task_id = t.id
+        WHERE tp.people_id = ? AND t.user_id = ?
     ');
-    $stmt->execute([$person['id']]);
+    $stmt->execute([$person['id'], $uid]);
     $workload = (int)$stmt->fetchColumn();
 
     // Count results: result_logs for tasks where this person is a beneficiary
@@ -52,9 +58,10 @@ foreach ($people as $person) {
         SELECT COUNT(rl.id) as cnt
         FROM result_logs rl
         JOIN task_people tp ON rl.task_id = tp.task_id
-        WHERE tp.people_id = ?
+        JOIN tasks t ON rl.task_id = t.id
+        WHERE tp.people_id = ? AND t.user_id = ?
     ');
-    $stmt->execute([$person['id']]);
+    $stmt->execute([$person['id'], $uid]);
     $result_count = (int)$stmt->fetchColumn();
 
     $nodes[] = [

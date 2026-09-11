@@ -6,9 +6,11 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 $method = get_method();
 $db = get_db();
+$uid = current_user_id();
 
 // GET /api/people[/{id}] — list all (non-archived) or single
 if ($method === 'GET') {
@@ -16,15 +18,15 @@ if ($method === 'GET') {
     $id = isset($parts[2]) ? (int)$parts[2] : null;
 
     if ($id) {
-        $stmt = $db->prepare('SELECT * FROM people WHERE id = ?');
-        $stmt->execute([$id]);
+        $stmt = $db->prepare('SELECT * FROM people WHERE id = ? AND user_id = ?');
+        $stmt->execute([$id, $uid]);
         $person = $stmt->fetch();
         if (!$person) json_error('Not found', 404);
         json_success($person);
     } else {
         $archived = isset($_GET['archived']) ? (int)$_GET['archived'] : 0;
-        $stmt = $db->prepare('SELECT * FROM people WHERE archived = ? ORDER BY importance DESC, name ASC');
-        $stmt->execute([$archived]);
+        $stmt = $db->prepare('SELECT * FROM people WHERE archived = ? AND user_id = ? ORDER BY importance DESC, name ASC');
+        $stmt->execute([$archived, $uid]);
         json_success($stmt->fetchAll());
     }
 }
@@ -35,8 +37,9 @@ if ($method === 'POST') {
     $name = optional_string($data, 'name');
     if (!$name) json_error('Name is required');
 
-    $stmt = $db->prepare('INSERT INTO people (name, relationship, bio, importance, usefulness, closeness) VALUES (?, ?, ?, ?, ?, ?)');
+    $stmt = $db->prepare('INSERT INTO people (user_id, name, relationship, bio, importance, usefulness, closeness) VALUES (?, ?, ?, ?, ?, ?, ?)');
     $stmt->execute([
+        $uid,
         $name,
         optional_string($data, 'relationship'),
         optional_string($data, 'bio'),
@@ -60,8 +63,8 @@ if ($method === 'PUT') {
     $fields = [];
     $params = [];
     // Prevent archiving the "me" record
-    $check = $db->prepare('SELECT is_me FROM people WHERE id = ?');
-    $check->execute([$id]);
+    $check = $db->prepare('SELECT is_me FROM people WHERE id = ? AND user_id = ?');
+    $check->execute([$id, $uid]);
     $existing = $check->fetch();
     if ($existing && $existing['is_me'] && isset($data['archived']) && $data['archived']) {
         json_error('Cannot archive the "Me" record', 403);
@@ -77,7 +80,8 @@ if ($method === 'PUT') {
     }
     if ($fields) {
         $params[] = $id;
-        $db->prepare('UPDATE people SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
+        $params[] = $uid;
+        $db->prepare('UPDATE people SET ' . implode(', ', $fields) . ' WHERE id = ? AND user_id = ?')->execute($params);
     }
 
     $stmt = $db->prepare('SELECT * FROM people WHERE id = ?');
@@ -92,12 +96,12 @@ if ($method === 'DELETE') {
     if (!$id) json_error('ID required');
 
     // Check if archived
-    $stmt = $db->prepare('SELECT archived FROM people WHERE id = ?');
-    $stmt->execute([$id]);
+    $stmt = $db->prepare('SELECT archived FROM people WHERE id = ? AND user_id = ?');
+    $stmt->execute([$id, $uid]);
     $person = $stmt->fetch();
     if (!$person) json_error('Not found', 404);
 
-    $db->prepare('DELETE FROM people WHERE id = ?')->execute([$id]);
+    $db->prepare('DELETE FROM people WHERE id = ? AND user_id = ?')->execute([$id, $uid]);
     json_success(null, 'Person deleted permanently');
 }
 

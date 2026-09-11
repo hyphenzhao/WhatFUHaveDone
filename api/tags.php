@@ -6,9 +6,11 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 $method = get_method();
 $db = get_db();
+$uid = current_user_id();
 
 // GET /api/tags[/{id}]
 if ($method === 'GET') {
@@ -16,15 +18,15 @@ if ($method === 'GET') {
     $id = isset($parts[2]) ? (int)$parts[2] : null;
 
     if ($id) {
-        $stmt = $db->prepare('SELECT * FROM tags WHERE id = ?');
-        $stmt->execute([$id]);
+        $stmt = $db->prepare('SELECT * FROM tags WHERE id = ? AND user_id = ?');
+        $stmt->execute([$id, $uid]);
         $tag = $stmt->fetch();
         if (!$tag) json_error('Not found', 404);
         json_success($tag);
     } else {
         $archived = isset($_GET['archived']) ? (int)$_GET['archived'] : 0;
-        $stmt = $db->prepare('SELECT * FROM tags WHERE archived = ? ORDER BY name ASC');
-        $stmt->execute([$archived]);
+        $stmt = $db->prepare('SELECT * FROM tags WHERE archived = ? AND user_id = ? ORDER BY name ASC');
+        $stmt->execute([$archived, $uid]);
         json_success($stmt->fetchAll());
     }
 }
@@ -35,12 +37,12 @@ if ($method === 'POST') {
     $name = optional_string($data, 'name');
     if (!$name) json_error('Name is required');
 
-    $stmt = $db->prepare('INSERT INTO tags (name, color) VALUES (?, ?)');
-    $stmt->execute([$name, optional_string($data, 'color', '#3B82F6')]);
+    $stmt = $db->prepare('INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?)');
+    $stmt->execute([$uid, $name, optional_string($data, 'color', '#3B82F6')]);
     $id = $db->lastInsertId();
 
-    $stmt = $db->prepare('SELECT * FROM tags WHERE id = ?');
-    $stmt->execute([$id]);
+    $stmt = $db->prepare('SELECT * FROM tags WHERE id = ? AND user_id = ?');
+    $stmt->execute([$id, $uid]);
     json_success($stmt->fetch(), 'Tag created');
 }
 
@@ -62,11 +64,12 @@ if ($method === 'PUT') {
     }
     if ($fields) {
         $params[] = $id;
-        $db->prepare('UPDATE tags SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
+        $params[] = $uid;
+        $db->prepare('UPDATE tags SET ' . implode(', ', $fields) . ' WHERE id = ? AND user_id = ?')->execute($params);
     }
 
-    $stmt = $db->prepare('SELECT * FROM tags WHERE id = ?');
-    $stmt->execute([$id]);
+    $stmt = $db->prepare('SELECT * FROM tags WHERE id = ? AND user_id = ?');
+    $stmt->execute([$id, $uid]);
     json_success($stmt->fetch(), 'Tag updated');
 }
 
@@ -76,7 +79,7 @@ if ($method === 'DELETE') {
     $id = isset($parts[2]) ? (int)$parts[2] : 0;
     if (!$id) json_error('ID required');
 
-    $db->prepare('DELETE FROM tags WHERE id = ?')->execute([$id]);
+    $db->prepare('DELETE FROM tags WHERE id = ? AND user_id = ?')->execute([$id, $uid]);
     json_success(null, 'Tag deleted permanently');
 }
 

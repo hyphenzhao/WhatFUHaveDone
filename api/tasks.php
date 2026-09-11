@@ -6,9 +6,14 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/attachments_util.php';
+
+require_once __DIR__ . '/../includes/auth.php';
 
 $method = get_method();
 $db = get_db();
+$uid = current_user_id();
+$parts = get_path_parts(); // available to all methods (reorder route needs it on PUT)
 
 // Helpers
 function attach_people(PDO $db, int $task_id, array $people_ids): void {
@@ -26,9 +31,9 @@ function attach_results(PDO $db, int $task_id, array $result_ids): void {
     $stmt = $db->prepare('INSERT INTO task_results (task_id, result_id) VALUES (?, ?)');
     foreach ($result_ids as $rid) $stmt->execute([$task_id, (int)$rid]);
 }
-function get_task_full(PDO $db, int $id): ?array {
-    $stmt = $db->prepare('SELECT * FROM tasks WHERE id = ?');
-    $stmt->execute([$id]);
+function get_task_full(PDO $db, int $id, int $uid): ?array {
+    $stmt = $db->prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?');
+    $stmt->execute([$id, $uid]);
     $task = $stmt->fetch();
     if (!$task) return null;
 
@@ -56,15 +61,15 @@ if ($method === 'GET') {
     $id = isset($parts[2]) ? (int)$parts[2] : null;
 
     if ($id) {
-        $task = get_task_full($db, $id);
+        $task = get_task_full($db, $id, $uid);
         if (!$task) json_error('Not found', 404);
         json_success($task);
     } else {
         $archived = isset($_GET['archived']) ? (int)$_GET['archived'] : 0;
         $stage = $_GET['stage'] ?? null;
         $sort = $_GET['sort'] ?? 'priority';
-        $sql = 'SELECT * FROM tasks WHERE archived = ?';
-        $params = [$archived];
+        $sql = 'SELECT * FROM tasks WHERE archived = ? AND user_id = ?';
+        $params = [$archived, $uid];
         if ($stage && $stage !== 'all') {
             $sql .= ' AND stage = ?';
             $params[] = $stage;
@@ -99,19 +104,19 @@ if ($method === 'POST') {
     $pri = optional_int($data, 'priority', 0);
     if (!$pri) {
         // Default: max priority + 1 (bottom of list)
-        $stmt = $db->prepare('SELECT COALESCE(MAX(priority), 0) + 1 as next_pri FROM tasks WHERE archived = 0');
-        $stmt->execute();
+        $stmt = $db->prepare('SELECT COALESCE(MAX(priority), 0) + 1 as next_pri FROM tasks WHERE archived = 0 AND user_id = ?');
+        $stmt->execute([$uid]);
         $pri = (int)$stmt->fetch()['next_pri'];
     }
-    $stmt = $db->prepare('INSERT INTO tasks (name, description, stage, stage_number, priority, importance, necessity, deadline, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-    $stmt->execute([$name, optional_string($data, 'description'), optional_string($data, 'stage', 'in_progress'), optional_int($data, 'stage_number', 1), $pri, $imp, $nec, optional_string($data, 'deadline'), optional_string($data, 'location')]);
+    $stmt = $db->prepare('INSERT INTO tasks (user_id, name, description, stage, stage_number, priority, importance, necessity, deadline, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $stmt->execute([$uid, $name, optional_string($data, 'description'), optional_string($data, 'stage', 'in_progress'), optional_int($data, 'stage_number', 1), $pri, $imp, $nec, optional_string($data, 'deadline'), optional_string($data, 'location')]);
     $id = $db->lastInsertId();
 
     if (isset($data['people_ids'])) attach_people($db, $id, optional_array($data, 'people_ids'));
     if (isset($data['tag_ids'])) attach_task_tags($db, $id, optional_array($data, 'tag_ids'));
     if (isset($data['result_ids'])) attach_results($db, $id, optional_array($data, 'result_ids'));
 
-    json_success(get_task_full($db, $id), 'Task created');
+    json_success(get_task_full($db, $id, $uid), 'Task created');
 }
 
 // PUT /api/tasks/reorder — reorder priorities { ids: [3, 1, 5, ...] }
@@ -119,9 +124,9 @@ if ($method === 'PUT' && ($parts[2] ?? '') === 'reorder') {
     $data = get_json_input();
     $ids = $data['ids'] ?? [];
     if (empty($ids)) json_error('ids array required');
-    $stmt = $db->prepare('UPDATE tasks SET priority = ? WHERE id = ?');
+    $stmt = $db->prepare('UPDATE tasks SET priority = ? WHERE id = ? AND user_id = ?');
     foreach ($ids as $i => $id) {
-        $stmt->execute([$i + 1, (int)$id]);
+        $stmt->execute([$i + 1, (int)$id, $uid]);
     }
     json_success(null, 'Priorities updated');
 }
@@ -148,14 +153,15 @@ if (in_array($f, ['stage_number', 'priority', 'importance', 'necessity'])) $para
             $fields[] = 'stage_changed_at = NOW()';
         }
         $params[] = $id;
-        $db->prepare('UPDATE tasks SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
+        $params[] = $uid;
+        $db->prepare('UPDATE tasks SET ' . implode(', ', $fields) . ' WHERE id = ? AND user_id = ?')->execute($params);
     }
 
     if (isset($data['people_ids'])) attach_people($db, $id, optional_array($data, 'people_ids'));
     if (isset($data['tag_ids'])) attach_task_tags($db, $id, optional_array($data, 'tag_ids'));
     if (isset($data['result_ids'])) attach_results($db, $id, optional_array($data, 'result_ids'));
 
-    json_success(get_task_full($db, $id), 'Task updated');
+    json_success(get_task_full($db, $id, $uid), 'Task updated');
 }
 
 // DELETE /api/tasks/{id} — hard delete
@@ -164,7 +170,18 @@ if ($method === 'DELETE') {
     $id = isset($parts[2]) ? (int)$parts[2] : 0;
     if (!$id) json_error('ID required');
 
-    $db->prepare('DELETE FROM tasks WHERE id = ?')->execute([$id]);
+    $check = $db->prepare('SELECT id FROM tasks WHERE id = ? AND user_id = ?');
+    $check->execute([$id, $uid]);
+    if (!$check->fetch()) json_error('Not found', 404);
+
+    // Task delete cascades work_logs -> worklog_notes; clean those notes' attachments,
+    // plus any attachments on the task itself.
+    $selNotes = $db->prepare('SELECT wn.id FROM worklog_notes wn JOIN work_logs wl ON wn.worklog_id = wl.id WHERE wl.task_id = ?');
+    $selNotes->execute([$id]);
+    delete_attachments($db, 'worklog_note', array_column($selNotes->fetchAll(), 'id'));
+    delete_attachments($db, 'task', [$id]);
+
+    $db->prepare('DELETE FROM tasks WHERE id = ? AND user_id = ?')->execute([$id, $uid]);
     json_success(null, 'Task deleted permanently');
 }
 

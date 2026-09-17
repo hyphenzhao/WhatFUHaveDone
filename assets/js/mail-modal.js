@@ -124,52 +124,58 @@ async function openMailModal(id) {
     if (!msg.is_seen) { API.mail.update(id, { is_seen: 1 }).catch(() => {}); msg.is_seen = 1; }
 
     const hasChat = typeof AiChat !== 'undefined';
+    const hasAnalysis = !!(msg.analysis && msg.analysis.status === 'ok');
     Modal.open({
         title: '📧 ' + (msg.analysis && msg.analysis.brief_title ? msg.analysis.brief_title : (msg.subject || '(无主题)')),
-        size: 'wide',
+        size: 'xl',
         body: `
-            <div class="right-panel-tabs mail-modal-tabs">
-                <button class="rp-tab rp-tab-active" data-mtab="ai">🤖 AI 分析</button>
-                <button class="rp-tab" data-mtab="mail">📧 邮件</button>
-            </div>
-            <div class="mail-modal-pane" id="mailModalAi">
-                <div id="mailModalAnalysis">${MailUI.analysisHtml(msg, { refresh: '_mailModalRefreshAnalysis' })}</div>
-                ${hasChat ? '<div class="mail-modal-chat-title">💬 与助手讨论这封邮件</div><div class="mail-modal-chat" id="mailModalChat"></div>' : ''}
-            </div>
-            <div class="mail-modal-pane" id="mailModalMail" style="display:none;">
-                ${MailUI.headerHtml(msg)}
-                <div class="mail-read-actions">
-                    <a class="btn btn-outline btn-sm" href="/mail?open=${id}">在邮箱中打开</a>
-                    <a class="btn btn-outline btn-sm" href="/mail?compose=reply&id=${id}">↩️ 回复</a>
-                    <a class="btn btn-outline btn-sm" href="/mail?compose=forward&id=${id}">↪️ 转发</a>
+            <div class="mail-modal-split">
+                <div class="mail-modal-left">
+                    <div class="right-panel-tabs mail-modal-tabs">
+                        <button class="rp-tab rp-tab-active" data-mtab="mail">📧 邮件</button>
+                        <button class="rp-tab" data-mtab="ai">🤖 AI 分析${hasAnalysis ? '' : ' <span class="mail-badge mail-pending">未分析</span>'}</button>
+                    </div>
+                    <div class="mail-modal-pane" id="mailModalMail">
+                        ${MailUI.headerHtml(msg)}
+                        <div class="mail-read-actions">
+                            <a class="btn btn-outline btn-sm" href="/mail?open=${id}">在邮箱中打开</a>
+                            <a class="btn btn-outline btn-sm" href="/mail?compose=reply&id=${id}">↩️ 回复</a>
+                            <a class="btn btn-outline btn-sm" href="/mail?compose=forward&id=${id}">↪️ 转发</a>
+                            <span style="flex:1"></span>
+                            <button class="btn btn-primary btn-sm" onclick="MailUI.analyze(${id}, '_mailModalRefreshAnalysis', ${hasAnalysis ? 'true' : 'false'})">🤖 ${hasAnalysis ? '重新分析' : 'AI 分析'}</button>
+                        </div>
+                        <div id="mailModalBody" class="mail-read-body"></div>
+                        ${MailUI.attachmentsHtml(msg)}
+                    </div>
+                    <div class="mail-modal-pane" id="mailModalAi" style="display:none;">
+                        <div id="mailModalAnalysis">${MailUI.analysisHtml(msg, { refresh: '_mailModalRefreshAnalysis' })}</div>
+                    </div>
                 </div>
-                <div id="mailModalBody" class="mail-read-body"></div>
-                ${MailUI.attachmentsHtml(msg)}
+                ${hasChat ? `<div class="mail-modal-right">
+                    <div class="mail-modal-chat-title">💬 与助手讨论这封邮件</div>
+                    <div class="mail-modal-chat" id="mailModalChat"></div>
+                </div>` : ''}
             </div>`,
         footer: '<button class="btn btn-ghost" onclick="Modal.close()">关闭</button>',
         onClose: () => { if (hasChat) AiChat.unmount(); },
     });
+    MailUI.renderBody(msg, document.getElementById('mailModalBody'), { maxHeight: 1600 });
 
+    const modalBody = document.getElementById('modalBody');
+    const switchTab = (name) => {
+        modalBody.querySelectorAll('.mail-modal-tabs .rp-tab').forEach(t => t.classList.toggle('rp-tab-active', t.dataset.mtab === name));
+        document.getElementById('mailModalAi').style.display = name === 'ai' ? '' : 'none';
+        document.getElementById('mailModalMail').style.display = name === 'mail' ? '' : 'none';
+    };
     window._mailModalRefreshAnalysis = async (mid) => {
         try {
             const m = (await API.mail.message(mid)).data;
             const box = document.getElementById('mailModalAnalysis');
             if (box) box.innerHTML = MailUI.analysisHtml(m, { refresh: '_mailModalRefreshAnalysis' });
+            if (m.analysis && m.analysis.status === 'ok') switchTab('ai');
         } catch (e) {}
     };
-
-    const modalBody = document.getElementById('modalBody');
-    modalBody.querySelectorAll('.mail-modal-tabs .rp-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            modalBody.querySelectorAll('.mail-modal-tabs .rp-tab').forEach(t => t.classList.remove('rp-tab-active'));
-            tab.classList.add('rp-tab-active');
-            document.getElementById('mailModalAi').style.display = tab.dataset.mtab === 'ai' ? '' : 'none';
-            document.getElementById('mailModalMail').style.display = tab.dataset.mtab === 'mail' ? '' : 'none';
-            if (tab.dataset.mtab === 'mail' && !modalBody.querySelector('#mailModalBody').childElementCount) {
-                MailUI.renderBody(msg, document.getElementById('mailModalBody'), { maxHeight: 700 });
-            }
-        });
-    });
+    modalBody.querySelectorAll('.mail-modal-tabs .rp-tab').forEach(tab => tab.addEventListener('click', () => switchTab(tab.dataset.mtab)));
 
     if (hasChat) {
         const host = document.getElementById('mailModalChat');

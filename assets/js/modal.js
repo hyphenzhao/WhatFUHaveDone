@@ -34,7 +34,10 @@ const Modal = {
         this.bodyEl.innerHTML = body;
         this.footerEl.innerHTML = footer;
         const container = document.getElementById('modalContainer');
-        if (container) container.classList.toggle('modal-wide', size === 'wide');
+        if (container) {
+            container.classList.toggle('modal-wide', size === 'wide');
+            container.classList.toggle('modal-xl', size === 'xl');
+        }
         this.overlay.style.display = 'flex';
         this._onClose = onClose;
     },

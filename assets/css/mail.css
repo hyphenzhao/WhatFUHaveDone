@@ -105,9 +105,21 @@
 .modal-container.modal-wide { max-width: 960px; width: 92vw; max-height: 90vh; display: flex; flex-direction: column; }
 .modal-container.modal-wide .modal-body { overflow-y: auto; flex: 1; min-height: 0; }
 .mail-modal-tabs { margin-bottom: 12px; }
-.mail-modal-chat-title { font-size: 0.8rem; font-weight: 600; color: var(--color-text-secondary); margin: 14px 0 6px; }
-.mail-modal-chat { height: 45vh; min-height: 280px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; }
+/* email modal: 70% mail | 30% chat, full modal height */
+.modal-container.modal-xl { max-width: 1400px; width: 95vw; height: 90vh; max-height: 90vh; display: flex; flex-direction: column; }
+.modal-container.modal-xl .modal-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.mail-modal-split { display: flex; gap: 14px; flex: 1; min-height: 0; }
+.mail-modal-left { flex: 0 0 70%; max-width: 70%; min-width: 0; overflow-y: auto; padding-right: 4px; }
+.mail-modal-right { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--color-border); padding-left: 14px; }
+.mail-modal-chat-title { font-size: 0.8rem; font-weight: 600; color: var(--color-text-secondary); margin: 0 0 6px; flex-shrink: 0; }
+.mail-modal-chat { flex: 1; min-height: 0; border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; }
 .mail-modal-chat .ai-chat-container { height: 100%; }
+@media (max-width: 900px) {
+    .mail-modal-split { flex-direction: column; overflow-y: auto; }
+    .mail-modal-left { flex: none; max-width: none; overflow: visible; }
+    .mail-modal-right { border-left: none; padding-left: 0; min-height: 320px; }
+    .mail-modal-chat { min-height: 300px; }
+}
 
 /* home panel */
 .daily-right-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }

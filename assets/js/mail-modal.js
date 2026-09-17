@@ -112,7 +112,7 @@ const MailUI = {
             Toast.success('分析完成');
         } catch (e) { Toast.error(e.message); }
         if (refreshFn && typeof window[refreshFn] === 'function') window[refreshFn](id);
-        if (typeof loadDailyMail === 'function' && typeof App !== 'undefined') loadDailyMail(App.selectedDate);
+        if (typeof loadDailyMail === 'function' && typeof App !== 'undefined') loadDailyMail(App.selectedDate, true);
     },
 };
 

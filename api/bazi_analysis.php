@@ -2,7 +2,9 @@
 /**
  * BaZi Analysis API
  *
- * GET  /api/bazi_analysis?date=YYYY-MM-DD — get all analysis for a date
+ * GET  /api/bazi_analysis?date=YYYY-MM-DD           — get all analysis for a date
+ * GET  /api/bazi_analysis?lookup=dayun:丙午,liunian:甲辰,liuyue:壬申[&before=YYYY-MM-DD]
+ *        — latest saved analysis per (type, gan_zhi), one round-trip (replaces day-by-day back-search)
  * POST /api/bazi_analysis — save analysis { date_key, type, period_label, gan_zhi, shi_shen, analysis }
  */
 
@@ -14,6 +16,26 @@ require_once __DIR__ . '/../includes/auth.php';
 $method = get_method();
 $db = get_db();
 $uid = current_user_id();
+
+if ($method === 'GET' && !empty($_GET['lookup'])) {
+    $before = validate_date((string)($_GET['before'] ?? '')) ? $_GET['before'] : null;
+    $out = [];
+    $stmt = $db->prepare('SELECT * FROM bazi_analysis WHERE user_id = ? AND type = ? AND gan_zhi = ?'
+        . ($before ? ' AND date_key <= ?' : '') . ' ORDER BY date_key DESC, id DESC LIMIT 1');
+    foreach (explode(',', (string)$_GET['lookup']) as $pair) {
+        $pair = trim($pair);
+        if ($pair === '' || strpos($pair, ':') === false) continue;
+        [$type, $gz] = explode(':', $pair, 2);
+        $type = trim($type); $gz = trim($gz);
+        if ($type === '' || $gz === '') continue;
+        $params = [$uid, $type, $gz];
+        if ($before) $params[] = $before;
+        $stmt->execute($params);
+        $row = $stmt->fetch();
+        if ($row) $out[$type] = $row;
+    }
+    json_success($out);
+}
 
 if ($method === 'GET') {
     $date = $_GET['date'] ?? today();

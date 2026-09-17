@@ -63,12 +63,37 @@ function updateClock() {
     if (fmt) fmt.textContent = clockFmt24 ? '24h' : '12h';
 }
 
+/**
+ * Small in-memory cache for per-date panel data so switching between dates
+ * doesn't refetch what we already have. Cleared by refreshAll() after any
+ * mutation; today's weather is refetched when older than 10 minutes.
+ */
+const DayCache = {
+    map: new Map(),
+    async fetch(key, loader, ttlMs = 30 * 60 * 1000) {
+        const hit = this.map.get(key);
+        if (hit && Date.now() - hit.t < ttlMs) return hit.v;
+        if (hit && hit.p) return hit.p;               // de-duplicate in-flight requests
+        const p = Promise.resolve().then(loader);
+        this.map.set(key, { t: 0, v: undefined, p });
+        try {
+            const v = await p;
+            this.map.set(key, { t: Date.now(), v });
+            return v;
+        } catch (e) { this.map.delete(key); throw e; }
+    },
+    clear(prefix) {
+        if (!prefix) { this.map.clear(); return; }
+        for (const k of Array.from(this.map.keys())) if (k.startsWith(prefix)) this.map.delete(k);
+    },
+};
+
 async function renderWeather(dateStr) {
     const container = document.getElementById('dailyWeather');
     if (!container) return;
 
     try {
-        const res = await API.weather.get(dateStr);
+        const res = await DayCache.fetch('weather:' + dateStr, () => API.weather.get(dateStr), dateStr === today() ? 10 * 60 * 1000 : 6 * 3600 * 1000);
         const w = res.data;
         if (!w) {
             const isToday = dateStr === today();
@@ -360,31 +385,26 @@ async function renderBaziPillars(dateStr) {
         lyPeriod = lyGz + ' (' + lunarYear + '年' + selLunar.getMonthInChinese() + ')';
     }
 
-    // Fetch existing analyses — search nearby dates for same pillars
+    // Fetch existing analyses: the selected date's rows, plus ONE lookup for the
+    // latest saved 大运/流年/流月 analysis with the same 干支 (was a day-by-day
+    // back-search of up to 90 requests per type). Results are cached per date.
     let analyses = {};
     try {
-        // Get analyses for current date, plus look back 30 days for matching 大运/流年/流月
-        const res = await API.get('/bazi_analysis?date=' + dateStr);
-        // Match analyses by type AND period_label (干支), not just type
         const pillarGz = { dayun: daYunGz, liunian: lnGz, liuyue: lyGz, liuri: lrGz };
-        (res.data || []).forEach(a => {
-            if (!analyses[a.type] && a.gan_zhi === pillarGz[a.type]) analyses[a.type] = a;
-        });
-
-        // For 大运/流年/流月, search nearby dates if not matched today
-        for (const type of ['dayun','liunian','liuyue']) {
-            if (analyses[type] || !pillarGz[type]) continue;
-            const base = new Date(dateStr + 'T12:00:00');
-            for (let back = 1; back <= 90; back++) {
-                const prev = new Date(base); prev.setDate(base.getDate() - back);
-                const prevStr = prev.toISOString().split('T')[0];
-                const prevRes = await API.get('/bazi_analysis?date=' + prevStr);
-                for (const a of (prevRes.data || [])) {
-                    if (a.type === type && a.gan_zhi === pillarGz[type]) { analyses[type] = a; break; }
-                }
-                if (analyses[type]) break;
+        analyses = await DayCache.fetch('bazi:' + dateStr, async () => {
+            const found = {};
+            const res = await API.get('/bazi_analysis?date=' + dateStr);
+            (res.data || []).forEach(a => {
+                if (!found[a.type] && a.gan_zhi === pillarGz[a.type]) found[a.type] = a;
+            });
+            const missing = ['dayun', 'liunian', 'liuyue'].filter(t => !found[t] && pillarGz[t]);
+            if (missing.length) {
+                const q = missing.map(t => `${t}:${pillarGz[t]}`).join(',');
+                const lk = await API.get('/bazi_analysis?lookup=' + encodeURIComponent(q) + '&before=' + dateStr);
+                for (const t of missing) if (lk.data && lk.data[t]) found[t] = lk.data[t];
             }
-        }
+            return found;
+        });
     } catch(e) {}
 
     // Helper: render pillar card with dual 十神
@@ -490,6 +510,7 @@ async function analyzeBazi(dateStr, type, label, gz, ss) {
             await API.post('/bazi_analysis', {
                 date_key: dateStr, type: type, period_label: label, gan_zhi: gz, shi_shen: ss, analysis: data.content
             });
+            DayCache.clear('bazi:');
             // Refresh only the analyzed card when the desktop section exists
             if (targetEl) refreshBaziCard(dateStr, type, label, gz, ss, data.content);
         }
@@ -506,26 +527,24 @@ async function loadRightPanel() {
     if (!panel) return;
 
     try {
-        const [inProgress, stageComplete, completed, failed] = await Promise.all([
-            API.tasks.list(0, 'in_progress'),
-            API.tasks.list(0, 'stage_complete'),
-            API.tasks.list(0, 'completed'),
-            API.tasks.list(0, 'failed'),
+        // Task lists and notes do not depend on the selected date: fetch them once
+        // (cache is cleared by refreshAll after any mutation). Only the day's work
+        // logs are date-specific, and they are fetched in parallel with the rest.
+        const selDate = App.selectedDate;
+        const [inProgress, stageComplete, completed, failed, wlRes, notesRes] = await Promise.all([
+            DayCache.fetch('tasks:in_progress', () => API.tasks.list(0, 'in_progress')),
+            DayCache.fetch('tasks:stage_complete', () => API.tasks.list(0, 'stage_complete')),
+            DayCache.fetch('tasks:completed', () => API.tasks.list(0, 'completed')),
+            DayCache.fetch('tasks:failed', () => API.tasks.list(0, 'failed')),
+            DayCache.fetch('worklogs:' + selDate, () => API.worklogs.forDate(selDate)).catch(() => ({ data: [] })),
+            DayCache.fetch('notes:all', () => API.worklogNotes.listAll()).catch(() => ({ data: [] })),
         ]);
+        if (App.selectedDate !== selDate) return;   // stale: another date was selected meanwhile
 
-        // Get work logs for selected date to determine button states
-        let workLogsForDate = [];
-        try {
-            const wl = await API.worklogs.forDate(App.selectedDate);
-            workLogsForDate = wl.data || [];
-        } catch (e) { workLogsForDate = []; }
+        const workLogsForDate = wlRes.data || [];
         const workLogTaskIds = new Set(workLogsForDate.map(w => w.task_id));
-        // Fetch latest notes for ALL tasks (not just today's)
         const workLogNotes = {};
-        try {
-            const notesRes = await API.worklogNotes.listAll();
-            (notesRes.data||[]).forEach(n => { if (n.latest_note) workLogNotes[n.task_id] = n.latest_note; });
-        } catch(e) {}
+        (notesRes.data || []).forEach(n => { if (n.latest_note) workLogNotes[n.task_id] = n.latest_note; });
 
         function deadlineScore(dl) {
             if (!dl) return 999;
@@ -929,7 +948,8 @@ async function loadDailyStatus(date) {
     loadDailyMail(date);
 
     try {
-        const res = await API.stats.daily(date);
+        const res = await DayCache.fetch('stats:' + date, () => API.stats.daily(date));
+        if (App.selectedDate !== date) return;   // user already moved on to another date
         const data = res.data || {};
         const workTasks = data.work_tasks || [];
         const resultTasks = data.result_tasks || [];
@@ -1134,6 +1154,8 @@ async function refreshAll() {
     try {
         do {
             _refreshPending = false;
+            // A mutation happened: drop cached data that can change (weather is kept).
+            ['stats:', 'tasks:', 'worklogs:', 'notes:', 'mail:', 'bazi:'].forEach(p => DayCache.clear(p));
             await Promise.all([
                 loadRightPanel(),
                 loadLeaderboards(getActivePeriod()),
@@ -1149,14 +1171,15 @@ async function refreshAll() {
 
 // --- Today's mail panel (AI-ranked) ---
 let _dailyMailDate = null;
-async function loadDailyMail(date) {
+async function loadDailyMail(date, force) {
     const box = document.getElementById('dailyMailList');
     const meta = document.getElementById('dailyMailMeta');
     const analyzeBtn = document.getElementById('dailyMailAnalyze');
     if (!box) return;
     _dailyMailDate = date;
+    if (force) DayCache.clear('mail:' + date);
     let d;
-    try { d = (await API.mail.daily(date)).data; }
+    try { d = (await DayCache.fetch('mail:' + date, () => API.mail.daily(date), 5 * 60 * 1000)).data; }
     catch (e) { box.innerHTML = `<div class="no-daily-data">邮件加载失败: ${escapeHtml(e.message)}</div>`; return; }
     if (_dailyMailDate !== date) return; // stale
     if (analyzeBtn) analyzeBtn.style.display = (d.ai_configured && d.has_accounts && d.total > d.analyzed) ? '' : 'none';
@@ -1201,7 +1224,7 @@ async function analyzeDailyMail() {
         }
         Toast.success(`已分析 ${total} 封邮件`);
     } catch (e) { Toast.error(e.message); }
-    finally { if (btn) { btn.disabled = false; btn.textContent = '🤖 分析未分析'; } loadDailyMail(date); }
+    finally { if (btn) { btn.disabled = false; btn.textContent = '🤖 分析未分析'; } loadDailyMail(date, true); }
 }
 
 // --- Right panel tab switching ---

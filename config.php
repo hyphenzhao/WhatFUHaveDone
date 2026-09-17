@@ -30,3 +30,8 @@ define('AI_DEFAULT_API_KEY', '');
 define('AI_DEFAULT_MODEL', 'qwen2.5:7b');
 define('AI_MAX_TOKENS', 8192);
 define('AI_TEMPERATURE', 0.7);
+
+// Local overrides / secrets (gitignored): MAIL_SECRET_KEY etc.
+if (is_file(__DIR__ . "/config.local.php")) {
+    require_once __DIR__ . "/config.local.php";
+}

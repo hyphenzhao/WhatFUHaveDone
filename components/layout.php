@@ -5,7 +5,7 @@
  */
 $page_title = $page_title ?? APP_NAME;
 $current_page = $current_page ?? 'home';
-$asset_ver = '20260911';
+$asset_ver = '20260917b';
 $layout_user = current_user();
 ?>
 <!DOCTYPE html>
@@ -15,6 +15,7 @@ $layout_user = current_user();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($page_title) ?> — <?= APP_NAME ?></title>
     <link rel="stylesheet" href="/assets/css/app.css?v=<?= $asset_ver ?>">
+    <link rel="stylesheet" href="/assets/css/mail.css?v=<?= $asset_ver ?>">
 </head>
 <body>
     <div class="app-layout<?= $current_page !== 'home' ? ' no-right-panel' : '' ?>">
@@ -30,6 +31,9 @@ $layout_user = current_user();
                 </a>
                 <a href="/reports" class="sidebar-link <?= $current_page === 'reports' ? 'active' : '' ?>">
                     <span class="nav-icon">📊</span> 周期报告
+                </a>
+                <a href="/mail" class="sidebar-link <?= $current_page === 'mail' ? 'active' : '' ?>">
+                    <span class="nav-icon">📧</span> 邮箱
                 </a>
                 <div class="nav-group">
                     <div class="nav-group-title">内容管理</div>
@@ -56,6 +60,9 @@ $layout_user = current_user();
                     </a>
                     <a href="/ai-admin" class="sidebar-link <?= $current_page === 'ai-admin' ? 'active' : '' ?>">
                         <span class="nav-icon">🤖</span> AI 配置
+                    </a>
+                    <a href="/mail-admin" class="sidebar-link <?= $current_page === 'mail-admin' ? 'active' : '' ?>">
+                        <span class="nav-icon">📮</span> 邮箱管理
                     </a>
                     <a href="/profile" class="sidebar-link <?= $current_page === 'profile' ? 'active' : '' ?>">
                         <span class="nav-icon">👤</span> 个人侧写
@@ -132,12 +139,17 @@ $layout_user = current_user();
     <script src="/assets/js/modal.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/app.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/attachments.js?v=<?= $asset_ver ?>"></script>
+    <script src="/assets/js/ai-assistant.js?v=<?= $asset_ver ?>"></script>
+    <script src="/assets/js/mail-modal.js?v=<?= $asset_ver ?>"></script>
     <?php if ($current_page === 'home'): ?>
     <script src="/assets/js/lunar.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/task-card.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/calendar.js?v=<?= $asset_ver ?>"></script>
-    <script src="/assets/js/ai-assistant.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/home.js?v=<?= $asset_ver ?>"></script>
+    <?php elseif ($current_page === 'mail'): ?>
+    <script src="/assets/js/mail.js?v=<?= $asset_ver ?>"></script>
+    <?php elseif ($current_page === 'mail-admin'): ?>
+    <script src="/assets/js/mail-admin.js?v=<?= $asset_ver ?>"></script>
     <?php elseif ($current_page === 'people'): ?>
     <script src="/assets/js/people.js?v=<?= $asset_ver ?>"></script>
     <?php elseif ($current_page === 'tasks'): ?>

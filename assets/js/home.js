@@ -926,6 +926,7 @@ async function loadDailyStatus(date) {
     renderWeather(date);
     renderAlmanac(date);
     renderBaziPillars(date);
+    loadDailyMail(date);
 
     try {
         const res = await API.stats.daily(date);
@@ -1146,6 +1147,63 @@ async function refreshAll() {
     }
 }
 
+// --- Today's mail panel (AI-ranked) ---
+let _dailyMailDate = null;
+async function loadDailyMail(date) {
+    const box = document.getElementById('dailyMailList');
+    const meta = document.getElementById('dailyMailMeta');
+    const analyzeBtn = document.getElementById('dailyMailAnalyze');
+    if (!box) return;
+    _dailyMailDate = date;
+    let d;
+    try { d = (await API.mail.daily(date)).data; }
+    catch (e) { box.innerHTML = `<div class="no-daily-data">邮件加载失败: ${escapeHtml(e.message)}</div>`; return; }
+    if (_dailyMailDate !== date) return; // stale
+    if (analyzeBtn) analyzeBtn.style.display = (d.ai_configured && d.has_accounts && d.total > d.analyzed) ? '' : 'none';
+    if (!d.has_accounts) {
+        meta.textContent = '';
+        box.innerHTML = `<div class="no-daily-data">尚未配置邮箱，<a href="/mail-admin">去添加</a>${d.imap_ext ? '' : '（服务器还需安装 PHP imap 扩展）'}</div>`;
+        return;
+    }
+    meta.textContent = d.total ? `${d.total} 封 · 已分析 ${d.analyzed}` : '';
+    let html = '';
+    if (!d.ai_configured) {
+        html += '<div class="daily-mail-notice">🤖 请先配置AI，<a href="/ai-admin">前往 AI 配置</a>。配置后这里会显示每封邮件的摘要、优先级和相关度。</div>';
+    }
+    if (!d.items.length) {
+        html += '<div class="no-daily-data">今天没有收到邮件</div>';
+    } else {
+        html += d.items.map(m => {
+            const a = m.analysis && m.analysis.status === 'ok' ? m.analysis : null;
+            const title = a ? a.brief_title : m.subject || '(无主题)';
+            const sub = a ? a.summary : (m.snippet || '');
+            const badges = a ? `${MailUI.priBadge(a)} ${MailUI.relBadge(a)}` : (d.ai_configured ? '<span class="mail-badge mail-pending">⏳ 待分析</span>' : '');
+            return `<div class="daily-mail-item ${m.is_seen ? '' : 'unseen'} ${a ? '' : 'unanalyzed'}" onclick="openMailModal(${m.id})">
+                <div class="daily-mail-row1">${badges}<span class="daily-mail-title">${escapeHtml(title)}</span><span class="daily-mail-time">${MailUI.fmtDate(m.msg_date)}</span></div>
+                <div class="daily-mail-row2"><span class="daily-mail-from">${escapeHtml(m.from_name || m.from_email)}</span>${sub ? ' · ' + escapeHtml(sub) : ''}</div>
+            </div>`;
+        }).join('');
+    }
+    box.innerHTML = html;
+}
+
+async function analyzeDailyMail() {
+    const btn = document.getElementById('dailyMailAnalyze');
+    const date = App.selectedDate;
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 分析中...'; }
+    try {
+        let rounds = 0, total = 0;
+        while (rounds++ < 10) {
+            const r = (await API.mail.analyze({ date })).data;
+            total += r.done || 0;
+            if (r.failed && !r.done) { Toast.error('分析失败，请检查 AI 配置'); break; }
+            if (!r.remaining) break;
+        }
+        Toast.success(`已分析 ${total} 封邮件`);
+    } catch (e) { Toast.error(e.message); }
+    finally { if (btn) { btn.disabled = false; btn.textContent = '🤖 分析未分析'; } loadDailyMail(date); }
+}
+
 // --- Right panel tab switching ---
 function initPanelTabs() {
     document.querySelectorAll('.rp-tab').forEach(tab => {
@@ -1162,10 +1220,7 @@ function initPanelTabs() {
             } else {
                 taskBody.classList.add('rp-hidden');
                 if (aiBody) aiBody.classList.remove('rp-hidden');
-                if (!window._aiChatInit) {
-                    AiChat.init(aiBody);
-                    window._aiChatInit = true;
-                }
+                if (aiBody && typeof AiChat !== 'undefined') AiChat.mount(aiBody);
             }
         });
     });

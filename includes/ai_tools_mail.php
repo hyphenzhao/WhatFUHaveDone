@@ -1,0 +1,496 @@
+<?php
+/**
+ * AI tools: mailbox access (search / read / analyze / mark / send) and the
+ * "current email" context block for the system prompt.
+ * Included by api/ai.php; handlers rely on current_user_id().
+ */
+
+require_once __DIR__ . '/ai_client.php';
+require_once __DIR__ . '/mail/MailHelpers.php';
+require_once __DIR__ . '/mail/ImapProvider.php';
+require_once __DIR__ . '/mail/MailRepo.php';
+require_once __DIR__ . '/mail/MailAnalyzer.php';
+require_once __DIR__ . '/mail/MailSend.php';
+require_once __DIR__ . '/mail/MailAccounts.php';
+require_once __DIR__ . '/mail/MailSync.php';
+require_once __DIR__ . '/crypto.php';
+
+function ai_tools_mail_definitions(): array {
+    return [
+        // ===== MAIL =====
+        [
+            'name' => 'list_mail_accounts',
+            'description' => '列出用户已配置的邮箱账户及同步状态。',
+            'parameters' => ['type' => 'object', 'properties' => []],
+            'requires_confirmation' => false,
+            'handler' => 'handle_list_mail_accounts',
+        ],
+        [
+            'name' => 'search_emails',
+            'description' => '搜索已同步的邮件（默认排除垃圾箱/已删除）。可按日期范围、关键词、账户、文件夹类型、未读、含附件过滤。返回摘要列表（含已有的 AI 分析简报）。要读全文请再调用 get_email。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'date_from' => ['type' => 'string', 'description' => '起始日期 YYYY-MM-DD（可选）'],
+                    'date_to' => ['type' => 'string', 'description' => '结束日期 YYYY-MM-DD（可选，默认同 date_from）'],
+                    'query' => ['type' => 'string', 'description' => '关键词，匹配主题/发件人/摘要（可选）'],
+                    'account_id' => ['type' => 'integer', 'description' => '限定邮箱账户ID（可选）'],
+                    'folder_kind' => ['type' => 'string', 'description' => '文件夹类型: inbox/sent/drafts/archive/other/junk/trash（可选）'],
+                    'unread_only' => ['type' => 'boolean', 'description' => '仅未读'],
+                    'has_attachments' => ['type' => 'boolean', 'description' => '仅含附件'],
+                    'limit' => ['type' => 'integer', 'description' => '最多返回条数，默认 30，上限 50'],
+                    'page' => ['type' => 'integer', 'description' => '页码，默认 1'],
+                ],
+            ],
+            'requires_confirmation' => false,
+            'handler' => 'handle_search_emails',
+        ],
+        [
+            'name' => 'get_email',
+            'description' => '读取一封邮件的完整内容：头部、正文（最多 8000 字）、附件提取文本（每个最多 3000 字）以及已有的 AI 分析。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer', 'description' => '邮件ID（必填）'],
+                    'include_attachments_text' => ['type' => 'boolean', 'description' => '是否包含附件文本，默认 true'],
+                ],
+                'required' => ['id'],
+            ],
+            'requires_confirmation' => false,
+            'handler' => 'handle_get_email',
+        ],
+        [
+            'name' => 'get_email_analysis',
+            'description' => '获取某封邮件已保存的 AI 分析（标题、摘要、优先级、相关度、详细分析、建议行动）。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => ['id' => ['type' => 'integer', 'description' => '邮件ID（必填）']],
+                'required' => ['id'],
+            ],
+            'requires_confirmation' => false,
+            'handler' => 'handle_get_email_analysis',
+        ],
+        [
+            'name' => 'analyze_email',
+            'description' => '对一封邮件运行 AI 分析并保存结果（简明标题、摘要、优先级 1-5、相关度 0-100、类别、需准备材料等）。已有分析时直接返回，force=true 可重新分析。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer', 'description' => '邮件ID（必填）'],
+                    'force' => ['type' => 'boolean', 'description' => '强制重新分析'],
+                ],
+                'required' => ['id'],
+            ],
+            'requires_confirmation' => false,
+            'handler' => 'handle_analyze_email',
+        ],
+        [
+            'name' => 'analyze_emails_by_date',
+            'description' => '批量分析日期范围内（收件类文件夹）尚未分析的邮件，最多约 2 分钟。返回完成/失败/剩余数量与简报列表。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'date_from' => ['type' => 'string', 'description' => '起始日期 YYYY-MM-DD（必填）'],
+                    'date_to' => ['type' => 'string', 'description' => '结束日期 YYYY-MM-DD（可选，默认同 date_from）'],
+                    'force' => ['type' => 'boolean', 'description' => '重新分析已分析的邮件'],
+                ],
+                'required' => ['date_from'],
+            ],
+            'requires_confirmation' => false,
+            'handler' => 'handle_analyze_emails_by_date',
+        ],
+        [
+            'name' => 'mark_email',
+            'description' => '标记邮件为已读/未读、加星/取消星标。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer', 'description' => '邮件ID（必填）'],
+                    'seen' => ['type' => 'boolean', 'description' => '已读 true / 未读 false'],
+                    'flagged' => ['type' => 'boolean', 'description' => '星标 true / 取消 false'],
+                ],
+                'required' => ['id'],
+            ],
+            'requires_confirmation' => true,
+            'handler' => 'handle_mark_email',
+        ],
+        [
+            'name' => 'send_email',
+            'description' => '通过用户的邮箱账户发送邮件（或回复某封邮件）。发送前必须先向用户展示完整草稿。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'account_id' => ['type' => 'integer', 'description' => '发件账户ID（必填，可用 list_mail_accounts 查询；回复时通常用原邮件的 account_id）'],
+                    'to' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => '收件人邮箱列表（必填）'],
+                    'cc' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => '抄送列表（可选）'],
+                    'subject' => ['type' => 'string', 'description' => '主题（必填）'],
+                    'body' => ['type' => 'string', 'description' => '纯文本正文（必填）'],
+                    'in_reply_to_id' => ['type' => 'integer', 'description' => '若为回复，填原邮件ID（可选）'],
+                ],
+                'required' => ['account_id', 'to', 'subject', 'body'],
+            ],
+            'requires_confirmation' => true,
+            'handler' => 'handle_send_email',
+        ],
+        // ===== MAIL ACCOUNT SETUP =====
+        [
+            'name' => 'get_mail_presets',
+            'description' => '列出内置的邮箱服务商预设（QQ/163/126/Gmail/Outlook/腾讯企业邮/iCloud/新浪）及其 IMAP/SMTP 参数与授权码提示。',
+            'parameters' => ['type' => 'object', 'properties' => []],
+            'requires_confirmation' => false,
+            'handler' => 'handle_get_mail_presets',
+        ],
+        [
+            'name' => 'add_mail_account',
+            'description' => '添加一个邮箱账户。只需给出邮箱地址，常见服务商的 IMAP/SMTP 参数会自动按预设填充；学校/企业邮箱需提供 imap_host、smtp_host 等。**密码/授权码不要在对话中询问或填写**：用户会在确认卡片的密码框中直接输入，密码不会经过你。保存后系统会自动测试连接并首次收取。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'email' => ['type' => 'string', 'description' => '邮箱地址（必填）'],
+                    'name' => ['type' => 'string', 'description' => '显示名称，如"工作邮箱"（可选）'],
+                    'preset' => ['type' => 'string', 'description' => '预设键: qq/163/126/gmail/outlook/exmail/icloud/sina（可选，默认按域名推断）'],
+                    'imap_host' => ['type' => 'string', 'description' => 'IMAP 服务器（无预设时必填）'],
+                    'imap_port' => ['type' => 'integer', 'description' => 'IMAP 端口，默认 993'],
+                    'imap_ssl' => ['type' => 'string', 'description' => 'ssl / tls / none，默认 ssl'],
+                    'smtp_host' => ['type' => 'string', 'description' => 'SMTP 服务器（可选，不填则仅收信）'],
+                    'smtp_port' => ['type' => 'integer', 'description' => 'SMTP 端口，默认 465（tls 时 587）'],
+                    'smtp_ssl' => ['type' => 'string', 'description' => 'ssl / tls / none'],
+                    'username' => ['type' => 'string', 'description' => '登录用户名，默认同邮箱地址'],
+                    'validate_cert' => ['type' => 'boolean', 'description' => '是否校验服务器证书，默认 true'],
+                    'sync_all_folders' => ['type' => 'boolean', 'description' => '是否同步所有文件夹，默认 true'],
+                ],
+                'required' => ['email'],
+            ],
+            'requires_confirmation' => true,
+            'handler' => 'handle_add_mail_account',
+        ],
+        [
+            'name' => 'update_mail_account',
+            'description' => '修改已有邮箱账户的参数（服务器、端口、加密、显示名、启用状态等）。如需更换密码/授权码，用户会在确认卡片中输入，不要在对话中询问。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer', 'description' => '账户ID（必填）'],
+                    'name' => ['type' => 'string'], 'email' => ['type' => 'string'],
+                    'imap_host' => ['type' => 'string'], 'imap_port' => ['type' => 'integer'], 'imap_ssl' => ['type' => 'string'],
+                    'smtp_host' => ['type' => 'string'], 'smtp_port' => ['type' => 'integer'], 'smtp_ssl' => ['type' => 'string'],
+                    'username' => ['type' => 'string'],
+                    'enabled' => ['type' => 'boolean'], 'validate_cert' => ['type' => 'boolean'], 'sync_all_folders' => ['type' => 'boolean'],
+                    'change_password' => ['type' => 'boolean', 'description' => '为 true 时确认卡片会显示密码框让用户输入新授权码'],
+                ],
+                'required' => ['id'],
+            ],
+            'requires_confirmation' => true,
+            'handler' => 'handle_update_mail_account',
+        ],
+        [
+            'name' => 'test_mail_account',
+            'description' => '测试已保存账户的 IMAP/SMTP 连接（使用已保存的密码）。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => ['id' => ['type' => 'integer', 'description' => '账户ID（必填）']],
+                'required' => ['id'],
+            ],
+            'requires_confirmation' => false,
+            'handler' => 'handle_test_mail_account',
+        ],
+        [
+            'name' => 'sync_mail_account',
+            'description' => '立即收取某个账户（或全部账户）的新邮件，最多运行约 40 秒；历史邮件由后台定时任务继续回填。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => ['id' => ['type' => 'integer', 'description' => '账户ID，省略或 0 表示全部']],
+            ],
+            'requires_confirmation' => false,
+            'handler' => 'handle_sync_mail_account',
+        ],
+        [
+            'name' => 'remove_mail_account',
+            'description' => '删除邮箱账户及本地已同步的邮件、附件和分析（服务器上的邮件不受影响）。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => ['id' => ['type' => 'integer', 'description' => '账户ID（必填）']],
+                'required' => ['id'],
+            ],
+            'requires_confirmation' => true,
+            'handler' => 'handle_remove_mail_account',
+        ],
+    ];
+}
+
+// ===== account setup handlers =====
+
+function handle_get_mail_presets(PDO $db, array $args): array {
+    $out = [];
+    foreach (mail_account_presets() as $k => $p) {
+        $out[] = ['preset' => $k, 'label' => $p['label'], 'domains' => $p['domains'], 'imap' => "{$p['imap_host']}:{$p['imap_port']}/{$p['imap_ssl']}",
+                  'smtp' => "{$p['smtp_host']}:{$p['smtp_port']}/{$p['smtp_ssl']}", 'hint' => $p['hint']];
+    }
+    return $out;
+}
+
+/** After create/update: test connection and (if OK) run a short first sync. */
+function mail_account_post_save(PDO $db, int $uid, int $id, bool $doSync = true): array {
+    $result = ['test' => null, 'sync' => null];
+    try {
+        $acc = mail_account_with_password($db, $uid, $id);
+        $result['test'] = mail_account_test($acc);
+        if ($doSync && $result['test']['imap_ok'] && !empty($acc['enabled'])) {
+            @set_time_limit(90);
+            $sync = new MailSync($db, $uid, $acc, null);
+            $result['sync'] = $sync->syncAccount(30);
+        }
+    } catch (Throwable $e) {
+        $result['test'] = ['imap_ok' => 0, 'smtp_ok' => 0, 'folders' => 0, 'imap_error' => $e->getMessage(), 'smtp_error' => ''];
+    }
+    return $result;
+}
+
+function handle_add_mail_account(PDO $db, array $args): array {
+    $uid = current_user_id();
+    $password = (string)($args['_password'] ?? '');   // injected from the confirmation card, never from the LLM
+    unset($args['_password']);
+    if ($password === '') return ['error' => '未提供密码/授权码：请在确认卡片的密码框中输入后再确认'];
+    try {
+        $acc = mail_account_create($db, $uid, $args, $password);
+    } catch (Throwable $e) {
+        return ['error' => $e->getMessage()];
+    }
+    $post = mail_account_post_save($db, $uid, (int)$acc['id'], true);
+    $notice = '📮 已添加邮箱：' . $acc['email'];
+    return ['created' => true, 'account' => $acc, 'connection_test' => $post['test'], 'first_sync' => $post['sync'], '_notice' => $notice];
+}
+
+function handle_update_mail_account(PDO $db, array $args): array {
+    $uid = current_user_id();
+    $id = (int)($args['id'] ?? 0);
+    $password = (string)($args['_password'] ?? '');
+    unset($args['_password'], $args['id'], $args['change_password']);
+    try {
+        $acc = mail_account_update($db, $uid, $id, $args, $password);
+    } catch (Throwable $e) {
+        return ['error' => $e->getMessage()];
+    }
+    $post = mail_account_post_save($db, $uid, $id, false);
+    return ['updated' => true, 'account' => $acc, 'connection_test' => $post['test'], '_notice' => '📮 已更新邮箱：' . $acc['email']];
+}
+
+function handle_test_mail_account(PDO $db, array $args): array {
+    try {
+        $acc = mail_account_with_password($db, current_user_id(), (int)($args['id'] ?? 0));
+        return mail_account_test($acc);
+    } catch (Throwable $e) {
+        return ['error' => $e->getMessage()];
+    }
+}
+
+function handle_sync_mail_account(PDO $db, array $args): array {
+    $uid = current_user_id();
+    if (!ImapProvider::available()) return ['error' => ImapProvider::unavailableMessage()];
+    $id = (int)($args['id'] ?? 0);
+    $st = $db->prepare('SELECT * FROM mail_accounts WHERE user_id = ? AND enabled = 1 ' . ($id ? 'AND id = ? ' : '') . 'ORDER BY sort, id');
+    $st->execute($id ? [$uid, $id] : [$uid]);
+    $accounts = $st->fetchAll();
+    if (!$accounts) return ['error' => '没有已启用的邮箱账户'];
+    @set_time_limit(120);
+    $deadline = microtime(true) + 40;
+    $results = [];
+    foreach ($accounts as $a) {
+        $remaining = (int)floor($deadline - microtime(true));
+        if ($remaining < 5) break;
+        $r = (new MailSync($db, $uid, $a, null))->syncAccount($remaining);
+        $r['account_id'] = (int)$a['id'];
+        $r['email'] = $a['email'];
+        $results[] = $r;
+    }
+    $total = array_sum(array_map(fn($r) => ($r['new'] ?? 0) + ($r['backfilled'] ?? 0), $results));
+    return ['results' => $results, '_notice' => "📥 已收取 {$total} 封新邮件"];
+}
+
+function handle_remove_mail_account(PDO $db, array $args): array {
+    $uid = current_user_id();
+    $id = (int)($args['id'] ?? 0);
+    $existing = mail_get_account($db, $uid, $id);
+    if (!$existing) return ['error' => '账户不存在'];
+    $ids = $db->prepare('SELECT id FROM mail_messages WHERE account_id = ? AND user_id = ?');
+    $ids->execute([$id, $uid]);
+    $idList = array_map('intval', $ids->fetchAll(PDO::FETCH_COLUMN));
+    foreach (array_chunk($idList, 500) as $chunk) delete_attachments($db, 'mail_message', $chunk);
+    $db->prepare('DELETE FROM mail_accounts WHERE id = ? AND user_id = ?')->execute([$id, $uid]);
+    return ['deleted' => true, 'email' => $existing['email'], '_notice' => '📮 已删除邮箱：' . $existing['email']];
+}
+
+/** System-prompt block describing the email the user is currently viewing. */
+function mail_context_block(PDO $db, int $uid, int $messageId): string {
+    if ($messageId <= 0) return '';
+    try {
+        $m = mail_get_message_full($db, $uid, $messageId);
+    } catch (Throwable $e) { return ''; }
+    if (!$m) return '';
+    $to = implode(', ', array_map(fn($a) => trim(($a['name'] ?? '') . ' <' . ($a['email'] ?? '') . '>'), $m['to']));
+    $body = trim((string)$m['body_text']);
+    if ($body === '' && !empty($m['body_html'])) $body = mail_html_to_text($m['body_html']);
+    $out = "=== CURRENT EMAIL (the user is viewing this; \"这封邮件\" refers to it) ===\n";
+    $out .= "id: {$m['id']} | account_id: {$m['account_id']} | folder: {$m['folder_name']}\n";
+    $out .= "Subject: {$m['subject']}\nFrom: {$m['from_name']} <{$m['from_email']}>\nTo: {$to}\nDate: {$m['msg_date']}\n";
+    $out .= "Body:\n" . ai_truncate($body, 6000) . "\n";
+    $atts = mail_attachment_texts($db, $uid, $messageId, 2000, 4000);
+    if ($atts) {
+        $out .= "Attachments:\n";
+        foreach ($atts as $a) {
+            $out .= "- [{$a['id']}] {$a['file_name']} ({$a['mime']}, " . round($a['size'] / 1024) . " KB)";
+            $out .= $a['text'] !== '' ? ":\n" . $a['text'] . "\n" : " (no text extracted)\n";
+        }
+    }
+    if (!empty($m['analysis'])) {
+        $a = $m['analysis'];
+        $out .= "Existing analysis: title={$a['brief_title']} | priority={$a['priority']} | relevance={$a['relevance']} | category={$a['category']}\n";
+        if (!empty($a['summary'])) $out .= "Summary: {$a['summary']}\n";
+    }
+    return $out . "\n";
+}
+
+// ===== handlers =====
+
+function handle_list_mail_accounts(PDO $db, array $args): array {
+    $st = $db->prepare('SELECT id, name, email, enabled, last_sync_at, last_error FROM mail_accounts WHERE user_id = ? ORDER BY sort, id');
+    $st->execute([current_user_id()]);
+    $rows = $st->fetchAll();
+    foreach ($rows as &$r) { $r['id'] = (int)$r['id']; $r['enabled'] = (int)$r['enabled']; }
+    return $rows;
+}
+
+function handle_search_emails(PDO $db, array $args): array {
+    $filters = [];
+    if (!empty($args['date_from'])) {
+        $filters['date_from'] = $args['date_from'];
+        $filters['date_to'] = !empty($args['date_to']) ? $args['date_to'] : $args['date_from'];
+    } elseif (!empty($args['date_to'])) {
+        $filters['date_to'] = $args['date_to'];
+    }
+    if (!empty($args['query'])) $filters['q'] = $args['query'];
+    if (!empty($args['account_id'])) $filters['account_id'] = (int)$args['account_id'];
+    if (!empty($args['folder_kind'])) $filters['kind'] = $args['folder_kind'];
+    if (!empty($args['unread_only'])) $filters['unread'] = 1;
+    if (!empty($args['has_attachments'])) $filters['has_attachments'] = 1;
+    $limit = max(1, min(50, (int)($args['limit'] ?? 30)));
+    $page = max(1, (int)($args['page'] ?? 1));
+    $res = mail_query_messages($db, current_user_id(), $filters, $page, $limit);
+    $items = [];
+    foreach ($res['items'] as $it) {
+        $items[] = [
+            'id' => $it['id'], 'account_id' => $it['account_id'], 'folder' => $it['folder_kind'],
+            'from' => trim($it['from_name'] . ' <' . $it['from_email'] . '>'), 'subject' => $it['subject'],
+            'date' => $it['msg_date'], 'unread' => $it['is_seen'] ? 0 : 1, 'has_attachments' => $it['has_attachments'],
+            'snippet' => $it['snippet'],
+            'analysis' => $it['analysis'] ? ['brief_title' => $it['analysis']['brief_title'], 'priority' => $it['analysis']['priority'], 'relevance' => $it['analysis']['relevance'], 'category' => $it['analysis']['category']] : null,
+        ];
+    }
+    return ['total' => $res['total'], 'page' => $res['page'], 'has_more' => $res['has_more'], 'items' => $items];
+}
+
+function handle_get_email(PDO $db, array $args): array {
+    $uid = current_user_id();
+    $m = mail_get_message_full($db, $uid, (int)($args['id'] ?? 0));
+    if (!$m) return ['error' => '邮件不存在'];
+    $body = trim((string)$m['body_text']);
+    if ($body === '' && !empty($m['body_html'])) $body = mail_html_to_text($m['body_html']);
+    $out = [
+        'id' => $m['id'], 'account_id' => $m['account_id'], 'folder' => $m['folder_name'], 'folder_kind' => $m['folder_kind'],
+        'subject' => $m['subject'], 'from' => ['name' => $m['from_name'], 'email' => $m['from_email']],
+        'to' => $m['to'], 'cc' => $m['cc'], 'date' => $m['msg_date'], 'unread' => $m['is_seen'] ? 0 : 1, 'flagged' => $m['is_flagged'],
+        'body' => ai_truncate($body, 8000),
+        'attachments' => [],
+        'analysis' => $m['analysis'] ? ['brief_title' => $m['analysis']['brief_title'], 'summary' => $m['analysis']['summary'], 'priority' => $m['analysis']['priority'],
+                                        'relevance' => $m['analysis']['relevance'], 'category' => $m['analysis']['category'], 'actions' => $m['analysis']['actions']] : null,
+    ];
+    $includeText = !array_key_exists('include_attachments_text', $args) || !empty($args['include_attachments_text']);
+    $atts = mail_attachment_texts($db, $uid, $m['id'], 3000, 8000);
+    foreach ($atts as $a) {
+        $out['attachments'][] = ['id' => $a['id'], 'file_name' => $a['file_name'], 'mime' => $a['mime'], 'size' => $a['size'],
+                                 'text' => $includeText ? $a['text'] : ($a['text'] !== '' ? '(available)' : '')];
+    }
+    return $out;
+}
+
+function handle_get_email_analysis(PDO $db, array $args): array {
+    $st = $db->prepare('SELECT * FROM mail_analysis WHERE message_id = ? AND user_id = ?');
+    $st->execute([(int)($args['id'] ?? 0), current_user_id()]);
+    $row = $st->fetch();
+    if (!$row) return ['analyzed' => false];
+    $row['actions'] = json_decode((string)$row['actions_json'], true) ?: [];
+    unset($row['actions_json'], $row['user_id']);
+    $row['priority'] = (int)$row['priority']; $row['relevance'] = (int)$row['relevance']; $row['needs_reply'] = (int)$row['needs_reply'];
+    return $row + ['analyzed' => true];
+}
+
+function handle_analyze_email(PDO $db, array $args): array {
+    $analyzer = new MailAnalyzer($db, current_user_id());
+    try {
+        $a = $analyzer->analyze((int)($args['id'] ?? 0), !empty($args['force']), 90);
+    } catch (MailException $e) {
+        return ['error' => $e->getMessage()];
+    }
+    unset($a['user_id']);
+    $a['_notice'] = '📧 已分析邮件：' . mb_substr($a['brief_title'], 0, 30, 'UTF-8');
+    return $a;
+}
+
+function handle_analyze_emails_by_date(PDO $db, array $args): array {
+    $from = (string)($args['date_from'] ?? '');
+    $to = (string)($args['date_to'] ?? $from);
+    if (!validate_date($from) || !validate_date($to)) return ['error' => '日期格式应为 YYYY-MM-DD'];
+    @set_time_limit(200);
+    $analyzer = new MailAnalyzer($db, current_user_id());
+    try {
+        $res = $analyzer->analyzeRange($from, $to, empty($args['force']), 120);
+    } catch (MailException $e) {
+        return ['error' => $e->getMessage()];
+    }
+    if ($res['done'] > 0) $res['_notice'] = "📧 已分析 {$res['done']} 封邮件";
+    return $res;
+}
+
+function handle_mark_email(PDO $db, array $args): array {
+    $uid = current_user_id();
+    $m = mail_get_message_full($db, $uid, (int)($args['id'] ?? 0));
+    if (!$m) return ['error' => '邮件不存在'];
+    $sets = []; $params = [];
+    if (array_key_exists('seen', $args)) { $sets[] = 'is_seen = ?'; $params[] = !empty($args['seen']) ? 1 : 0; }
+    if (array_key_exists('flagged', $args)) { $sets[] = 'is_flagged = ?'; $params[] = !empty($args['flagged']) ? 1 : 0; }
+    if (!$sets) return ['error' => '未指定要修改的标记'];
+    $params[] = $m['id']; $params[] = $uid;
+    $db->prepare('UPDATE mail_messages SET ' . implode(', ', $sets) . ' WHERE id = ? AND user_id = ?')->execute($params);
+    mail_refresh_folder_unread($db, $m['folder_id']);
+    mail_push_flags_best_effort($db, $uid, $m, $args);
+    return ['ok' => true, 'id' => $m['id'], 'seen' => array_key_exists('seen', $args) ? (int)!empty($args['seen']) : $m['is_seen'],
+            'flagged' => array_key_exists('flagged', $args) ? (int)!empty($args['flagged']) : $m['is_flagged']];
+}
+
+/** Push seen/flagged changes to the IMAP server; failures are ignored (local state wins until next flag sync). */
+function mail_push_flags_best_effort(PDO $db, int $uid, array $m, array $flags): void {
+    try {
+        $account = mail_get_account($db, $uid, (int)$m['account_id']);
+        if (!$account) return;
+        $account['password'] = crypto_decrypt((string)$account['password_enc']);
+        $p = mail_provider_for($account);
+        $p->connect($account);
+        if (array_key_exists('seen', $flags)) $p->setFlag($m['folder_path'], (int)$m['uid'], 'Seen', !empty($flags['seen']));
+        if (array_key_exists('flagged', $flags)) $p->setFlag($m['folder_path'], (int)$m['uid'], 'Flagged', !empty($flags['flagged']));
+        $p->close();
+    } catch (Throwable $e) { /* best effort */ }
+}
+
+function handle_send_email(PDO $db, array $args): array {
+    try {
+        $res = mail_send_message($db, current_user_id(), [
+            'account_id' => (int)($args['account_id'] ?? 0),
+            'to' => $args['to'] ?? [], 'cc' => $args['cc'] ?? [],
+            'subject' => (string)($args['subject'] ?? ''), 'body' => (string)($args['body'] ?? ''),
+            'in_reply_to_id' => (int)($args['in_reply_to_id'] ?? 0),
+        ]);
+    } catch (Throwable $e) {
+        return ['error' => $e->getMessage()];
+    }
+    return ['sent' => true] + $res;
+}

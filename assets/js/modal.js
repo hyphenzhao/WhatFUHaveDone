@@ -25,18 +25,27 @@ const Modal = {
         });
     },
 
-    open({ title = '', body = '', footer = '', onClose = null } = {}) {
+    open({ title = '', body = '', footer = '', onClose = null, size = '' } = {}) {
+        // If a modal is already open, let it clean up first (e.g. unmount an embedded chat)
+        if (this.overlay.style.display === 'flex' && this._onClose) {
+            const prev = this._onClose; this._onClose = null; try { prev(null); } catch (e) {}
+        }
         this.titleEl.textContent = title;
         this.bodyEl.innerHTML = body;
         this.footerEl.innerHTML = footer;
+        const container = document.getElementById('modalContainer');
+        if (container) container.classList.toggle('modal-wide', size === 'wide');
         this.overlay.style.display = 'flex';
         this._onClose = onClose;
     },
 
+    isOpen() { return this.overlay && this.overlay.style.display === 'flex'; },
+
     close(result = null) {
         this.overlay.style.display = 'none';
-        if (this._onClose) this._onClose(result);
+        const cb = this._onClose;
         this._onClose = null;
+        if (cb) cb(result);
     },
 
     setBody(html) { this.bodyEl.innerHTML = html; },

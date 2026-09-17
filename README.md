@@ -234,11 +234,54 @@ define('DB_PASS', 'your_password');
 
 ---
 
+## 📧 邮箱功能配置
+
+邮箱功能通过 IMAP 收信、SMTP 发信，邮件与附件同步到本地数据库，由 AI 逐封分析（简明标题、摘要、优先级、相关度、需准备的材料），并在主页「今日邮件」面板按相关度/优先级展示。
+
+### 1. 服务器依赖
+
+```bash
+sudo apt install -y php8.1-imap && sudo systemctl restart apache2   # IMAP 收信
+# 生成邮箱密码加密密钥（config.local.php 已在 .gitignore；首次调用时也会尝试自动生成）
+php -r "echo '<?php', PHP_EOL, 'define(\"MAIL_SECRET_KEY\", \"', base64_encode(random_bytes(32)), '\");', PHP_EOL;" > config.local.php
+chmod 0644 config.local.php
+# 附件目录需同时允许 Apache（www-data）和 cron 用户写入
+sudo chown -R <cron用户>:www-data uploads && sudo chmod -R 2775 uploads
+```
+
+### 2. 数据库迁移（已有安装）
+
+```bash
+mysqldump -uworklog -p --single-transaction worklog > ~/worklog_backup_$(date +%F_%H%M).sql
+mysql -uworklog -p worklog < migrations/002_mail_profile.sql
+```
+
+### 3. 定时任务（crontab -e）
+
+```
+*/5 * * * * cd /path/to/WhatFUHaveDone && /usr/bin/php scripts/mail_worker.php sync --budget=240 >> ~/mail_worker.log 2>&1
+0 9 * * *   cd /path/to/WhatFUHaveDone && /usr/bin/php scripts/mail_worker.php analyze --today >> ~/mail_worker.log 2>&1
+```
+
+`sync` 每几分钟增量收取（全文件夹、全量历史逐步回填）；`analyze --today` 每天早上对当天新邮件做一轮 AI 分析，之后可在页面手动点“分析”。`php scripts/mail_worker.php status` 查看同步状态。
+
+### 4. 添加邮箱
+
+左侧导航 **系统管理 → 📮 邮箱管理** → 添加邮箱（QQ / 163 / Gmail / Outlook 有预设；需使用**授权码 / 应用专用密码**）→ 测试连接 → 保存后自动首次收取。
+
+### 5. 用户侧写
+
+**系统管理 → 👤 个人侧写** 上传简历等 PDF/DOCX 作为**身份文档（权威来源）**，AI 据此判断邮件相关度；AI 在对话中会静默记录职称、职位、工作重心等**印象（次级来源）**，可在同一页查看、编辑、删除。
+
+---
+
 ## 页面导航
 
 | 路径 | 功能 |
 |------|------|
-| `/` | 主页（日历 + 黄历 + 任务 + AI） |
+| `/` | 主页（日历 + 黄历 + 任务 + 今日邮件 + AI） |
+| `/mail` | 邮箱（三栏：账户/文件夹、邮件列表、阅读与 AI 分析，右侧智能助手） |
+| `/mail-admin` | 邮箱账户管理（IMAP/SMTP、测试连接、同步） |
 | `/people` | 人物管理 |
 | `/tasks` | 任务管理 |
 | `/results` | 成果管理 |
@@ -262,8 +305,12 @@ define('DB_PASS', 'your_password');
 | `calendar_meta` | 农历/节气/节假日缓存 |
 | `weather_cache` | 天气缓存 |
 | `user_profile` | 个人侧写（八字/目标/简历） |
-| `ai_config` / `ai_skills` / `ai_conversations` | AI 配置与对话 |
+| `ai_config` / `ai_skills` / `ai_conversations` | AI 配置与对话（`is_active` = 全系统共享的当前对话） |
 | `bazi_analysis` | 八字 AI 解析缓存 |
+| `attachments` | 附件（含邮件附件，`entity_type='mail_message'`） |
+| `mail_accounts` / `mail_folders` / `mail_messages` | 邮箱账户、文件夹（UID 水位）、邮件 |
+| `mail_analysis` | 邮件 AI 分析（标题/摘要/优先级/相关度/行动） |
+| `profile_documents` / `profile_impressions` | 身份文档（权威）与 AI 印象（次级） |
 
 ---
 

@@ -12,6 +12,12 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/ai_client.php';
+require_once __DIR__ . '/../includes/profile_context.php';
+require_once __DIR__ . '/../includes/ai_tools_profile.php';
+if (is_file(__DIR__ . '/../includes/ai_tools_mail.php')) {
+    require_once __DIR__ . '/../includes/ai_tools_mail.php';
+}
 require_once __DIR__ . '/../includes/auth.php';
 
 $method = get_method();
@@ -22,81 +28,14 @@ $action = $parts[2] ?? 'chat';
 
 // --- Config helpers ---
 
+// Config loading + HTTP call live in includes/ai_client.php (shared with
+// reports / mail / CLI worker). These wrappers keep the historical names.
 function load_ai_config(PDO $db): array {
-    $uid = current_user_id();
-    $stmt = $db->prepare('SELECT * FROM ai_config WHERE user_id = ? LIMIT 1');
-    $stmt->execute([$uid]);
-    $row = $stmt->fetch();
-    if (!$row) {
-        $db->prepare('INSERT INTO ai_config (user_id, provider, endpoint, api_key, model) VALUES (?, ?, ?, ?, ?)')
-           ->execute([$uid, AI_DEFAULT_PROVIDER, AI_DEFAULT_ENDPOINT, AI_DEFAULT_API_KEY, AI_DEFAULT_MODEL]);
-        return [
-            'provider' => AI_DEFAULT_PROVIDER,
-            'endpoint' => AI_DEFAULT_ENDPOINT,
-            'api_key' => AI_DEFAULT_API_KEY,
-            'model' => AI_DEFAULT_MODEL,
-        ];
-    }
-    return $row;
+    return ai_load_config($db, current_user_id());
 }
 
 function call_llm(array $config, array $messages, array $tools, int $timeout = 60): array {
-    $url = rtrim($config['endpoint'], '/') . '/chat/completions';
-
-    $body = [
-        'model' => $config['model'],
-        'messages' => $messages,
-        'tools' => $tools,
-        'max_tokens' => AI_MAX_TOKENS,
-        'temperature' => AI_TEMPERATURE,
-        'stream' => false,
-    ];
-
-    $headers = ['Content-Type: application/json'];
-    if (!empty($config['api_key'])) {
-        $headers[] = 'Authorization: Bearer ' . $config['api_key'];
-    }
-
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE),
-        CURLOPT_HTTPHEADER => $headers,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => max(5, $timeout),
-        CURLOPT_CONNECTTIMEOUT => min(10, max(3, $timeout)),
-    ]);
-
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $error = curl_error($ch);
-    curl_close($ch);
-
-    if ($error) throw new Exception('LLM connection failed: ' . $error);
-    if ($httpCode !== 200) {
-        $body = json_decode($response, true);
-        $msg = $body['error']['message'] ?? "HTTP $httpCode";
-        throw new Exception("LLM error: $msg");
-    }
-
-    $data = json_decode($response, true);
-    $choice = $data['choices'][0]['message'] ?? [];
-    $msg = [
-        'role' => 'assistant',
-        'content' => $choice['content'] ?? '',
-        '_usage' => $data['usage'] ?? [],
-        '_model' => $data['model'] ?? '',
-        '_finish_reason' => $data['choices'][0]['finish_reason'] ?? '',
-    ];
-    // DeepSeek thinking mode: reasoning_content must be passed back with the
-    // assistant turn in every subsequent request, or the API errors out.
-    if (!empty($choice['reasoning_content'])) {
-        $msg['reasoning_content'] = $choice['reasoning_content'];
-    }
-    if (!empty($choice['tool_calls'])) {
-        $msg['tool_calls'] = $choice['tool_calls'];
-    }
-    return $msg;
+    return ai_call_llm($config, $messages, $timeout, $tools);
 }
 
 /**
@@ -135,7 +74,7 @@ function normalize_conversation_history(array $history): array {
 // --- Tool system ---
 
 function get_tool_definitions(): array {
-    return [
+    $tools = [
         // ===== TASKS =====
         [
             'name' => 'list_tasks',
@@ -515,6 +454,12 @@ function get_tool_definitions(): array {
             'handler' => 'handle_get_calendar_meta',
         ],
     ];
+    // Extension tool sets (profile memory, mailbox) live in includes/ai_tools_*.php
+    $tools = array_merge($tools, ai_tools_profile_definitions());
+    if (function_exists('ai_tools_mail_definitions')) {
+        $tools = array_merge($tools, ai_tools_mail_definitions());
+    }
+    return $tools;
 }
 
 // ===== TOOL HANDLERS =====
@@ -897,9 +842,7 @@ if ($action === 'config' && ($parts[3] ?? '') === 'test' && $method === 'POST') 
 // ===== SYSTEM PROMPT =====
 
 function limit_ai_context(?string $text, int $maxChars): string {
-    $text = trim((string)$text);
-    if (mb_strlen($text, 'UTF-8') <= $maxChars) return $text;
-    return mb_substr($text, 0, $maxChars, 'UTF-8') . "\n...[context truncated]";
+    return ai_truncate($text, $maxChars);
 }
 
 function needs_personal_ai_context(string $query): bool {
@@ -909,10 +852,35 @@ function needs_personal_ai_context(string $query): bool {
     ) === 1;
 }
 
-function get_system_prompt(PDO $db, string $selectedDate = '', array $almanac = [], string $userQuery = ''): array {
+/**
+ * Long-running requests (deep personal analysis, reading mail + attachments)
+ * get the extended timeout tier.
+ */
+function is_long_ai_task(string $query, array $context = []): bool {
+    if (needs_personal_ai_context($query)) return true;
+    if (($context['type'] ?? '') === 'email') return true;
+    return preg_match('/邮件|邮箱|email|mail|附件|逐封|逐个|汇总|整理|相关度/iu', $query) === 1;
+}
+
+function get_system_prompt(PDO $db, string $selectedDate = '', array $almanac = [], string $userQuery = '', array $context = []): array {
     $today = today();
     $viewDate = $selectedDate ?: $today;
     $needsPersonalContext = needs_personal_ai_context($userQuery);
+    $isEmailContext = ($context['type'] ?? '') === 'email';
+
+    // Identity: authoritative documents + AI impressions — always present (compact),
+    // expanded when the request is personal or email-related.
+    $identity = profile_identity_block(
+        $db, current_user_id(),
+        ($needsPersonalContext || $isEmailContext) ? 4000 : 1500,
+        ($needsPersonalContext || $isEmailContext) ? 1500 : 800
+    );
+
+    // Email being viewed (from the mail modal / mail page chat)
+    $emailContext = '';
+    if ($isEmailContext && function_exists('mail_context_block')) {
+        $emailContext = mail_context_block($db, current_user_id(), (int)($context['id'] ?? 0));
+    }
 
     // Build almanac context
     $almanacContext = '';
@@ -992,9 +960,15 @@ For EVERY user request, follow this process:
 ## TOOLS AVAILABLE
 - Read tools (auto-executed): list_tasks, get_task, list_people, get_person, list_tags, list_results,
   get_worklogs_by_date, get_workload_stats, get_results_stats, get_calendar_data, get_daily_status,
-  get_relationships
+  get_relationships, get_weather, get_worklog_notes, get_user_profile, get_bazi_analysis, get_calendar_meta,
+  get_profile_documents, get_profile_document_text, list_impressions,
+  list_mail_accounts, get_mail_presets, test_mail_account, sync_mail_account,
+  search_emails, get_email, get_email_analysis, analyze_email, analyze_emails_by_date
+- Silent memory tools (auto-executed, no confirmation): remember_about_user, forget_impression
 - Write tools (require user confirmation): create_task, update_task, delete_task, create_person,
-  update_person, create_tag, update_tag, toggle_worklog, add_plan, add_result_log
+  update_person, create_tag, update_tag, toggle_worklog, add_plan, update_worklog_duration, add_result_log,
+  add_worklog_note, save_bazi_analysis, mark_email, send_email, add_mail_account, update_mail_account,
+  remove_mail_account
 
 ## RULES
 - Always Plan before Executing. Never start with tool calls.
@@ -1002,6 +976,34 @@ For EVERY user request, follow this process:
 - Present data in Chinese with appropriate emoji. Use Markdown tables for structured data.
 - For fate analysis or task prioritization, reference the user's BaZi and skills.
 - Be concise but thorough. Answer in Chinese.
+- You are the ONE assistant for this whole system (home page, mailbox, reports, profile). Help the user
+  manage research tasks across all of them.
+
+## USER PROFILE MEMORY
+- The USER IDENTITY block (uploaded documents) is the authoritative source about the user. AI IMPRESSIONS
+  are secondary; when they conflict, trust the documents and do NOT overwrite them.
+- When the user reveals a stable fact about themselves (职称/职位/单位/工作重心/研究方向/技能/长期项目/偏好),
+  silently call remember_about_user with the matching field. Use field "observation" for other durable
+  insights about how the user works or what they care about. Do not ask for permission and do not
+  announce it beyond a brief natural acknowledgement.
+- Do not record one-off trivia, temporary moods, or things already identical to the current impression.
+- If the user corrects you ("我不是副教授"), update the field (or forget_impression) immediately.
+
+## EMAIL
+- Mail is synced into this system. To work with mail: search_emails (date range / keyword / account) then
+  get_email for full body + attachment text. Read each email and its attachments one by one before
+  summarizing a batch.
+- Judge 相关度 (relevance) against the USER IDENTITY / impressions: research area, position, projects.
+- analyze_email stores a structured analysis (brief title, summary, priority 1-5, relevance 0-100, needed
+  materials/actions) that the home page shows. Use it when the user asks to analyze or triage mail.
+- If a CURRENT EMAIL block is present, "这封邮件/该邮件" refers to it; use its id directly.
+- send_email and mark_email modify the mailbox and require confirmation. Draft replies in the user's voice
+  (based on identity documents) and show the draft before proposing send_email.
+- Mailbox setup: when the user wants to add a mailbox, call add_mail_account with the email address (and
+  a preset or explicit IMAP/SMTP hosts for school/company mail). NEVER ask for or accept the password /
+  authorization code in chat — the confirmation card has a password box the user fills in directly, and the
+  password never reaches you. Tell the user to enter the 授权码 there. After it is saved the tool result
+  includes the connection test and first sync; report those plainly (e.g. "IMAP 连接成功，收到 12 封").
 ## BAZI SYSTEM
 This app has a full BaZi (八字) fortune analysis system:
 - User's birth chart (四柱) is in the profile (get_user_profile)
@@ -1015,12 +1017,42 @@ This app has a full BaZi (八字) fortune analysis system:
 
 PROMPT;
 
-    return ['role' => 'system', 'content' => $prompt . $almanacContext . ($profile ? "\n" . $profile : '') . $skills];
+    $content = $prompt . $almanacContext;
+    if ($identity !== '') $content .= "\n" . $identity;
+    if ($profile !== '') $content .= "\n" . $profile;
+    if ($emailContext !== '') $content .= "\n" . $emailContext;
+    $content .= $skills;
+    return ['role' => 'system', 'content' => $content];
 }
 
 // ===== CHAT ENDPOINT =====
 
 // ===== CONVERSATION ENDPOINTS =====
+
+// Shared "active conversation": the one AI chat the user is currently in,
+// regardless of which page / modal hosts the chat box.
+function set_active_conversation(PDO $db, int $uid, int $id): void {
+    $db->prepare('UPDATE ai_conversations SET is_active = 0 WHERE user_id = ? AND is_active = 1')->execute([$uid]);
+    if ($id > 0) {
+        $db->prepare('UPDATE ai_conversations SET is_active = 1 WHERE id = ? AND user_id = ?')->execute([$id, $uid]);
+    }
+}
+
+if ($action === 'conversations' && ($parts[3] ?? '') === 'active' && $method === 'GET') {
+    $stmt = $db->prepare('SELECT * FROM ai_conversations WHERE user_id = ? AND is_active = 1 ORDER BY updated_at DESC LIMIT 1');
+    $stmt->execute([$uid]);
+    $conv = $stmt->fetch();
+    if (!$conv) json_success(null);
+    $conv['messages'] = json_decode($conv['messages_json'], true) ?? [];
+    unset($conv['messages_json']);
+    json_success($conv);
+}
+
+if ($action === 'conversations' && ($parts[3] ?? '') === 'active' && $method === 'PUT') {
+    $data = get_json_input();
+    set_active_conversation($db, $uid, (int)($data['id'] ?? 0));
+    json_success(null, 'Active conversation updated');
+}
 
 if ($action === 'conversations' && $method === 'GET') {
     $id = isset($parts[3]) ? (int)$parts[3] : null;
@@ -1045,7 +1077,9 @@ if ($action === 'conversations' && $method === 'POST') {
     $messages = json_encode($data['messages'] ?? [], JSON_UNESCAPED_UNICODE);
     $stmt = $db->prepare('INSERT INTO ai_conversations (user_id, title, messages_json) VALUES (?, ?, ?)');
     $stmt->execute([$uid, $title, $messages]);
-    json_success(['id' => (int)$db->lastInsertId(), 'title' => $title]);
+    $newId = (int)$db->lastInsertId();
+    if (!empty($data['set_active'])) set_active_conversation($db, $uid, $newId);
+    json_success(['id' => $newId, 'title' => $title]);
 }
 
 if ($action === 'conversations' && $method === 'PUT') {
@@ -1064,7 +1098,10 @@ if ($action === 'conversations' && $method === 'PUT') {
         $stmt = $db->prepare('UPDATE ai_conversations SET messages_json=? WHERE id=? AND user_id=?');
         $stmt->execute([$messages, $id, $uid]);
     }
-    json_success(null, 'Conversation updated');
+    if (!empty($data['set_active'])) set_active_conversation($db, $uid, $id);
+    $stmt = $db->prepare('SELECT updated_at FROM ai_conversations WHERE id=? AND user_id=?');
+    $stmt->execute([$id, $uid]);
+    json_success(['id' => $id, 'updated_at' => $stmt->fetchColumn()], 'Conversation updated');
 }
 
 if ($action === 'conversations' && $method === 'DELETE') {
@@ -1097,6 +1134,7 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
     // Build messages
     $selectedDate = $input['selected_date'] ?? '';
     $almanac = $input['almanac'] ?? [];
+    $context = is_array($input['context'] ?? null) ? $input['context'] : [];
     $historyForContext = $input['messages'] ?? [];
     $userQuery = '';
     for ($historyIndex = count($historyForContext) - 1; $historyIndex >= 0; $historyIndex--) {
@@ -1105,7 +1143,7 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
             break;
         }
     }
-    $messages = [get_system_prompt($db, $selectedDate, $almanac, $userQuery)];
+    $messages = [get_system_prompt($db, $selectedDate, $almanac, $userQuery, $context)];
 
     if ($action === 'confirm') {
         // Restore conversation history + confirmed tool results
@@ -1114,6 +1152,9 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
         $assistantMsg = $input['message'] ?? [];
         if ($assistantMsg) $messages[] = $assistantMsg;
         $confirmations = $input['confirmations'] ?? [];
+        // Secrets typed into the confirmation card (e.g. mail passwords). They are
+        // merged into the handler args only — never into messages or LLM context.
+        $secrets = is_array($input['secrets'] ?? null) ? $input['secrets'] : [];
 
         foreach ($assistantMsg['tool_calls'] ?? [] as $call) {
             $conf = null;
@@ -1124,7 +1165,16 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
             if ($conf && $conf['action'] === 'confirm' && $tool) {
                 try {
                     $args = json_decode($call['function']['arguments'], true) ?? [];
+                    if (isset($secrets[$call['id']]) && is_array($secrets[$call['id']])) {
+                        foreach ($secrets[$call['id']] as $sk => $sv) {
+                            if (is_string($sk) && $sk !== '' && $sk[0] === '_') $args[$sk] = (string)$sv;
+                        }
+                    }
                     $result = $tool['handler']($db, $args);
+                    if (is_array($result) && isset($result['_notice'])) {
+                        $steps[] = ['type' => 'tool', 'name' => $call['function']['name'], 'status' => 'done', 'notice' => (string)$result['_notice']];
+                        unset($result['_notice']);
+                    }
                     $messages[] = ['role' => 'tool', 'tool_call_id' => $call['id'], 'content' => json_encode($result, JSON_UNESCAPED_UNICODE)];
                 } catch (Exception $e) {
                     $messages[] = ['role' => 'tool', 'tool_call_id' => $call['id'], 'content' => json_encode(['error' => $e->getMessage()])];
@@ -1148,7 +1198,7 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
     unset($m);
 
     // LLM loop — collect all steps for frontend display
-    $isDeepAnalysis = needs_personal_ai_context($userQuery);
+    $isDeepAnalysis = is_long_ai_task($userQuery, $context);
     $overallTimeout = $isDeepAnalysis ? 300 : 90;
     $perCallTimeout = $isDeepAnalysis ? 180 : 60;
     $maxIter = 6;
@@ -1211,6 +1261,10 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
                 try {
                     $args = json_decode($call['function']['arguments'], true) ?? [];
                     $result = $tool['handler']($db, $args);
+                    if (is_array($result) && isset($result['_notice'])) {
+                        $steps[count($steps)-1]['notice'] = (string)$result['_notice'];
+                        unset($result['_notice']);
+                    }
                     $toolResults[] = ['role' => 'tool', 'tool_call_id' => $call['id'], 'content' => json_encode($result, JSON_UNESCAPED_UNICODE)];
                     $steps[count($steps)-1]['status'] = 'done';
                 } catch (Exception $e) {

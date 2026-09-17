@@ -191,4 +191,63 @@ const API = {
         generate(periodType, periodKey, extraNote) { return API.post('/reports', { period_type: periodType, period_key: periodKey, note: extraNote || '' }); },
         remove(id) { return API.delete(`/reports/${id}`); },
     },
+
+    // --- AI conversations (shared active conversation) ---
+    ai: {
+        active() { return API.get('/ai/conversations/active'); },
+        setActive(id) { return API.put('/ai/conversations/active', { id: id || 0 }); },
+        config() { return API.get('/ai/config'); },
+    },
+
+    // --- Profile documents (authoritative identity docs) ---
+    profileDocs: {
+        list() { return API.get('/profile_docs'); },
+        upload(file, kind, title) {
+            const fd = new FormData();
+            fd.append('file', file);
+            if (kind) fd.append('kind', kind);
+            if (title) fd.append('title', title);
+            return API.upload('/profile_docs', fd);
+        },
+        text(id) { return API.get(`/profile_docs/${id}/text`); },
+        update(id, data) { return API.put(`/profile_docs/${id}`, data); },
+        reextract(id) { return API.post(`/profile_docs/${id}/reextract`, {}); },
+        remove(id) { return API.delete(`/profile_docs/${id}`); },
+        downloadUrl(id) { return `/api/profile_docs/${id}/download`; },
+    },
+
+    // --- AI impressions (secondary memory about the user) ---
+    impressions: {
+        list() { return API.get('/impressions'); },
+        create(data) { return API.post('/impressions', data); },
+        update(id, data) { return API.put(`/impressions/${id}`, data); },
+        remove(id) { return API.delete(`/impressions/${id}`); },
+        clear() { return API.delete('/impressions?all=1'); },
+    },
+
+    // --- Mail ---
+    mail: {
+        status() { return API.get('/mail/status'); },
+        accounts: {
+            list() { return API.get('/mail/accounts'); },
+            create(data) { return API.post('/mail/accounts', data); },
+            update(id, data) { return API.put(`/mail/accounts/${id}`, data); },
+            remove(id) { return API.delete(`/mail/accounts/${id}`); },
+            test(data) { return API.post('/mail/accounts/test', data); },
+        },
+        sync(accountId, budgetSec) { return API.post('/mail/sync', { account_id: accountId || 0, budget_sec: budgetSec || 25 }); },
+        folders(accountId) { return API.get('/mail/folders' + (accountId ? `?account_id=${accountId}` : '')); },
+        messages(params) {
+            const qs = Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null && v !== '')
+                .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+            return API.get('/mail/messages' + (qs ? `?${qs}` : ''));
+        },
+        message(id) { return API.get(`/mail/messages/${id}`); },
+        update(id, data) { return API.put(`/mail/messages/${id}`, data); },
+        remove(id) { return API.delete(`/mail/messages/${id}`); },
+        replyTemplate(id, mode) { return API.get(`/mail/messages/${id}/reply-template?mode=${encodeURIComponent(mode || 'reply')}`); },
+        send(formData) { return API.upload('/mail/send', formData); },
+        analyze(body) { return API.post('/mail/analyze', body); },
+        daily(date) { return API.get(`/mail/daily?date=${encodeURIComponent(date)}`); },
+    },
 };

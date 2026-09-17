@@ -22,8 +22,20 @@ $page_content = <<<HTML
             </div>
             <div class="daily-liuri" id="dailyLiuri"></div>
         </div>
-        <div class="daily-cards" id="dailyStatusCards">
-            <div class="no-daily-data">加载中...</div>
+        <div class="daily-right-col">
+            <div class="daily-mail" id="dailyMail">
+                <div class="daily-mail-header">
+                    <h3>📧 今日邮件</h3>
+                    <span class="daily-mail-meta" id="dailyMailMeta"></span>
+                    <span style="flex:1"></span>
+                    <button class="btn btn-ghost btn-sm" id="dailyMailAnalyze" onclick="analyzeDailyMail()" title="用 AI 分析今天尚未分析的邮件" style="display:none;">🤖 分析未分析</button>
+                    <a href="/mail" class="btn btn-ghost btn-sm">打开邮箱</a>
+                </div>
+                <div class="daily-mail-list" id="dailyMailList"><div class="no-daily-data">加载中...</div></div>
+            </div>
+            <div class="daily-cards" id="dailyStatusCards">
+                <div class="no-daily-data">加载中...</div>
+            </div>
         </div>
     </div>
 </div>

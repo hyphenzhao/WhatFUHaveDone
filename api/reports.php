@@ -16,6 +16,7 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/attachments_util.php';
+require_once __DIR__ . '/../includes/ai_client.php';
 require_once __DIR__ . '/../includes/auth.php';
 
 $method = get_method();
@@ -372,51 +373,17 @@ function report_truncate(string $text, int $maxChars): string {
     return mb_substr($text, 0, $maxChars) . '…(截断)';
 }
 
-// ---- self-contained AI helpers (reports must not require ai.php, which dispatches routes) ----
+// ---- AI helpers now delegate to includes/ai_client.php (shared; reports must not require ai.php) ----
 
 function report_ai_config(PDO $db, int $uid): array {
-    $st = $db->prepare('SELECT * FROM ai_config WHERE user_id = ? LIMIT 1');
-    $st->execute([$uid]);
-    $row = $st->fetch();
-    if (!$row) {
-        return ['provider' => AI_DEFAULT_PROVIDER, 'endpoint' => AI_DEFAULT_ENDPOINT, 'api_key' => AI_DEFAULT_API_KEY, 'model' => AI_DEFAULT_MODEL];
-    }
-    return $row;
+    return ai_load_config($db, $uid);
 }
 
 function report_call_llm(array $config, array $messages, int $timeout = 90): string {
-    $url = rtrim($config['endpoint'], '/') . '/chat/completions';
-    $body = [
-        'model'       => $config['model'],
-        'messages'    => $messages,
-        'max_tokens'  => AI_MAX_TOKENS,
-        'temperature' => AI_TEMPERATURE,
-        'stream'      => false,
-    ];
-    $headers = ['Content-Type: application/json'];
-    if (!empty($config['api_key'])) $headers[] = 'Authorization: Bearer ' . $config['api_key'];
-
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => json_encode($body, JSON_UNESCAPED_UNICODE),
-        CURLOPT_HTTPHEADER     => $headers,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => max(5, $timeout),
-        CURLOPT_CONNECTTIMEOUT => 10,
-    ]);
-    $resp = curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err  = curl_error($ch);
-    curl_close($ch);
-
-    if ($err) throw new Exception('连接失败: ' . $err);
-    if ($code !== 200) {
-        $b = json_decode($resp, true);
-        throw new Exception($b['error']['message'] ?? "HTTP $code");
+    try {
+        return ai_complete_text($config, $messages, $timeout);
+    } catch (Exception $e) {
+        // Keep the historical, user-facing wording for connection failures.
+        throw new Exception(str_replace('LLM connection failed: ', '连接失败: ', $e->getMessage()));
     }
-    $d = json_decode($resp, true);
-    $content = $d['choices'][0]['message']['content'] ?? '';
-    if (trim($content) === '') throw new Exception('AI 返回空内容');
-    return $content;
 }

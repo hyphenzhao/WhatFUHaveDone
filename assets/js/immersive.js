@@ -244,7 +244,28 @@ const IM = {
                 </div>`;
             };
 
-            let html = '<div class="im-col"><div class="im-col-title">📋 今日工作量</div>';
+            // Today's mail column (AI-ranked), shown only when mail accounts exist
+            let mailHtml = '';
+            try {
+                const md = (await API.mail.daily(this.date)).data;
+                if (md && md.has_accounts) {
+                    mailHtml = '<div class="im-col im-mail-col"><div class="im-col-title">📧 今日邮件</div>';
+                    if (!md.ai_configured) mailHtml += '<div class="im-empty">请先配置AI</div>';
+                    if (!md.items.length) mailHtml += '<div class="im-empty">暂无邮件</div>';
+                    md.items.forEach(m => {
+                        const a = m.analysis && m.analysis.status === 'ok' ? m.analysis : null;
+                        const title = a ? a.brief_title : (m.subject || '(无主题)');
+                        const badges = a ? `${MailUI.priBadge(a)} ${MailUI.relBadge(a)}` : '';
+                        mailHtml += `<div class="im-card im-mail-card ${m.is_seen ? '' : 'im-unseen'}" onclick="openMailModal(${m.id})">
+                            <div class="im-card-name">${badges} ${escapeHtml(title)}</div>
+                            <div class="im-mail-sub">${escapeHtml(m.from_name || m.from_email)} · ${MailUI.fmtDate(m.msg_date)}${a && a.summary ? '<br>' + escapeHtml(a.summary) : ''}</div>
+                        </div>`;
+                    });
+                    mailHtml += '</div>';
+                }
+            } catch (e) { /* mail optional */ }
+
+            let html = mailHtml + '<div class="im-col"><div class="im-col-title">📋 今日工作量</div>';
             const workTasks = daily.work_tasks || [];
             const resultTasks = daily.result_tasks || [];
             const planTasks = daily.plan_tasks || [];
@@ -314,14 +335,10 @@ const IM = {
             title: '🤖 AI 助手',
             body: '<div id="imAiChatContainer" style="height:60vh;display:flex;flex-direction:column;"></div>',
             footer: '',
+            onClose: () => { if (typeof AiChat !== 'undefined') AiChat.unmount(); },
         });
-        // Initialize AiChat in the modal container
-        setTimeout(() => {
-            const container = document.getElementById('imAiChatContainer');
-            if (container && typeof AiChat !== 'undefined') {
-                AiChat.init(container);
-            }
-        }, 100);
+        const container = document.getElementById('imAiChatContainer');
+        if (container && typeof AiChat !== 'undefined') AiChat.mount(container);
     },
 
     showAddTask() {

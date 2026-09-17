@@ -22,21 +22,19 @@ $page_content = <<<'HTML'
     </div>
     <div class="form-group"><label>出生地</label><input class="form-input" id="pfBirthPlace" placeholder="如: 北京"></div>
 
+    <h3 style="margin-top:16px;">📄 身份文档 <span class="pf-hint">权威来源 · AI 首先依据这里的文件了解你</span></h3>
+    <div class="doc-list" id="docList"><div class="pf-empty">尚未上传。建议上传最新简历（PDF/DOCX），并保持更新。</div></div>
+    <div class="doc-actions">
+        <input type="file" accept=".pdf,.docx,.txt,.md" class="file-input" id="docFileInput" onchange="uploadDoc(this)">
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('docFileInput').click()">📤 上传文档</button>
+        <span class="pf-hint">PDF / DOCX / TXT / MD，≤20MB。⭐ 标记主文档。</span>
+    </div>
+
     <h3 style="margin-top:16px;">📝 个人背景</h3>
     <div class="form-group">
-        <label>简历 PDF <button class="btn btn-ghost btn-sm" id="btnAiExtract" onclick="aiExtractResume()" style="margin-left:8px;">🤖 AI 提取</button></label>
-        <div class="file-card" id="resumeCard">
-            <div class="file-placeholder">📄 上传简历 PDF（自动提取文字）</div>
-            <div class="file-info" style="display:none">
-                <span class="file-name" id="resumeFileName"></span>
-                <span class="file-size" id="resumeFileSize"></span>
-                <button class="btn btn-ghost btn-sm" onclick="deleteFile('resume')">🗑️</button>
-            </div>
-            <input type="file" accept=".pdf" class="file-input" id="resumeFileInput" onchange="uploadFile('resume', this)">
-            <button class="btn btn-ghost btn-sm upload-btn" onclick="document.getElementById('resumeFileInput').click()">📤 上传</button>
-        </div>
+        <label>个人简介（补充说明，非权威） <button class="btn btn-ghost btn-sm" id="btnAiExtract" onclick="aiExtractResume()" style="margin-left:8px;" title="从主文档生成一段简介">🤖 从主文档提取</button></label>
+        <textarea class="form-textarea" id="pfResume" rows="5" placeholder="教育背景、工作经历、研究方向、兴趣爱好等（上传主文档后可点“从主文档提取”自动生成）"></textarea>
     </div>
-    <div class="form-group"><label>个人简历/背景</label><textarea class="form-textarea" id="pfResume" rows="5" placeholder="教育背景、工作经历、研究方向、兴趣爱好等（上传PDF后点 AI 提取 可自动填充）"></textarea></div>
     <div class="form-group"><label>当前阶段目标</label><textarea class="form-textarea" id="pfGoals" rows="4" placeholder="近期目标、中期规划、远期愿景等"></textarea></div>
 </div>
 
@@ -78,6 +76,19 @@ $page_content = <<<'HTML'
 </div>
 </div>
 
+<!-- AI 印象（次级来源） -->
+<div class="profile-panel" style="max-width:1160px;margin-top:20px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <h3 style="margin:0;">🧠 AI 印象 <span class="pf-hint">次级来源 · AI 在对话中自动记录，与身份文档冲突时以文档为准</span></h3>
+        <span style="flex:1"></span>
+        <button class="btn btn-outline btn-sm" onclick="addImpression()">＋ 手动添加</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearImpressions()">🗑️ 清空</button>
+    </div>
+    <div id="impFields" style="margin-top:12px;"></div>
+    <h4 style="font-size:0.85rem;margin:14px 0 6px;color:var(--color-text-secondary);">观察记录</h4>
+    <div id="impObservations"></div>
+</div>
+
 <div style="max-width:1160px;margin-top:16px;text-align:right;">
     <button class="btn btn-primary" id="pfSave" style="padding:10px 32px;font-size:0.95rem;">💾 保存侧写</button>
 </div>
@@ -106,6 +117,25 @@ $page_content = <<<'HTML'
 .bazi-input { font-size: 1.15rem; font-weight: 700; text-align: center; letter-spacing: 2px; width: 100%; box-sizing: border-box; }
 .upload-btn { flex-shrink: 0; }
 .file-preview { max-height: 200px; overflow-y: auto; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.78rem; font-family: monospace; white-space: pre-wrap; line-height: 1.5; margin-bottom: 20px; }
+.pf-hint { font-weight: 400; font-size: 0.75rem; color: var(--color-text-secondary); margin-left: 6px; }
+.pf-empty { font-size: 0.82rem; color: var(--color-text-secondary); padding: 10px 12px; background: var(--color-bg); border: 1px dashed var(--color-border); border-radius: var(--radius); }
+.doc-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.doc-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); font-size: 0.82rem; }
+.doc-item.primary { border-color: var(--color-primary); background: #eff6ff; }
+.doc-item .doc-title { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-item .doc-meta { color: var(--color-text-secondary); font-size: 0.74rem; white-space: nowrap; }
+.doc-item .doc-btn { background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 2px 4px; }
+.doc-item .doc-btn:hover { opacity: 0.7; }
+.doc-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.imp-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.imp-table th, .imp-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+.imp-table th { font-size: 0.75rem; color: var(--color-text-secondary); font-weight: 600; }
+.imp-table td.imp-val { white-space: pre-wrap; }
+.imp-src { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 0.7rem; background: #ede9fe; color: #5b21b6; }
+.imp-src.user { background: #dcfce7; color: #166534; }
+.imp-obs { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; border-bottom: 1px solid var(--color-border); font-size: 0.82rem; }
+.imp-obs .imp-obs-text { flex: 1; white-space: pre-wrap; }
+.imp-obs .doc-meta { color: var(--color-text-secondary); font-size: 0.72rem; white-space: nowrap; }
 @media (max-width: 768px) { .profile-layout { flex-direction: column; } }
 </style>
 
@@ -124,9 +154,131 @@ async function uploadFile(type, input) {
         const d = data.data;
         if (type === 'bazi') { baziContent = d.content; baziFileName = d.name; showFile('bazi', d.name, d.size, d.content); }
         else if (type === 'ziwei') { ziweiContent = d.content; ziweiFileName = d.name; showFile('ziwei', d.name, d.size, d.content); }
-        else if (type === 'resume') { resumeContent = d.content; resumeFileName = d.name; showFile('resume', d.name, d.size, d.content.substring(0,500)); Toast.success('PDF已解析，点击"AI 提取"自动填充简历'); }
     } catch(e) { Toast.error('上传失败: ' + e.message); }
     input.value = '';
+}
+
+// ===== 身份文档（权威来源） =====
+let profileDocs = [];
+async function loadDocs() {
+    const box = document.getElementById('docList');
+    try {
+        const res = await API.profileDocs.list();
+        profileDocs = res.data || [];
+    } catch(e) { box.innerHTML = '<div class="pf-empty">加载失败: ' + escapeHtml(e.message) + '</div>'; return; }
+    if (!profileDocs.length) { box.innerHTML = '<div class="pf-empty">尚未上传。建议上传最新简历（PDF/DOCX），并保持更新。</div>'; return; }
+    box.innerHTML = profileDocs.map(d => `
+        <div class="doc-item ${d.is_primary ? 'primary' : ''}">
+            <button class="doc-btn" title="${d.is_primary ? '主文档' : '设为主文档'}" onclick="setPrimaryDoc(${d.id})">${d.is_primary ? '⭐' : '☆'}</button>
+            <span class="doc-title" title="${escapeHtml(d.file_name)}">${escapeHtml(d.title || d.file_name)}</span>
+            <span class="doc-meta">${escapeHtml(d.file_name)} · ${formatSize(d.size)} · ${d.chars ? d.chars + ' 字' : '⚠️ 无文本'} · ${(d.updated_at || '').substring(0,10)}</span>
+            <button class="doc-btn" title="预览文本" onclick="previewDoc(${d.id})">👁️</button>
+            <a class="doc-btn" title="下载" href="${API.profileDocs.downloadUrl(d.id)}">⬇️</a>
+            <button class="doc-btn" title="重新提取文本" onclick="reextractDoc(${d.id})">🔄</button>
+            <button class="doc-btn" title="删除" onclick="deleteDoc(${d.id})">🗑️</button>
+        </div>`).join('');
+}
+async function uploadDoc(input) {
+    const file = input.files[0];
+    if (!file) return;
+    Toast.show('⏳ 上传并提取文本中...', 'info', 4000);
+    try {
+        const res = await API.profileDocs.upload(file, 'cv', '');
+        Toast.success(res.message || '已上传');
+        await loadDocs();
+    } catch(e) { Toast.error('上传失败: ' + e.message); }
+    input.value = '';
+}
+async function setPrimaryDoc(id) {
+    try { await API.profileDocs.update(id, { is_primary: 1 }); await loadDocs(); Toast.success('已设为主文档'); }
+    catch(e) { Toast.error(e.message); }
+}
+async function reextractDoc(id) {
+    try { const r = await API.profileDocs.reextract(id); Toast.success(r.message); await loadDocs(); }
+    catch(e) { Toast.error(e.message); }
+}
+async function deleteDoc(id) {
+    if (!confirm('确定删除该文档？')) return;
+    try { await API.profileDocs.remove(id); await loadDocs(); Toast.success('已删除'); }
+    catch(e) { Toast.error(e.message); }
+}
+async function previewDoc(id) {
+    try {
+        const r = await API.profileDocs.text(id);
+        const t = r.data.text || '(未提取到文本)';
+        Modal.open({ title: '📄 ' + (r.data.title || r.data.file_name),
+            body: `<pre style="white-space:pre-wrap;font-size:0.8rem;max-height:60vh;overflow:auto;margin:0;">${escapeHtml(t)}</pre>`,
+            footer: '<button class="btn btn-ghost" onclick="Modal.close()">关闭</button>' });
+    } catch(e) { Toast.error(e.message); }
+}
+
+// ===== AI 印象（次级来源） =====
+let impLabels = {};
+async function loadImpressions() {
+    const fEl = document.getElementById('impFields');
+    const oEl = document.getElementById('impObservations');
+    try {
+        const res = await API.impressions.list();
+        const d = res.data || {};
+        impLabels = d.labels || {};
+        const fields = d.fields || {};
+        const keys = Object.keys(impLabels);
+        const rows = keys.filter(k => fields[k]).map(k => {
+            const r = fields[k];
+            return `<tr><td style="white-space:nowrap;font-weight:600;">${escapeHtml(impLabels[k])}</td>
+                <td class="imp-val">${escapeHtml(r.value)}</td>
+                <td><span class="imp-src ${r.source}">${r.source === 'user' ? '手动' : 'AI'}</span> ${r.confidence}%</td>
+                <td class="doc-meta">${(r.updated_at || '').substring(0,10)}</td>
+                <td style="white-space:nowrap;"><button class="doc-btn" onclick="editImpression(${r.id}, '${k}')">✏️</button><button class="doc-btn" onclick="deleteImpression(${r.id})">🗑️</button></td></tr>`;
+        });
+        fEl.innerHTML = rows.length
+            ? `<table class="imp-table"><thead><tr><th>字段</th><th>内容</th><th>来源/置信</th><th>更新</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table>`
+            : '<div class="pf-empty">还没有结构化印象。与 AI 聊聊你的职称、职位、工作重心，它会自动记录。</div>';
+        const obs = d.observations || [];
+        oEl.innerHTML = obs.length ? obs.map(r => `
+            <div class="imp-obs"><span class="imp-obs-text">${escapeHtml(r.value)}</span>
+                <span class="doc-meta">${(r.updated_at || '').substring(0,10)}</span>
+                <button class="doc-btn" onclick="editImpression(${r.id}, 'observation')">✏️</button>
+                <button class="doc-btn" onclick="deleteImpression(${r.id})">🗑️</button></div>`).join('')
+            : '<div class="pf-empty">暂无观察记录。</div>';
+    } catch(e) { fEl.innerHTML = '<div class="pf-empty">加载失败: ' + escapeHtml(e.message) + '</div>'; }
+}
+function impressionForm(field, value) {
+    const opts = Object.entries(impLabels).map(([k, v]) => `<option value="${k}" ${k === field ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')
+        + `<option value="observation" ${field === 'observation' ? 'selected' : ''}>观察</option>`;
+    return `<div class="form-group"><label>字段</label><select class="form-select" id="impField">${opts}</select></div>
+            <div class="form-group"><label>内容</label><textarea class="form-textarea" id="impValue" rows="3">${escapeHtml(value || '')}</textarea></div>`;
+}
+function addImpression() {
+    Modal.open({ title: '＋ 添加印象', body: impressionForm('title', ''),
+        footer: '<button class="btn btn-ghost" onclick="Modal.close()">取消</button><button class="btn btn-primary" id="impSave">保存</button>' });
+    document.getElementById('impSave').addEventListener('click', async () => {
+        try {
+            await API.impressions.create({ field: document.getElementById('impField').value, value: document.getElementById('impValue').value.trim() });
+            Modal.close(); await loadImpressions(); Toast.success('已记录');
+        } catch(e) { Toast.error(e.message); }
+    });
+}
+function editImpression(id, field) {
+    const cur = field === 'observation'
+        ? (Array.from(document.querySelectorAll('.imp-obs')).find(el => el.innerHTML.includes(`editImpression(${id},`))?.querySelector('.imp-obs-text')?.textContent || '')
+        : (document.querySelector(`.imp-table button[onclick="editImpression(${id}, '${field}')"]`)?.closest('tr')?.querySelector('.imp-val')?.textContent || '');
+    Modal.open({ title: '✏️ 编辑印象', body: impressionForm(field, cur),
+        footer: '<button class="btn btn-ghost" onclick="Modal.close()">取消</button><button class="btn btn-primary" id="impSave">保存</button>' });
+    document.getElementById('impSave').addEventListener('click', async () => {
+        try {
+            await API.impressions.update(id, { field: document.getElementById('impField').value, value: document.getElementById('impValue').value.trim() });
+            Modal.close(); await loadImpressions(); Toast.success('已更新');
+        } catch(e) { Toast.error(e.message); }
+    });
+}
+async function deleteImpression(id) {
+    if (!confirm('删除这条印象？')) return;
+    try { await API.impressions.remove(id); await loadImpressions(); } catch(e) { Toast.error(e.message); }
+}
+async function clearImpressions() {
+    if (!confirm('清空全部 AI 印象？此操作不可恢复。')) return;
+    try { await API.impressions.clear(); await loadImpressions(); Toast.success('已清空'); } catch(e) { Toast.error(e.message); }
 }
 
 function showFile(type, name, size, content) {
@@ -145,26 +297,29 @@ function deleteFile(type) {
     document.getElementById(type + 'Preview').style.display = 'none';
     if (type === 'bazi') { baziContent = ''; baziFileName = ''; }
     else if (type === 'ziwei') { ziweiContent = ''; ziweiFileName = ''; }
-    else if (type === 'resume') { resumeContent = ''; resumeFileName = ''; }
     Toast.success('已删除');
 }
 
 function formatSize(bytes) { return bytes < 1024 ? bytes+'B' : bytes < 1048576 ? (bytes/1024).toFixed(1)+'KB' : (bytes/1048576).toFixed(1)+'MB'; }
 
 async function aiExtractResume() {
-    if (!resumeContent) { Toast.error('请先上传简历 PDF'); return; }
+    const primary = profileDocs.find(d => d.is_primary) || profileDocs[0];
+    if (!primary) { Toast.error('请先上传身份文档（简历）'); return; }
     const btn = document.getElementById('btnAiExtract');
     btn.disabled = true; btn.textContent = '⏳ 提取中...';
     try {
+        const t = await API.profileDocs.text(primary.id);
+        const text = (t.data.text || '').substring(0, 12000);
+        if (!text.trim()) throw new Error('主文档没有可用文本，请尝试重新提取');
         const res = await API.post('/ai/chat', { messages: [
-            { role: 'user', content: '请从以下简历文本中提取关键信息，用中文简要总结：姓名、性别、出生日期、学历、工作经历、研究方向、技能特长。用 2-3 段简洁文字总结。\n\n' + resumeContent }
+            { role: 'user', content: '请从以下简历文本中提取关键信息，用中文简要总结：姓名、学历、工作经历、研究方向、技能特长。用 2-3 段简洁文字总结，不要使用工具。\n\n' + text }
         ]});
-        if (res.data.type === 'text') {
+        if ((res.data.type === 'steps' || res.data.type === 'text') && res.data.content) {
             document.getElementById('pfResume').value = res.data.content;
-            Toast.success('简历信息已提取');
-        }
+            Toast.success('简介已生成，记得点“保存侧写”');
+        } else { Toast.error('AI 未返回文本'); }
     } catch(e) { Toast.error('提取失败: ' + e.message); }
-    finally { btn.disabled = false; btn.textContent = '🤖 AI 提取'; }
+    finally { btn.disabled = false; btn.textContent = '🤖 从主文档提取'; }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -187,6 +342,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (p.shishen && p.shishen.length > 10) { baziContent = p.shishen; baziFileName = '八字命盘.txt'; showFile('bazi', baziFileName, new Blob([baziContent]).size, baziContent); }
         if (p.dayun && p.dayun.length > 10) { ziweiContent = p.dayun; ziweiFileName = '紫微命盘.txt'; showFile('ziwei', ziweiFileName, new Blob([ziweiContent]).size, ziweiContent); }
     } catch(e) {}
+    loadDocs();
+    loadImpressions();
 
     document.getElementById('pfSave').addEventListener('click', async () => {
         try {
@@ -201,7 +358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 bazi_month: document.getElementById('pfMonth').value.trim(),
                 bazi_day: document.getElementById('pfDay').value.trim(),
                 bazi_time: document.getElementById('pfTime').value.trim(),
-                resume: document.getElementById('pfResume').value.trim() || resumeContent,
+                resume: document.getElementById('pfResume').value.trim(),
                 goals: document.getElementById('pfGoals').value.trim(),
                 shishen: baziContent,
                 dayun: ziweiContent,

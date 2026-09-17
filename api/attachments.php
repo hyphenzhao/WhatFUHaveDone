@@ -23,7 +23,9 @@ $parts = get_path_parts();
 $db = get_db();
 $uid = current_user_id();
 
-$ALLOWED_ENTITIES = ['worklog_note', 'result', 'report', 'task'];
+$ALLOWED_ENTITIES = ['worklog_note', 'result', 'report', 'task', 'mail_message'];
+// mail_message attachments are written by the mail sync, never uploaded via this endpoint
+$UPLOADABLE_ENTITIES = ['worklog_note', 'result', 'report', 'task'];
 $UPLOAD_DIR = __DIR__ . '/../uploads/attachments';
 
 // GET /api/attachments/{id}/download  OR  GET /api/attachments?entity_type=&entity_id=
@@ -68,7 +70,7 @@ if ($method === 'GET') {
 if ($method === 'POST') {
     $entity_type = $_POST['entity_type'] ?? '';
     $entity_id   = (int)($_POST['entity_id'] ?? 0);
-    if (!in_array($entity_type, $ALLOWED_ENTITIES, true)) json_error('Invalid entity_type');
+    if (!in_array($entity_type, $UPLOADABLE_ENTITIES, true)) json_error('Invalid entity_type');
     if (!$entity_id) json_error('entity_id required');
     if (!isset($_FILES['file'])) json_error('No file uploaded');
 

@@ -76,10 +76,21 @@ $page_content = <<<'HTML'
 </div>
 </div>
 
+<!-- AI 印象总结（账本式：基础 → 阶段性压缩 → 增量） -->
+<div class="profile-panel" style="max-width:1160px;margin-top:20px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <h3 style="margin:0;">🧾 AI 印象总结 <span class="pf-hint">账本式：基础印象 → 定期压缩为阶段性印象 → 平时追加增量印象；对话中 AI 参考的是最新一份</span></h3>
+        <span style="flex:1"></span>
+        <button class="btn btn-ghost btn-sm" onclick="toggleSnapshotHistory()">🕘 历史</button>
+    </div>
+    <div class="snap-grid" id="snapGrid" style="margin-top:12px;"><div class="pf-empty">加载中...</div></div>
+    <div id="snapHistory" style="display:none;margin-top:12px;"></div>
+</div>
+
 <!-- AI 印象（次级来源） -->
 <div class="profile-panel" style="max-width:1160px;margin-top:20px;">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <h3 style="margin:0;">🧠 AI 印象 <span class="pf-hint">次级来源 · AI 在对话中自动记录，与身份文档冲突时以文档为准</span></h3>
+        <h3 style="margin:0;">🧠 AI 印象记录 <span class="pf-hint">次级来源 · AI 在对话中自动记录，与身份文档冲突时以文档为准</span></h3>
         <span style="flex:1"></span>
         <button class="btn btn-outline btn-sm" onclick="addImpression()">＋ 手动添加</button>
         <button class="btn btn-ghost btn-sm" onclick="clearImpressions()">🗑️ 清空</button>
@@ -136,6 +147,25 @@ $page_content = <<<'HTML'
 .imp-obs { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; border-bottom: 1px solid var(--color-border); font-size: 0.82rem; }
 .imp-obs .imp-obs-text { flex: 1; white-space: pre-wrap; }
 .imp-obs .doc-meta { color: var(--color-text-secondary); font-size: 0.72rem; white-space: nowrap; }
+.snap-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.snap-card { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.snap-card.base { border-top: 3px solid #2563eb; }
+.snap-card.stage { border-top: 3px solid #7c3aed; }
+.snap-card.incremental { border-top: 3px solid #059669; }
+.snap-head { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 0.9rem; }
+.snap-head .doc-meta { margin-left: auto; }
+.snap-desc { font-size: 0.74rem; color: var(--color-text-secondary); line-height: 1.5; }
+.snap-preview { font-size: 0.8rem; line-height: 1.55; max-height: 180px; overflow: hidden; position: relative; cursor: pointer; }
+.snap-preview::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 40px; background: linear-gradient(transparent, var(--color-bg)); }
+.snap-preview h1, .snap-preview h2, .snap-preview h3, .snap-preview h4 { font-size: 0.82rem; margin: 6px 0 2px; }
+.snap-preview ul { margin: 2px 0 2px 16px; }
+.snap-pending { font-size: 0.72rem; color: var(--color-text-secondary); }
+.snap-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; }
+.snap-history-item { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-bottom: 1px solid var(--color-border); font-size: 0.8rem; }
+.snap-kind { display: inline-block; padding: 1px 7px; border-radius: 8px; font-size: 0.7rem; font-weight: 600; }
+.snap-kind.base { background: #dbeafe; color: #1e40af; } .snap-kind.stage { background: #ede9fe; color: #5b21b6; } .snap-kind.incremental { background: #d1fae5; color: #065f46; }
+.snap-full { font-size: 0.86rem; line-height: 1.65; max-height: 65vh; overflow-y: auto; }
+@media (max-width: 900px) { .snap-grid { grid-template-columns: 1fr; } }
 @media (max-width: 768px) { .profile-layout { flex-direction: column; } }
 </style>
 
@@ -243,6 +273,86 @@ async function loadImpressions() {
             : '<div class="pf-empty">暂无观察记录。</div>';
     } catch(e) { fEl.innerHTML = '<div class="pf-empty">加载失败: ' + escapeHtml(e.message) + '</div>'; }
 }
+// ===== AI 印象总结（快照账本） =====
+let snapStatus = null;
+const SNAP_META = {
+    base: { icon: '📘', desc: '全面的初始侧写：身份文档 + 全部印象记录 + 近 90 天活动。可随时重新生成。' },
+    stage: { icon: '📚', desc: '定期压缩：基础印象 + 上一阶段印象 + 本阶段增量 + 新更新 → 一份最新的完整侧写。' },
+    incremental: { icon: '📝', desc: '平时追加：当前阶段印象 + 上一增量 + 最近更新 → 只写变化与新信息。' },
+};
+function snapMd(text) { return (typeof AiChat !== 'undefined' && AiChat._md) ? AiChat._md(text || '') : escapeHtml(text || ''); }
+function fmtPending(c) {
+    if (!c) return '';
+    const parts = [];
+    if (c.impressions) parts.push(`${c.impressions} 条印象`);
+    if (c.tasks) parts.push(`${c.tasks} 个任务变动`);
+    if (c.worklogs) parts.push(`${c.worklogs} 天工作量`);
+    if (c.mails) parts.push(`${c.mails} 封相关邮件`);
+    return parts.length ? '自上次以来：' + parts.join('、') : '自上次以来没有新记录';
+}
+function daysSince(ts) { if (!ts) return null; return Math.floor((Date.now() - new Date(ts.replace(' ', 'T')).getTime()) / 86400000); }
+async function loadSnapshots() {
+    const grid = document.getElementById('snapGrid');
+    try { snapStatus = (await API.impressions.snapshots()).data; }
+    catch (e) { grid.innerHTML = `<div class="pf-empty">加载失败: ${escapeHtml(e.message)}</div>`; return; }
+    const L = snapStatus.latest || {};
+    const hasBase = !!L.base;
+    grid.innerHTML = ['base', 'stage', 'incremental'].map(k => {
+        const s = L[k];
+        const meta = SNAP_META[k];
+        const label = snapStatus.kinds[k];
+        let btn;
+        if (k === 'base') btn = `<button class="btn btn-primary btn-sm" onclick="generateSnapshot('base')">${hasBase ? '🔄 重新生成' : '✨ 生成基础印象'}</button>`;
+        else btn = `<button class="btn btn-primary btn-sm" onclick="generateSnapshot('${k}')" ${hasBase ? '' : 'disabled title="请先生成基础印象"'}>✨ 生成${label}</button>`;
+        const pend = k === 'base' ? '' : `<div class="snap-pending">${hasBase ? fmtPending(snapStatus.pending[k]) : '需要先有基础印象'}</div>`;
+        const d = s ? daysSince(s.created_at) : null;
+        return `<div class="snap-card ${k}">
+            <div class="snap-head">${meta.icon} ${label}<span class="doc-meta">${s ? escapeHtml(s.created_at.substring(0, 16)) + (d !== null ? `（${d} 天前）` : '') : '尚未生成'}</span></div>
+            <div class="snap-desc">${meta.desc}</div>
+            ${s ? `<div class="snap-preview" onclick="viewSnapshot(${s.id})" title="点击查看全文">${snapMd(s.content_md)}</div>` : '<div class="pf-empty">暂无</div>'}
+            ${pend}
+            <div class="snap-actions">${btn}${s ? `<button class="btn btn-outline btn-sm" onclick="viewSnapshot(${s.id})">查看全文</button>` : ''}</div>
+        </div>`;
+    }).join('');
+    renderSnapshotHistory();
+}
+function renderSnapshotHistory() {
+    const box = document.getElementById('snapHistory');
+    const h = (snapStatus && snapStatus.history) || [];
+    box.innerHTML = h.length ? h.map(r => `<div class="snap-history-item">
+        <span class="snap-kind ${r.kind}">${snapStatus.kinds[r.kind] || r.kind}</span>
+        <span>${escapeHtml(r.created_at)}</span><span class="doc-meta">${r.chars} 字 · ${escapeHtml(r.model || '')}</span>
+        <span style="flex:1"></span>
+        <button class="doc-btn" onclick="viewSnapshot(${r.id})">👁️</button><button class="doc-btn" onclick="deleteSnapshot(${r.id})">🗑️</button></div>`).join('')
+        : '<div class="pf-empty">还没有任何印象快照</div>';
+}
+function toggleSnapshotHistory() { const b = document.getElementById('snapHistory'); b.style.display = b.style.display === 'none' ? '' : 'none'; }
+async function generateSnapshot(kind) {
+    const label = (snapStatus && snapStatus.kinds[kind]) || kind;
+    if (kind === 'base' && snapStatus && snapStatus.latest.base && !confirm('已有基础印象，重新生成将作为新的基础（旧版本保留在历史中）。继续？')) return;
+    document.querySelectorAll('.snap-actions button').forEach(b => b.disabled = true);
+    Toast.show(`⏳ 正在生成${label}，通常需要 20-60 秒...`, 'info', 6000);
+    try {
+        await API.impressions.generate(kind);
+        Toast.success(`${label}已生成`);
+    } catch (e) { Toast.error(e.message); }
+    await loadSnapshots();
+}
+async function viewSnapshot(id) {
+    try {
+        const s = (await API.impressions.snapshot(id)).data;
+        const src = s.sources || {};
+        const srcText = [src.since ? `统计起点 ${src.since}` : '', src.counts ? fmtPending(src.counts).replace('自上次以来：', '纳入：') : ''].filter(Boolean).join(' · ');
+        Modal.open({ title: `${SNAP_META[s.kind]?.icon || '🧾'} ${snapStatus.kinds[s.kind] || s.kind} · ${s.created_at.substring(0, 16)}`, size: 'wide',
+            body: `<div class="snap-full markdown-body">${snapMd(s.content_md)}</div><div class="doc-meta" style="margin-top:10px;">${escapeHtml(s.model || '')}${srcText ? ' · ' + escapeHtml(srcText) : ''}</div>`,
+            footer: '<button class="btn btn-ghost" onclick="Modal.close()">关闭</button>' });
+    } catch (e) { Toast.error(e.message); }
+}
+async function deleteSnapshot(id) {
+    if (!confirm('删除这份印象快照？')) return;
+    try { await API.impressions.removeSnapshot(id); await loadSnapshots(); } catch (e) { Toast.error(e.message); }
+}
+
 function impressionForm(field, value) {
     const opts = Object.entries(impLabels).map(([k, v]) => `<option value="${k}" ${k === field ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')
         + `<option value="observation" ${field === 'observation' ? 'selected' : ''}>观察</option>`;
@@ -344,6 +454,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch(e) {}
     loadDocs();
     loadImpressions();
+    loadSnapshots();
 
     document.getElementById('pfSave').addEventListener('click', async () => {
         try {

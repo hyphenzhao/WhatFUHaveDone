@@ -21,6 +21,39 @@ $db = get_db();
 $uid = current_user_id();
 $id = isset($parts[2]) ? (int)$parts[2] : 0;
 
+// ---------- snapshots (基础 / 阶段性 / 增量 印象) ----------
+if (($parts[2] ?? '') === 'snapshots') {
+    $snapId = isset($parts[3]) ? (int)$parts[3] : 0;
+    if ($method === 'GET' && $snapId) {
+        $st = $db->prepare('SELECT * FROM profile_impression_snapshots WHERE id = ? AND user_id = ?');
+        $st->execute([$snapId, $uid]);
+        $row = $st->fetch();
+        if (!$row) json_error('快照不存在', 404);
+        $row['sources'] = json_decode((string)$row['sources_json'], true) ?: [];
+        unset($row['sources_json']);
+        json_success($row);
+    }
+    if ($method === 'GET') {
+        json_success(profile_snapshot_status($db, $uid));
+    }
+    if ($method === 'POST') {
+        $data = get_json_input();
+        $kind = optional_string($data, 'kind', 'base');
+        @set_time_limit(200);
+        try {
+            $row = profile_generate_snapshot($db, $uid, $kind, 150);
+        } catch (Throwable $e) {
+            json_error($e->getMessage());
+        }
+        json_success($row, profile_snapshot_kinds()[$kind] . '已生成');
+    }
+    if ($method === 'DELETE' && $snapId) {
+        $db->prepare('DELETE FROM profile_impression_snapshots WHERE id = ? AND user_id = ?')->execute([$snapId, $uid]);
+        json_success(null, '已删除');
+    }
+    json_error('Method not allowed', 405);
+}
+
 if ($method === 'GET') {
     $st = $db->prepare('SELECT * FROM profile_impressions WHERE user_id = ? ORDER BY updated_at DESC, id DESC');
     $st->execute([$uid]);

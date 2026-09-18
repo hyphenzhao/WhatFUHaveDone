@@ -474,3 +474,16 @@ CREATE TABLE IF NOT EXISTS profile_impressions (
     CONSTRAINT fk_impressions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+
+-- 28. AI 印象总结快照 (base / stage / incremental) — see migrations/003_impression_snapshots.sql
+CREATE TABLE IF NOT EXISTS profile_impression_snapshots (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    kind VARCHAR(16) NOT NULL,                  -- base | stage | incremental
+    content_md LONGTEXT,
+    sources_json LONGTEXT,                      -- {base_id, stage_id, incremental_id, since, counts:{...}}
+    model VARCHAR(128) DEFAULT '',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_imp_snap_user (user_id, kind, id),
+    CONSTRAINT fk_imp_snap_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

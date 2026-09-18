@@ -7,9 +7,9 @@ $current_page = 'immersive';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>🕶️ 沉浸模式 — WorkLog</title>
-    <link rel="stylesheet" href="/assets/css/app.css?v=20260917d">
-    <link rel="stylesheet" href="/assets/css/mail.css?v=20260917d">
-    <link rel="stylesheet" href="/assets/css/immersive.css?v=20260917d">
+    <link rel="stylesheet" href="/assets/css/app.css?v=20260918a">
+    <link rel="stylesheet" href="/assets/css/mail.css?v=20260918a">
+    <link rel="stylesheet" href="/assets/css/immersive.css?v=20260918a">
 </head>
 <body>
     <div id="imApp"></div>
@@ -24,14 +24,14 @@ $current_page = 'immersive';
     </div>
     <div class="toast-container" id="toastContainer"></div>
 
-    <script src="/assets/js/lunar.js?v=20260917d"></script>
-    <script src="/assets/js/api.js?v=20260917d"></script>
-    <script src="/assets/js/modal.js?v=20260917d"></script>
-    <script src="/assets/js/app.js?v=20260917d"></script>
-    <script src="/assets/js/calendar.js?v=20260917d"></script>
-    <script src="/assets/js/ai-assistant.js?v=20260917d"></script>
-    <script src="/assets/js/mail-modal.js?v=20260917d"></script>
-    <script src="/assets/js/home.js?v=20260917d"></script>
-    <script src="/assets/js/immersive.js?v=20260917d"></script>
+    <script src="/assets/js/lunar.js?v=20260918a"></script>
+    <script src="/assets/js/api.js?v=20260918a"></script>
+    <script src="/assets/js/modal.js?v=20260918a"></script>
+    <script src="/assets/js/app.js?v=20260918a"></script>
+    <script src="/assets/js/calendar.js?v=20260918a"></script>
+    <script src="/assets/js/ai-assistant.js?v=20260918a"></script>
+    <script src="/assets/js/mail-modal.js?v=20260918a"></script>
+    <script src="/assets/js/home.js?v=20260918a"></script>
+    <script src="/assets/js/immersive.js?v=20260918a"></script>
 </body>
 </html>

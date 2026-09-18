@@ -223,6 +223,10 @@ const API = {
         update(id, data) { return API.put(`/impressions/${id}`, data); },
         remove(id) { return API.delete(`/impressions/${id}`); },
         clear() { return API.delete('/impressions?all=1'); },
+        snapshots() { return API.get('/impressions/snapshots'); },
+        snapshot(id) { return API.get(`/impressions/snapshots/${id}`); },
+        generate(kind) { return API.post('/impressions/snapshots', { kind }); },
+        removeSnapshot(id) { return API.delete(`/impressions/snapshots/${id}`); },
     },
 
     // --- Mail ---

@@ -440,15 +440,30 @@ function pillarCard(type, label, icon, period, g, z, ss_g, ss_z, existing, dateS
     renderLiuriCard(dateStr, lrGz, lrG, lrZ, lrSS_G, lrSS_Z, analyses['liuri']);
 }
 
+// 流日 card is collapsible: collapsed shows only the day's 干支; state persists in localStorage.
+function liuriExpanded() { return localStorage.getItem('liuriExpanded') === '1'; }
+function toggleLiuri() {
+    localStorage.setItem('liuriExpanded', liuriExpanded() ? '0' : '1');
+    const card = document.querySelector('#dailyLiuri .liuri-card');
+    if (!card) return;
+    const open = liuriExpanded();
+    card.classList.toggle('collapsed', !open);
+    card.querySelector('.liuri-body').style.display = open ? '' : 'none';
+    card.querySelector('.liuri-toggle').textContent = open ? '▾' : '▸';
+}
 function renderLiuriCard(dateStr, gz, g, z, ss_g, ss_z, existing) {
     const container = document.getElementById('dailyLiuri');
     if (!container) return;
     const ssLabel = [ss_g, ss_z].filter(Boolean).join(' / ');
-    container.innerHTML = `<div class="liuri-card">
-        <div class="liuri-header">📆 流日 <span class="liuri-ganzhi">${gzSpan(g, z)}</span> <span class="bazi-card-shishen">${ssLabel || ''}</span></div>
-        ${existing && existing.analysis
-            ? `<div class="liuri-analysis">${md(existing.analysis)}<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','liuri','流日','${gz}','${ssLabel}')" style="margin-top:4px;font-size:0.7rem;">🔄 重新分析</button></div>`
-            : `<button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','liuri','流日','${gz}','${ssLabel}')">🤖 AI 解析</button>`}
+    const open = liuriExpanded();
+    container.innerHTML = `<div class="liuri-card ${open ? '' : 'collapsed'}">
+        <div class="liuri-header" onclick="toggleLiuri()" title="${open ? '收起' : '展开十神与 AI 解析'}">📆 流日 <span class="liuri-ganzhi">${gzSpan(g, z)}</span> <span class="liuri-toggle">${open ? '▾' : '▸'}</span></div>
+        <div class="liuri-body" style="${open ? '' : 'display:none;'}">
+            <div class="bazi-card-shishen" style="margin-bottom:4px;">${ssLabel || ''}</div>
+            ${existing && existing.analysis
+                ? `<div class="liuri-analysis">${md(existing.analysis)}<br><button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','liuri','流日','${gz}','${ssLabel}')" style="margin-top:4px;font-size:0.7rem;">🔄 重新分析</button></div>`
+                : `<button class="btn btn-ghost btn-sm" onclick="analyzeBazi('${dateStr}','liuri','流日','${gz}','${ssLabel}')">🤖 AI 解析</button>`}
+        </div>
     </div>`;
 }
 

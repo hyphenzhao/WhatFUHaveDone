@@ -171,3 +171,9 @@
 .ai-secret-row label { display: block; font-size: 0.74rem; font-weight: 600; margin-bottom: 3px; }
 .ai-secret-input { width: 100%; box-sizing: border-box; font-size: 0.82rem; }
 .ai-secret-missing { border-color: #dc2626 !important; }
+
+/* collapsible 流日 card */
+.liuri-header { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px; }
+.liuri-toggle { margin-left: auto; font-size: 0.8rem; color: var(--color-text-secondary); }
+.liuri-card.collapsed { padding: 6px 12px; }
+.liuri-card.collapsed .liuri-header { margin-bottom: 0; }

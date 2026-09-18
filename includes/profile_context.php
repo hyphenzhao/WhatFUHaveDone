@@ -68,6 +68,15 @@ function profile_identity_block(PDO $db, int $uid, int $docBudget = 1500, int $i
             $out .= ai_truncate($doc['extracted_text'], $docBudget) . "\n\n";
         }
 
+        // Compacted ledger: latest stage/base summary + latest incremental (if newer)
+        $summary = profile_snapshot_summary($db, $uid);
+        $summaryCutoff = null;
+        if ($summary['text'] !== '') {
+            $out .= "=== AI IMPRESSION SUMMARY (compacted profile; secondary to documents) ===\n";
+            $out .= ai_truncate($summary['text'], max(600, (int)round($impBudget * 1.5))) . "\n\n";
+            $summaryCutoff = $summary['latest_at'];
+        }
+
         $snap = profile_impressions_snapshot($db, $uid, 10);
         if ($snap['fields'] || $snap['observations']) {
             $block = "=== AI IMPRESSIONS (secondary; the document above wins on conflict) ===\n";
@@ -75,7 +84,11 @@ function profile_identity_block(PDO $db, int $uid, int $docBudget = 1500, int $i
                 $block .= profile_field_label($field) . "({$field}): " . trim($r['value'])
                        . " [conf {$r['confidence']}, {$r['source']}, " . substr($r['updated_at'], 0, 10) . "]\n";
             }
+            $obsShown = 0;
             foreach ($snap['observations'] as $r) {
+                // Once a summary exists, only observations newer than it are worth repeating verbatim
+                if ($summaryCutoff && $r['updated_at'] <= $summaryCutoff) continue;
+                if ($obsShown++ >= 6) break;
                 $block .= '- ' . trim($r['value']) . ' [' . substr($r['updated_at'], 0, 10) . "]\n";
             }
             $out .= ai_truncate($block, $impBudget) . "\n\n";
@@ -138,4 +151,193 @@ function profile_remember(PDO $db, int $uid, string $field, string $value, int $
     $db->prepare('INSERT INTO profile_impressions (user_id, field, value, confidence, source, conversation_id, evidence) VALUES (?, ?, ?, ?, ?, ?, ?)')
        ->execute([$uid, $field, $value, $confidence, $source, $conversationId, $evidence]);
     return ['action' => 'created', 'id' => (int)$db->lastInsertId(), 'field' => $field, 'value' => $value];
+}
+
+// ===================================================================
+// Impression snapshots — a ledger that is periodically compacted:
+//   base        : full profile generated from documents + all impressions (+ recent activity)
+//   stage       : base + previous stage + updates since → consolidated profile
+//   incremental : latest stage (or base) + previous incremental + updates since → short delta
+// ===================================================================
+
+function profile_snapshot_kinds(): array {
+    return ['base' => '基础印象', 'stage' => '阶段性印象', 'incremental' => '增量印象'];
+}
+
+function profile_snapshot_latest(PDO $db, int $uid, string $kind): ?array {
+    $st = $db->prepare('SELECT * FROM profile_impression_snapshots WHERE user_id = ? AND kind = ? ORDER BY id DESC LIMIT 1');
+    $st->execute([$uid, $kind]);
+    $row = $st->fetch();
+    return $row ?: null;
+}
+
+/** Text used in prompts: latest stage (or base) + latest incremental newer than it. */
+function profile_snapshot_summary(PDO $db, int $uid): array {
+    try {
+        $stage = profile_snapshot_latest($db, $uid, 'stage');
+        $base = profile_snapshot_latest($db, $uid, 'base');
+        $anchor = $stage ?: $base;
+        if (!$anchor) return ['text' => '', 'latest_at' => null];
+        $text = "[" . profile_snapshot_kinds()[$anchor['kind']] . " · " . substr($anchor['created_at'], 0, 10) . "]\n" . trim((string)$anchor['content_md']);
+        $latestAt = $anchor['created_at'];
+        $inc = profile_snapshot_latest($db, $uid, 'incremental');
+        if ($inc && $inc['created_at'] > $anchor['created_at']) {
+            $text .= "\n\n[增量印象 · " . substr($inc['created_at'], 0, 10) . "]\n" . trim((string)$inc['content_md']);
+            $latestAt = $inc['created_at'];
+        }
+        return ['text' => $text, 'latest_at' => $latestAt];
+    } catch (Throwable $e) {
+        return ['text' => '', 'latest_at' => null];
+    }
+}
+
+/**
+ * Collect what changed since $since (Y-m-d H:i:s) — impressions, tasks, work logs, analysed mail.
+ * @return array{text:string, counts:array}
+ */
+function profile_collect_updates(PDO $db, int $uid, ?string $since, int $budget = 6000): array {
+    $since = $since ?: date('Y-m-d H:i:s', strtotime('-60 days'));
+    $counts = ['impressions' => 0, 'tasks' => 0, 'worklogs' => 0, 'mails' => 0];
+    $text = "（统计起点：{$since}）\n";
+
+    $st = $db->prepare('SELECT field, value, source, confidence, updated_at FROM profile_impressions WHERE user_id = ? AND updated_at > ? ORDER BY updated_at DESC LIMIT 60');
+    $st->execute([$uid, $since]);
+    $rows = $st->fetchAll();
+    $counts['impressions'] = count($rows);
+    if ($rows) {
+        $text .= "\n## 新增/更新的印象记录\n";
+        foreach ($rows as $r) $text .= "- [" . profile_field_label($r['field']) . "] " . trim($r['value']) . " ({$r['source']}, " . substr($r['updated_at'], 0, 10) . ")\n";
+    }
+
+    $st = $db->prepare('SELECT name, stage, stage_number, deadline, updated_at FROM tasks WHERE user_id = ? AND archived = 0 AND updated_at > ? ORDER BY updated_at DESC LIMIT 40');
+    $st->execute([$uid, $since]);
+    $rows = $st->fetchAll();
+    $counts['tasks'] = count($rows);
+    if ($rows) {
+        $stageMap = ['in_progress' => '进行中', 'stage_complete' => '阶段完成', 'completed' => '已完成', 'failed' => '失败/放弃'];
+        $text .= "\n## 有变动的任务\n";
+        foreach ($rows as $r) $text .= "- {$r['name']}（" . ($stageMap[$r['stage']] ?? $r['stage']) . " 第{$r['stage_number']}阶段" . ($r['deadline'] ? "，截止 {$r['deadline']}" : '') . "）\n";
+    }
+
+    $st = $db->prepare('SELECT t.name, COUNT(*) AS days FROM work_logs w JOIN tasks t ON t.id = w.task_id WHERE t.user_id = ? AND w.created_at > ? GROUP BY t.id ORDER BY days DESC LIMIT 20');
+    $st->execute([$uid, $since]);
+    $rows = $st->fetchAll();
+    $counts['worklogs'] = (int)array_sum(array_column($rows, 'days'));
+    if ($rows) {
+        $text .= "\n## 工作量投入（记录天数）\n";
+        foreach ($rows as $r) $text .= "- {$r['name']}: {$r['days']} 天\n";
+    }
+
+    try {
+        $st = $db->prepare('SELECT a.brief_title, a.relevance, a.priority, a.category, m.msg_date FROM mail_analysis a JOIN mail_messages m ON m.id = a.message_id
+                            WHERE a.user_id = ? AND a.status = "ok" AND a.analyzed_at > ? AND a.relevance >= 50 ORDER BY a.relevance DESC, m.msg_date DESC LIMIT 20');
+        $st->execute([$uid, $since]);
+        $rows = $st->fetchAll();
+        $counts['mails'] = count($rows);
+        if ($rows) {
+            $text .= "\n## 高相关邮件\n";
+            foreach ($rows as $r) $text .= "- {$r['brief_title']}（相关度 {$r['relevance']}，优先级 P{$r['priority']}，" . substr((string)$r['msg_date'], 0, 10) . "）\n";
+        }
+    } catch (Throwable $e) { /* mail tables optional */ }
+
+    return ['text' => ai_truncate($text, $budget), 'counts' => $counts];
+}
+
+/** Status for the UI: latest of each kind (with content) + pending update counts. */
+function profile_snapshot_status(PDO $db, int $uid): array {
+    $latest = [];
+    foreach (array_keys(profile_snapshot_kinds()) as $k) {
+        $row = profile_snapshot_latest($db, $uid, $k);
+        if ($row) { $row['sources'] = json_decode((string)$row['sources_json'], true) ?: []; unset($row['sources_json'], $row['user_id']); }
+        $latest[$k] = $row;
+    }
+    $stageAnchor = $latest['stage'] ?: $latest['base'];
+    $incAnchor = ($latest['incremental'] && $stageAnchor && $latest['incremental']['created_at'] > $stageAnchor['created_at']) ? $latest['incremental'] : $stageAnchor;
+    $sinceStage = $stageAnchor ? $stageAnchor['created_at'] : null;
+    $sinceInc = $incAnchor ? $incAnchor['created_at'] : null;
+    $pending = [
+        'stage' => $sinceStage ? profile_collect_updates($db, $uid, $sinceStage, 200)['counts'] : null,
+        'incremental' => $sinceInc ? profile_collect_updates($db, $uid, $sinceInc, 200)['counts'] : null,
+    ];
+    $st = $db->prepare('SELECT id, kind, model, created_at, CHAR_LENGTH(COALESCE(content_md, "")) AS chars FROM profile_impression_snapshots WHERE user_id = ? ORDER BY id DESC LIMIT 30');
+    $st->execute([$uid]);
+    return ['latest' => $latest, 'pending' => $pending, 'history' => $st->fetchAll(), 'kinds' => profile_snapshot_kinds()];
+}
+
+/** Generate + store a snapshot of the given kind. Throws on missing prerequisites / AI failure. */
+function profile_generate_snapshot(PDO $db, int $uid, string $kind, int $timeout = 150): array {
+    if (!isset(profile_snapshot_kinds()[$kind])) throw new InvalidArgumentException('未知的印象类型');
+    $config = ai_load_config($db, $uid);
+    if (!ai_is_configured($config)) throw new RuntimeException('请先配置AI');
+
+    $base = profile_snapshot_latest($db, $uid, 'base');
+    $stage = profile_snapshot_latest($db, $uid, 'stage');
+    $inc = profile_snapshot_latest($db, $uid, 'incremental');
+    $sources = [];
+    $sections = [];
+
+    // Authoritative identity + structured fields (always)
+    $doc = profile_primary_document($db, $uid);
+    $identity = $doc && trim((string)$doc['extracted_text']) !== '' ? ai_truncate($doc['extracted_text'], $kind === 'base' ? 6000 : 2500) : '（用户未上传身份文档）';
+    $pst = $db->prepare('SELECT name, gender, resume, goals FROM user_profile WHERE user_id = ?');
+    $pst->execute([$uid]);
+    $p = $pst->fetch() ?: [];
+    $basicInfo = '';
+    if (!empty($p['name'])) $basicInfo .= "姓名: {$p['name']}\n";
+    if (!empty($p['resume'])) $basicInfo .= "个人简介: " . ai_truncate($p['resume'], 1500) . "\n";
+    if (!empty($p['goals'])) $basicInfo .= "阶段目标: " . ai_truncate($p['goals'], 1000) . "\n";
+    $snap = profile_impressions_snapshot($db, $uid, $kind === 'base' ? 40 : 15);
+    $fieldsText = '';
+    foreach ($snap['fields'] as $f => $r) $fieldsText .= '- ' . profile_field_label($f) . ": " . trim($r['value']) . " (置信 {$r['confidence']}, " . substr($r['updated_at'], 0, 10) . ")\n";
+    if ($kind === 'base') foreach ($snap['observations'] as $r) $fieldsText .= '- 观察: ' . trim($r['value']) . ' (' . substr($r['updated_at'], 0, 10) . ")\n";
+
+    $sections[] = "# 身份文档（权威来源）\n" . $identity;
+    if ($basicInfo) $sections[] = "# 侧写页基本信息\n" . $basicInfo;
+    if ($fieldsText) $sections[] = "# 结构化印象" . ($kind === 'base' ? "与观察记录" : "（当前值）") . "\n" . $fieldsText;
+
+    if ($kind === 'base') {
+        $upd = profile_collect_updates($db, $uid, date('Y-m-d H:i:s', strtotime('-90 days')), 6000);
+        $sections[] = "# 近 90 天活动\n" . $upd['text'];
+        $sources = ['since' => date('Y-m-d H:i:s', strtotime('-90 days')), 'counts' => $upd['counts'], 'regenerated' => $base ? (int)$base['id'] : null];
+        $task = "请生成一份**基础印象**：对用户的全面侧写。要求 500-900 字，Markdown，包含以下小节：\n"
+              . "## 身份与职位\n## 研究方向与工作重心\n## 在研项目与近期任务\n## 工作方式与偏好\n## 人际与合作\n## 近期动态\n## 值得关注的事项\n"
+              . "以身份文档为准；印象记录和活动数据作补充；没有依据的地方明确写“暂无信息”，不要编造。";
+    } elseif ($kind === 'stage') {
+        if (!$base) throw new RuntimeException('请先生成基础印象');
+        $since = $stage ? $stage['created_at'] : $base['created_at'];
+        $upd = profile_collect_updates($db, $uid, $since, 6000);
+        $sections[] = "# 基础印象（" . substr($base['created_at'], 0, 10) . "）\n" . ai_truncate($base['content_md'], 5000);
+        if ($stage) $sections[] = "# 上一阶段印象（" . substr($stage['created_at'], 0, 10) . "）\n" . ai_truncate($stage['content_md'], 4000);
+        $incsSince = $db->prepare('SELECT content_md, created_at FROM profile_impression_snapshots WHERE user_id = ? AND kind = "incremental" AND created_at > ? ORDER BY id ASC LIMIT 10');
+        $incsSince->execute([$uid, $since]);
+        $incText = '';
+        foreach ($incsSince->fetchAll() as $r) $incText .= "### " . substr($r['created_at'], 0, 10) . "\n" . ai_truncate($r['content_md'], 1200) . "\n\n";
+        if ($incText) $sections[] = "# 本阶段内的增量印象\n" . $incText;
+        $sections[] = "# 自上一阶段以来的更新\n" . $upd['text'];
+        $sources = ['base_id' => (int)$base['id'], 'stage_id' => $stage ? (int)$stage['id'] : null, 'since' => $since, 'counts' => $upd['counts']];
+        $task = "请生成一份**阶段性印象**：把基础印象、上一阶段印象、本阶段增量印象和近期更新**合并压缩**为一份最新的完整侧写（类似账本定期压缩）。要求 500-900 字，Markdown，小节同基础印象（身份与职位 / 研究方向与工作重心 / 在研项目与近期任务 / 工作方式与偏好 / 人际与合作 / 近期动态 / 值得关注的事项），"
+              . "最后加一节“## 与上一阶段相比的变化”。过时的信息要更新或删除，不要重复罗列原文。";
+    } else {
+        $anchor = $stage ?: $base;
+        if (!$anchor) throw new RuntimeException('请先生成基础印象');
+        $prevInc = ($inc && $inc['created_at'] > $anchor['created_at']) ? $inc : null;
+        $since = $prevInc ? $prevInc['created_at'] : $anchor['created_at'];
+        $upd = profile_collect_updates($db, $uid, $since, 5000);
+        $sections[] = "# 当前" . profile_snapshot_kinds()[$anchor['kind']] . "（" . substr($anchor['created_at'], 0, 10) . "）\n" . ai_truncate($anchor['content_md'], 4000);
+        if ($prevInc) $sections[] = "# 上一增量印象（" . substr($prevInc['created_at'], 0, 10) . "）\n" . ai_truncate($prevInc['content_md'], 2000);
+        $sections[] = "# 自上次以来的更新\n" . $upd['text'];
+        $sources = ['anchor_id' => (int)$anchor['id'], 'anchor_kind' => $anchor['kind'], 'incremental_id' => $prevInc ? (int)$prevInc['id'] : null, 'since' => $since, 'counts' => $upd['counts']];
+        $task = "请生成一份**增量印象**：只写相对于当前阶段印象与上一增量印象的**变化与新信息**（新的关注点、任务进展、态度或偏好的变化、需要跟进的邮件/事项）。要求 150-400 字，Markdown 列表为主，不要复述已有内容；若几乎没有变化就明确说明。";
+    }
+
+    $system = "你是用户的长期科研工作助理，负责维护对用户的“侧写”（impression ledger）。写作对象是你自己（供之后的对话参考），用简洁、客观、可核实的中文；身份文档优先级最高，其次是用户手动填写的信息，再次是 AI 印象与活动数据。";
+    $user = implode("\n\n", $sections) . "\n\n---\n" . $task;
+    $content = ai_complete_text($config, [['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $user]], $timeout);
+
+    $db->prepare('INSERT INTO profile_impression_snapshots (user_id, kind, content_md, sources_json, model) VALUES (?, ?, ?, ?, ?)')
+       ->execute([$uid, $kind, $content, json_encode($sources, JSON_UNESCAPED_UNICODE), (string)($config['model'] ?? '')]);
+    $row = profile_snapshot_latest($db, $uid, $kind);
+    $row['sources'] = $sources;
+    unset($row['sources_json'], $row['user_id']);
+    return $row;
 }

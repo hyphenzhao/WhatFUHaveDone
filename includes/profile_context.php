@@ -243,6 +243,74 @@ function profile_collect_updates(PDO $db, int $uid, ?string $since, int $budget 
     return ['text' => ai_truncate($text, $budget), 'counts' => $counts];
 }
 
+/**
+ * Whole-history digest since the user's first record — aggregated so it fits a prompt:
+ * task counts by stage, most-invested tasks, tag distribution, results, collaborators,
+ * monthly workload trend, and the gist of recent periodic reports.
+ */
+function profile_collect_history(PDO $db, int $uid, int $budget = 7000): array {
+    $q = function (string $sql, array $params) use ($db) { $st = $db->prepare($sql); $st->execute($params); return $st->fetchAll(); };
+    $text = '';
+    $first = $q('SELECT LEAST(COALESCE(MIN(t.created_at), NOW()), COALESCE((SELECT MIN(w.log_date) FROM work_logs w JOIN tasks tt ON tt.id = w.task_id WHERE tt.user_id = ?), NOW())) AS first_at FROM tasks t WHERE t.user_id = ?', [$uid, $uid]);
+    $firstAt = substr((string)($first[0]['first_at'] ?? ''), 0, 10);
+    $text .= "（系统使用起点：{$firstAt}，统计至今）\n";
+
+    $stages = $q('SELECT stage, COUNT(*) AS n FROM tasks WHERE user_id = ? GROUP BY stage', [$uid]);
+    $stageMap = ['in_progress' => '进行中', 'stage_complete' => '阶段完成', 'completed' => '已完成', 'failed' => '失败/放弃'];
+    if ($stages) {
+        $text .= "\n## 任务总览\n" . implode('，', array_map(fn($r) => ($stageMap[$r['stage']] ?? $r['stage']) . " {$r['n']}", $stages)) . "\n";
+    }
+
+    $top = $q('SELECT t.name, t.stage, t.stage_number, t.created_at, COUNT(w.id) AS days, MIN(w.log_date) AS first_day, MAX(w.log_date) AS last_day,
+                      (SELECT GROUP_CONCAT(g.name SEPARATOR "/") FROM task_tags tg JOIN tags g ON g.id = tg.tag_id WHERE tg.task_id = t.id) AS tags
+               FROM tasks t LEFT JOIN work_logs w ON w.task_id = t.id WHERE t.user_id = ? GROUP BY t.id ORDER BY days DESC, t.updated_at DESC LIMIT 25', [$uid]);
+    if ($top) {
+        $text .= "\n## 投入最多的任务（累计工作量天数）\n";
+        foreach ($top as $r) {
+            if ((int)$r['days'] === 0) continue;
+            $text .= "- {$r['name']}：{$r['days']} 天（{$r['first_day']} ~ {$r['last_day']}，" . ($stageMap[$r['stage']] ?? $r['stage']) . "）" . ($r['tags'] ? " [{$r['tags']}]" : '') . "\n";
+        }
+    }
+
+    $tagDist = $q('SELECT g.name, COUNT(w.id) AS days, COUNT(DISTINCT t.id) AS tasks FROM tags g JOIN task_tags tg ON tg.tag_id = g.id JOIN tasks t ON t.id = tg.task_id
+                   LEFT JOIN work_logs w ON w.task_id = t.id WHERE g.user_id = ? GROUP BY g.id ORDER BY days DESC LIMIT 12', [$uid]);
+    if ($tagDist) {
+        $text .= "\n## 工作方向分布（标签）\n" . implode('；', array_map(fn($r) => "{$r['name']} {$r['days']} 天/{$r['tasks']} 任务", $tagDist)) . "\n";
+    }
+
+    $results = $q('SELECT r.name, r.level, r.quantity, COUNT(rl.id) AS logs FROM results r LEFT JOIN result_logs rl ON rl.result_id = r.id WHERE r.user_id = ? AND r.archived = 0 GROUP BY r.id ORDER BY logs DESC, r.updated_at DESC LIMIT 15', [$uid]);
+    if ($results) {
+        $text .= "\n## 成果\n" . implode('；', array_map(fn($r) => $r['name'] . ($r['level'] ? "（{$r['level']}）" : '') . " ×{$r['logs']}", $results)) . "\n";
+    }
+
+    $people = $q('SELECT p.name, p.relationship, p.importance, COUNT(tp.task_id) AS tasks FROM people p JOIN task_people tp ON tp.people_id = p.id
+                  WHERE p.user_id = ? AND p.is_me = 0 AND p.archived = 0 GROUP BY p.id ORDER BY tasks DESC, p.importance DESC LIMIT 15', [$uid]);
+    if ($people) {
+        $text .= "\n## 主要合作/服务对象\n" . implode('；', array_map(fn($r) => $r['name'] . ($r['relationship'] ? "（{$r['relationship']}）" : '') . " {$r['tasks']} 任务", $people)) . "\n";
+    }
+
+    $months = $q('SELECT DATE_FORMAT(w.log_date, "%Y-%m") AS ym, COUNT(*) AS days, COUNT(DISTINCT w.task_id) AS tasks FROM work_logs w JOIN tasks t ON t.id = w.task_id
+                  WHERE t.user_id = ? GROUP BY ym ORDER BY ym', [$uid]);
+    if ($months) {
+        $text .= "\n## 逐月工作量趋势（记录天数/涉及任务数）\n" . implode('，', array_map(fn($r) => "{$r['ym']}: {$r['days']}/{$r['tasks']}", $months)) . "\n";
+    }
+
+    try {
+        $reports = $q('SELECT period_type, period_key, title, content_md FROM reports WHERE user_id = ? AND period_type IN ("monthly","weekly") ORDER BY period_start DESC LIMIT 4', [$uid]);
+        if ($reports) {
+            $text .= "\n## 最近的周期报告要点\n";
+            foreach ($reports as $r) {
+                $body = (string)$r['content_md'];
+                $aiPos = mb_strpos($body, '## 🤖 AI 分析与建议');
+                $gist = $aiPos !== false ? mb_substr($body, $aiPos + 12) : $body;
+                $text .= "### {$r['period_key']} {$r['title']}\n" . ai_truncate(trim($gist), 700) . "\n";
+            }
+        }
+    } catch (Throwable $e) { /* optional */ }
+
+    return ['text' => ai_truncate($text, $budget), 'first_at' => $firstAt];
+}
+
 /** Status for the UI: latest of each kind (with content) + pending update counts. */
 function profile_snapshot_status(PDO $db, int $uid): array {
     $latest = [];
@@ -296,12 +364,15 @@ function profile_generate_snapshot(PDO $db, int $uid, string $kind, int $timeout
     if ($fieldsText) $sections[] = "# 结构化印象" . ($kind === 'base' ? "与观察记录" : "（当前值）") . "\n" . $fieldsText;
 
     if ($kind === 'base') {
-        $upd = profile_collect_updates($db, $uid, date('Y-m-d H:i:s', strtotime('-90 days')), 6000);
-        $sections[] = "# 近 90 天活动\n" . $upd['text'];
-        $sources = ['since' => date('Y-m-d H:i:s', strtotime('-90 days')), 'counts' => $upd['counts'], 'regenerated' => $base ? (int)$base['id'] : null];
-        $task = "请生成一份**基础印象**：对用户的全面侧写。要求 500-900 字，Markdown，包含以下小节：\n"
-              . "## 身份与职位\n## 研究方向与工作重心\n## 在研项目与近期任务\n## 工作方式与偏好\n## 人际与合作\n## 近期动态\n## 值得关注的事项\n"
-              . "以身份文档为准；印象记录和活动数据作补充；没有依据的地方明确写“暂无信息”，不要编造。";
+        // Whole history since day one (aggregated) + the last 90 days in detail
+        $hist = profile_collect_history($db, $uid, 7000);
+        $sections[] = "# 系统使用以来的全部历史（自 {$hist['first_at']} 起，统计摘要）\n" . $hist['text'];
+        $upd = profile_collect_updates($db, $uid, date('Y-m-d H:i:s', strtotime('-90 days')), 5000);
+        $sections[] = "# 近 90 天活动明细\n" . $upd['text'];
+        $sources = ['since' => $hist['first_at'], 'recent_since' => date('Y-m-d H:i:s', strtotime('-90 days')), 'counts' => $upd['counts'], 'regenerated' => $base ? (int)$base['id'] : null];
+        $task = "请生成一份**基础印象**：对用户的全面侧写，覆盖从系统使用第一天到现在的全部历史。要求 600-1000 字，Markdown，包含以下小节：\n"
+              . "## 身份与职位\n## 研究方向与工作重心\n## 长期投入与阶段演变（按时间线概括历史工作重心的变化）\n## 在研项目与近期任务\n## 工作方式与偏好\n## 人际与合作\n## 近期动态\n## 值得关注的事项\n"
+              . "以身份文档为准；历史统计、印象记录和活动明细作补充；没有依据的地方明确写“暂无信息”，不要编造。";
     } elseif ($kind === 'stage') {
         if (!$base) throw new RuntimeException('请先生成基础印象');
         $since = $stage ? $stage['created_at'] : $base['created_at'];

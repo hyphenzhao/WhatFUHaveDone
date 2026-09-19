@@ -17,6 +17,7 @@ require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/attachments_util.php';
 require_once __DIR__ . '/../includes/ai_client.php';
+require_once __DIR__ . '/../includes/profile_context.php';
 require_once __DIR__ . '/../includes/auth.php';
 
 $method = get_method();
@@ -106,8 +107,14 @@ if ($method === 'POST') {
         $config = report_ai_config($db, $uid);
         $model = $config['model'] ?? '';
         $prompt = build_ai_prompt($title, $start, $end, $stats, $notes, $refs, $note);
+        // Personalise the review: who the user is (documents + compacted AI impression)
+        $identity = profile_identity_block($db, $uid, 1500, 800);
+        $system = '你是一名资深的个人效能与工作复盘教练。请用简体中文、Markdown 格式，基于用户提供的真实数据写一份精炼的周期复盘，包含：本期概览小结、主要成果与亮点、值得注意的问题或投入不足之处、以及对下一周期的 3-5 条具体建议。不要编造数据中没有的内容，可结合参考资料。语气务实。';
+        if ($identity !== '') {
+            $system .= "\n\n以下是你对这位用户的了解。请据此判断本期投入是否与其职位、研究方向、在研项目和阶段目标相匹配，建议要针对这个人而不是泛泛而谈；不要在报告里复述这些资料。\n\n" . $identity;
+        }
         $messages = [
-            ['role' => 'system', 'content' => '你是一名资深的个人效能与工作复盘教练。请用简体中文、Markdown 格式，基于用户提供的真实数据写一份精炼的周期复盘，包含：本期概览小结、主要成果与亮点、值得注意的问题或投入不足之处、以及对下一周期的 3-5 条具体建议。不要编造数据中没有的内容，可结合参考资料。语气务实。'],
+            ['role' => 'system', 'content' => $system],
             ['role' => 'user', 'content' => $prompt],
         ];
         $narrative = report_call_llm($config, $messages, 90);

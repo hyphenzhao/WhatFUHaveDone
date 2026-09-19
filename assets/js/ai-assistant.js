@@ -257,6 +257,7 @@ const AiChat = {
 
     _requestBody() {
         const body = { messages: this.messages };
+        if (this.convId) body.conversation_id = parseInt(this.convId, 10);   // lets the server keep a running summary of old turns
         if (this.context) body.context = { type: this.context.type, id: this.context.id };
         if (typeof App !== 'undefined' && App.selectedDate) {
             body.selected_date = App.selectedDate;

@@ -71,6 +71,91 @@ function normalize_conversation_history(array $history): array {
     return $normalized;
 }
 
+/**
+ * Keep the (single, long-lived) conversation inside a context budget.
+ *   1. Uploaded-file bodies are kept in full only in the latest user message; older ones
+ *      are reduced to a short excerpt.
+ *   2. When the live history exceeds HISTORY_BUDGET chars, the oldest part is folded into a
+ *      running summary stored on the conversation row (summary_text / summary_upto), so it is
+ *      summarised once, not on every turn. The browser keeps the full transcript for display.
+ * Returns [messages to send, summary text for the system prompt].
+ */
+const HISTORY_BUDGET = 30000;
+const HISTORY_KEEP_TAIL = 15000;
+
+function history_chars(array $msgs): int {
+    $n = 0;
+    foreach ($msgs as $m) $n += mb_strlen((string)($m['content'] ?? ''), 'UTF-8');
+    return $n;
+}
+
+function compact_conversation_history(PDO $db, int $uid, array $history, int $convId, array $config): array {
+    // 1) uploaded-file blocks: full text (capped) while the file is still being discussed
+    //    (within the last 8 messages), a short excerpt once the conversation has moved on
+    $recentFrom = count($history) - 8;
+    foreach ($history as $i => &$m) {
+        if ($m['role'] !== 'user' || !str_starts_with($m['content'], '[上传文件: ')) continue;
+        if (!preg_match('/^\[上传文件: ([^\]]*)\]\n文件内容:\n(.*?)\n\n---\n(.*)$/su', $m['content'], $mm)) continue;
+        $body = trim($mm[2]);
+        if ($i >= $recentFrom) {
+            if (mb_strlen($body, 'UTF-8') > 20000) {
+                $m['content'] = "[上传文件: {$mm[1]}]\n文件内容（过长，仅保留前 20000 字）:\n" . mb_substr($body, 0, 20000, 'UTF-8') . "\n\n---\n" . $mm[3];
+            }
+        } else {
+            $m['content'] = "[上传文件: {$mm[1]}]（文件全文已从上下文省略，开头摘录：" . mb_substr($body, 0, 400, 'UTF-8') . "…）\n" . $mm[3];
+        }
+    }
+    unset($m);
+
+    // 2) running summary
+    $summary = ''; $upto = 0;
+    if ($convId > 0) {
+        try {
+            $st = $db->prepare('SELECT summary_text, summary_upto FROM ai_conversations WHERE id = ? AND user_id = ?');
+            $st->execute([$convId, $uid]);
+            if ($row = $st->fetch()) { $summary = (string)$row['summary_text']; $upto = (int)$row['summary_upto']; }
+        } catch (Throwable $e) { $convId = 0; }   // column missing (migration 004 not applied)
+    }
+    $upto = $summary === '' ? 0 : min($upto, count($history));
+    $live = array_slice($history, $upto);
+    if (history_chars($live) <= HISTORY_BUDGET) return [$live, $summary];
+
+    // choose the cut: keep a recent tail of ~HISTORY_KEEP_TAIL chars (at least 4 messages), starting on a user turn
+    $keepFrom = count($live); $acc = 0;
+    for ($i = count($live) - 1; $i >= 0; $i--) {
+        $acc += mb_strlen($live[$i]['content'], 'UTF-8');
+        if ($acc > HISTORY_KEEP_TAIL && count($live) - $i > 4) break;
+        $keepFrom = $i;
+    }
+    while ($keepFrom < count($live) - 1 && $live[$keepFrom]['role'] !== 'user') $keepFrom++;
+    $old = array_slice($live, 0, $keepFrom);
+    $tail = array_slice($live, $keepFrom);
+    // Not worth an LLM call for a small remainder (e.g. one big recent file dominates the budget)
+    if (!$old || history_chars($old) < 4000) return [$live, $summary];
+
+    $transcript = '';
+    foreach ($old as $m) $transcript .= ($m['role'] === 'user' ? '用户' : '助手') . '：' . ai_truncate($m['content'], 1500) . "\n\n";
+    $newSummary = '';
+    try {
+        $newSummary = ai_complete_text($config, [
+            ['role' => 'system', 'content' => '你在为一段长对话维护“前情提要”，供同一位助手之后继续对话时参考。用中文写 300-600 字：用户提出过的需求与背景、已得出的结论与决定、已执行的操作、尚未完成或约定稍后处理的事项、用户表达过的偏好。只写事实，不要寒暄。'],
+            ['role' => 'user', 'content' => ($summary !== '' ? "已有的前情提要：\n{$summary}\n\n" : '') . "需要并入提要的较早对话：\n" . ai_truncate($transcript, 24000)],
+        ], 45);
+    } catch (Throwable $e) { /* fall through */ }
+    if ($newSummary === '') {
+        // Could not summarise: still protect the context by dropping the old part.
+        $note = '（更早的 ' . count($old) . ' 条对话因上下文长度已省略）';
+        return [$tail, $summary !== '' ? $summary . "\n" . $note : $note];
+    }
+    if ($convId > 0) {
+        try {
+            $db->prepare('UPDATE ai_conversations SET summary_text = ?, summary_upto = ?, updated_at = updated_at WHERE id = ? AND user_id = ?')
+               ->execute([$newSummary, $upto + $keepFrom, $convId, $uid]);
+        } catch (Throwable $e) {}
+    }
+    return [$tail, $newSummary];
+}
+
 // --- Tool system ---
 
 function get_tool_definitions(): array {
@@ -989,6 +1074,21 @@ For EVERY user request, follow this process:
 - Do not record one-off trivia, temporary moods, or things already identical to the current impression.
 - If the user corrects you ("我不是副教授"), update the field (or forget_impression) immediately.
 
+## PERSONALISATION — how to USE what you know about the user
+The identity / AI IMPRESSION SUMMARY blocks are not background decoration. Apply them actively:
+- Advice and prioritisation: weigh tasks against the user's position, research focus, active projects, stage goals and
+  known deadlines. Say which of THEIR projects or goals a recommendation serves; avoid generic productivity advice.
+- Time arrangement / scheduling: before proposing a plan, read the real data (get_daily_status, get_calendar_data,
+  list_tasks for deadlines, existing plans) and fit the plan to their known working patterns, fixed commitments and
+  preferences from the impressions. Propose concrete dates/time slots, then use add_plan (needs confirmation).
+- Email: judge relevance and draft replies in the user's voice, with their title, affiliation and relationship to the
+  sender in mind.
+- People: when a collaborator or contact appears, connect it to what you know about that relationship.
+- Be natural: use the knowledge, do not recite it ("根据你的侧写…" is rarely needed). If the impression looks outdated
+  or contradicts what the user just said, trust the user, and update it with remember_about_user.
+- If you lack the information needed to personalise (e.g. no deadline, unknown preference), ask one short question
+  or state the assumption, rather than inventing facts about the user.
+
 ## EMAIL
 - Mail is synced into this system. To work with mail: search_emails (date range / keyword / account) then
   get_email for full body + attachment text. Read each email and its attachments one by one before
@@ -1145,9 +1245,17 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
     }
     $messages = [get_system_prompt($db, $selectedDate, $almanac, $userQuery, $context)];
 
+    // History within budget: old turns are folded into a stored running summary
+    [$compactHistory, $historySummary] = compact_conversation_history(
+        $db, $uid, normalize_conversation_history($input['messages'] ?? []), (int)($input['conversation_id'] ?? 0), $config
+    );
+    if ($historySummary !== '') {
+        $messages[0]['content'] .= "\n=== EARLIER IN THIS CONVERSATION (summary of older turns no longer shown in full) ===\n" . $historySummary . "\n";
+    }
+
     if ($action === 'confirm') {
         // Restore conversation history + confirmed tool results
-        $history = normalize_conversation_history($input['messages'] ?? []);
+        $history = $compactHistory;
         $messages = array_merge($messages, $history);
         $assistantMsg = $input['message'] ?? [];
         if ($assistantMsg) $messages[] = $assistantMsg;
@@ -1184,8 +1292,7 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
             }
         }
     } else {
-        $userMessages = normalize_conversation_history($input['messages'] ?? []);
-        $messages = array_merge($messages, $userMessages);
+        $messages = array_merge($messages, $compactHistory);
     }
 
     // Sanitize messages: strip internal fields & empty tool_calls

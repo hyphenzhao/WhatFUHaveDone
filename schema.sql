@@ -216,6 +216,8 @@ CREATE TABLE IF NOT EXISTS ai_conversations (
     title VARCHAR(200) NOT NULL DEFAULT '新对话',
     is_active TINYINT(1) NOT NULL DEFAULT 0,        -- the one conversation shared across all pages (≤1 per user)
     messages_json LONGTEXT,
+    summary_text LONGTEXT NULL,                     -- running summary of old turns folded out of the context
+    summary_upto INT NOT NULL DEFAULT 0,            -- number of (normalized) messages covered by summary_text
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_ai_conv_user (user_id),

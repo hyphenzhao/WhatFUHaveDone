@@ -73,6 +73,8 @@ switch ($command) {
         if (!class_exists('MailAnalyzer')) { wlog('MailAnalyzer not available'); exit(1); }
         $budget = (int)($opts['budget'] ?? 1500);
         $force = !empty($opts['force']);
+        // --today / --date: that day's queue (unread + read that day); --since: send-date range
+        $daily = empty($opts['since']);
         if (!empty($opts['date'])) { $from = $to = (string)$opts['date']; }
         elseif (!empty($opts['since'])) { $from = (string)$opts['since']; $to = date('Y-m-d'); }
         else { $from = $to = date('Y-m-d'); }
@@ -83,7 +85,8 @@ switch ($command) {
             $remaining = (int)floor($deadline - microtime(true));
             if ($remaining < 10) { wlog('budget exhausted'); break; }
             $analyzer = new MailAnalyzer($db, $uid, 'wlog');
-            $res = $analyzer->analyzeRange($from, $to, !$force, $remaining);
+            $res = $daily ? $analyzer->analyzeDaily($from, !$force, $remaining)
+                          : $analyzer->analyzeRange($from, $to, !$force, $remaining);
             wlog(sprintf('user %d analyze %s..%s: %s', $uid, $from, $to, json_encode($res, JSON_UNESCAPED_UNICODE)));
         }
         break;

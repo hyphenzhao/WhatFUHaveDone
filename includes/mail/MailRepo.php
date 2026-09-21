@@ -67,6 +67,17 @@ function mail_query_messages(PDO $db, int $uid, array $filters, int $page = 1, i
     return ['items' => $items, 'page' => $page, 'per_page' => $perPage, 'total' => $total, 'has_more' => $offset + count($items) < $total];
 }
 
+/**
+ * A mail belongs to a day by when it was READ, not when it was sent:
+ *   unread → always "today" (however old it is)
+ *   read   → pinned to read_at (falling back to msg_date for rows synced before migration 006)
+ * Returns a SQL condition taking the target date twice.
+ */
+function mail_day_condition(string $alias = 'm'): string {
+    return "(({$alias}.is_seen = 1 AND DATE(COALESCE({$alias}.read_at, {$alias}.msg_date)) = ?)"
+         . " OR ({$alias}.is_seen = 0 AND ? = CURDATE()))";
+}
+
 /** Normalize a joined message row for JSON output (analysis nested). */
 function mail_row_public(array $r): array {
     $analysis = null;

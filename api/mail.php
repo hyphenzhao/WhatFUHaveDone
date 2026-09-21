@@ -203,7 +203,11 @@ if ($res === 'messages' && $id && $method === 'PUT') {
     if (!$m) json_error('邮件不存在', 404);
     $data = get_json_input();
     $sets = []; $params = []; $flags = [];
-    if (array_key_exists('is_seen', $data)) { $sets[] = 'is_seen = ?'; $params[] = (int)!!$data['is_seen']; $flags['seen'] = !!$data['is_seen']; }
+    if (array_key_exists('is_seen', $data)) {
+        $sets[] = 'is_seen = ?'; $params[] = (int)!!$data['is_seen']; $flags['seen'] = !!$data['is_seen'];
+        // Pin to the first read; marking unread puts it back in today's queue
+        $sets[] = $flags['seen'] ? 'read_at = COALESCE(read_at, NOW())' : 'read_at = NULL';
+    }
     if (array_key_exists('is_flagged', $data)) { $sets[] = 'is_flagged = ?'; $params[] = (int)!!$data['is_flagged']; $flags['flagged'] = !!$data['is_flagged']; }
     if (!$sets) json_error('没有要更新的字段');
     $params[] = $id; $params[] = $uid;
@@ -293,11 +297,18 @@ if ($res === 'analyze' && $method === 'POST') {
             $a = $analyzer->analyze((int)$data['message_id'], !empty($data['force']), 90);
             json_success($a, '分析完成');
         }
-        $from = (string)($data['date_from'] ?? $data['date'] ?? '');
-        $to = (string)($data['date_to'] ?? $from);
-        if (!validate_date($from) || !validate_date($to)) json_error('请提供 message_id 或 date / date_from+date_to');
         @set_time_limit(200);
-        $r = $analyzer->analyzeRange($from, $to, empty($data['force']), 120);
+        // A single `date` means that day's queue (unread + read that day); an explicit
+        // date_from/date_to range still refers to send dates.
+        if (!empty($data['date']) && empty($data['date_from'])) {
+            if (!validate_date((string)$data['date'])) json_error('date 格式应为 YYYY-MM-DD');
+            $r = $analyzer->analyzeDaily((string)$data['date'], empty($data['force']), 120);
+        } else {
+            $from = (string)($data['date_from'] ?? '');
+            $to = (string)($data['date_to'] ?? $from);
+            if (!validate_date($from) || !validate_date($to)) json_error('请提供 message_id 或 date / date_from+date_to');
+            $r = $analyzer->analyzeRange($from, $to, empty($data['force']), 120);
+        }
         json_success($r, "已分析 {$r['done']} 封" . ($r['remaining'] ? "，剩余 {$r['remaining']} 封" : ''));
     } catch (MailException $e) {
         json_error($e->getMessage());
@@ -312,21 +323,27 @@ if ($res === 'daily' && $method === 'GET') {
     $acc->execute([$uid]);
     $hasAccounts = (int)$acc->fetchColumn() > 0;
     $st = $db->prepare("SELECT m.id, m.account_id, m.folder_id, f.kind AS folder_kind, m.from_name, m.from_email, m.subject, m.msg_date,
-                               m.is_seen, m.is_flagged, m.is_answered, m.has_attachments, m.snippet, m.size,
+                               m.is_seen, m.read_at, m.is_flagged, m.is_answered, m.has_attachments, m.snippet, m.size,
                                a.brief_title, a.summary, a.priority, a.relevance, a.category, a.needs_reply, a.status AS analysis_status
                         FROM mail_messages m
                         JOIN mail_folders f ON f.id = m.folder_id
                         LEFT JOIN mail_analysis a ON a.message_id = m.id
                         WHERE m.user_id = ? AND m.is_deleted = 0 AND f.kind IN ('inbox','other','archive')
-                          AND m.msg_date >= ? AND m.msg_date <= ?
-                        ORDER BY (a.id IS NULL) ASC, ((6 - COALESCE(a.priority, 3)) * 20 + COALESCE(a.relevance, 0)) DESC, m.msg_date DESC
+                          AND " . mail_day_condition('m') . "
+                        ORDER BY (a.id IS NULL) ASC, m.is_seen ASC, ((6 - COALESCE(a.priority, 3)) * 20 + COALESCE(a.relevance, 0)) DESC, m.msg_date DESC
                         LIMIT 100");
-    $st->execute([$uid, $date . ' 00:00:00', $date . ' 23:59:59']);
+    $st->execute([$uid, $date, $date]);
     $items = array_map('mail_row_public', $st->fetchAll());
     $analyzed = 0;
-    foreach ($items as $it) if ($it['analysis'] && $it['analysis']['status'] === 'ok') $analyzed++;
+    $unread = 0;
+    foreach ($items as $it) {
+        if ($it['analysis'] && $it['analysis']['status'] === 'ok') $analyzed++;
+        if (!$it['is_seen']) $unread++;
+    }
     json_success([
         'date' => $date,
+        'unread' => $unread,
+        'is_today' => $date === today() ? 1 : 0,
         'ai_configured' => ai_is_configured($cfg) ? 1 : 0,
         'has_accounts' => $hasAccounts ? 1 : 0,
         'imap_ext' => $imapAvailable ? 1 : 0,

@@ -399,6 +399,7 @@ CREATE TABLE IF NOT EXISTS mail_messages (
     msg_date DATETIME NULL,                             -- local time (TIMEZONE)
     size INT NOT NULL DEFAULT 0,
     is_seen TINYINT(1) NOT NULL DEFAULT 0,
+    read_at DATETIME NULL,                              -- first marked read; NULL = unread (counts as "today")
     is_flagged TINYINT(1) NOT NULL DEFAULT 0,
     is_answered TINYINT(1) NOT NULL DEFAULT 0,
     has_attachments TINYINT(1) NOT NULL DEFAULT 0,
@@ -410,6 +411,7 @@ CREATE TABLE IF NOT EXISTS mail_messages (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_mail_msg_uid (folder_id, uid),
     KEY idx_mail_msg_user_date (user_id, msg_date),
+    KEY idx_mail_msg_user_read (user_id, read_at),
     KEY idx_mail_msg_account_mid (account_id, message_id(191)),
     KEY idx_mail_msg_folder_date (folder_id, msg_date),
     CONSTRAINT fk_mail_msg_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

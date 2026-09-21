@@ -1203,13 +1203,14 @@ async function loadDailyMail(date, force) {
         box.innerHTML = `<div class="no-daily-data">尚未配置邮箱，<a href="/mail-admin">去添加</a>${d.imap_ext ? '' : '（服务器还需安装 PHP imap 扩展）'}</div>`;
         return;
     }
-    meta.textContent = d.total ? `${d.total} 封 · 已分析 ${d.analyzed}` : '';
+    meta.textContent = d.total ? `${d.total} 封${d.unread ? ` · ${d.unread} 未读` : ''} · 已分析 ${d.analyzed}` : '';
+    meta.title = d.is_today ? '未读邮件始终显示在今天；已读邮件固定在阅读当天' : '该日期显示当天读过的邮件';
     let html = '';
     if (!d.ai_configured) {
         html += '<div class="daily-mail-notice">🤖 请先配置AI，<a href="/ai-admin">前往 AI 配置</a>。配置后这里会显示每封邮件的摘要、优先级和相关度。</div>';
     }
     if (!d.items.length) {
-        html += '<div class="no-daily-data">今天没有收到邮件</div>';
+        html += `<div class="no-daily-data">${d.is_today ? '没有待处理的邮件（未读邮件会显示在这里）' : '这一天没有读过邮件'}</div>`;
     } else {
         html += d.items.map(m => {
             const a = m.analysis && m.analysis.status === 'ok' ? m.analysis : null;

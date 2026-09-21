@@ -239,18 +239,22 @@ class MailSync {
         $text = $m['body_text'];
         $snippet = mail_snippet($text !== '' ? $text : mail_html_to_text($html));
 
+        // read_at: already-read mail we are seeing for the first time is pinned to its send
+        // date (we cannot know when it was read); unread mail has none and counts as "today".
         $st = $this->db->prepare('INSERT INTO mail_messages
             (user_id, account_id, folder_id, uid, message_id, in_reply_to, references_txt, from_name, from_email, to_json, cc_json,
-             subject, msg_date, size, is_seen, is_flagged, is_answered, has_attachments, snippet, body_text, body_html)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE is_seen = VALUES(is_seen), is_flagged = VALUES(is_flagged), is_answered = VALUES(is_answered), is_deleted = 0');
+             subject, msg_date, size, is_seen, read_at, is_flagged, is_answered, has_attachments, snippet, body_text, body_html)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE is_seen = VALUES(is_seen), is_flagged = VALUES(is_flagged), is_answered = VALUES(is_answered), is_deleted = 0,
+                                    read_at = IF(VALUES(is_seen) = 1, COALESCE(read_at, VALUES(read_at)), NULL)');
         $st->execute([
             $this->uid, (int)$this->account['id'], $fid, $uid,
             $m['message_id'], $m['in_reply_to'], $m['references'],
             $m['from_name'], $m['from_email'],
             json_encode($m['to'], JSON_UNESCAPED_UNICODE), json_encode($m['cc'], JSON_UNESCAPED_UNICODE),
             $m['subject'], $m['date'], $m['size'],
-            $m['flags']['seen'] ? 1 : 0, $m['flags']['flagged'] ? 1 : 0, $m['flags']['answered'] ? 1 : 0,
+            $m['flags']['seen'] ? 1 : 0, $m['flags']['seen'] ? $m['date'] : null,
+            $m['flags']['flagged'] ? 1 : 0, $m['flags']['answered'] ? 1 : 0,
             count($m['attachments']) ? 1 : 0, $snippet, $text, $html,
         ]);
         $inserted = $st->rowCount() === 1;   // 1 = insert, 2 = update, 0 = no change
@@ -312,13 +316,15 @@ class MailSync {
         // Limit to recent mail to keep this cheap on huge folders
         $st = $this->db->prepare('SELECT id, uid, is_seen, is_flagged FROM mail_messages WHERE folder_id = ? AND is_deleted = 0 AND (msg_date IS NULL OR msg_date >= DATE_SUB(NOW(), INTERVAL 90 DAY))');
         $st->execute([$fid]);
-        $upd = $this->db->prepare('UPDATE mail_messages SET is_seen = ?, is_flagged = ? WHERE id = ?');
+        // Read elsewhere (phone, webmail) → stamp read_at now; unread again → back to today's queue
+        $upd = $this->db->prepare('UPDATE mail_messages SET is_seen = ?, is_flagged = ?,
+                                          read_at = IF(? = 1, COALESCE(read_at, NOW()), NULL) WHERE id = ?');
         $changed = 0;
         foreach ($st->fetchAll() as $r) {
             $seen = isset($unseen[(int)$r['uid']]) ? 0 : 1;
             $flag = isset($flagged[(int)$r['uid']]) ? 1 : 0;
             if ($seen !== (int)$r['is_seen'] || $flag !== (int)$r['is_flagged']) {
-                $upd->execute([$seen, $flag, (int)$r['id']]);
+                $upd->execute([$seen, $flag, $seen, (int)$r['id']]);
                 $changed++;
             }
         }

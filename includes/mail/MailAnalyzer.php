@@ -70,17 +70,26 @@ class MailAnalyzer {
      * @return array{done:int,failed:int,skipped:int,remaining:int,items:array}
      */
     public function analyzeRange(string $from, string $to, bool $onlyMissing = true, int $budgetSec = 0, int $limit = 200): array {
+        return $this->analyzeWhere('m.msg_date >= ? AND m.msg_date <= ?', [$from . ' 00:00:00', $to . ' 23:59:59'], $onlyMissing, $budgetSec, $limit);
+    }
+
+    /** One day's queue: unread mail (any age) + mail read that day — same rule as the home panel. */
+    public function analyzeDaily(string $date, bool $onlyMissing = true, int $budgetSec = 0, int $limit = 200): array {
+        return $this->analyzeWhere(mail_day_condition('m'), [$date, $date], $onlyMissing, $budgetSec, $limit);
+    }
+
+    private function analyzeWhere(string $cond, array $params, bool $onlyMissing, int $budgetSec, int $limit): array {
         $config = $this->config();
         $deadline = $budgetSec > 0 ? microtime(true) + $budgetSec : 0;
         $sql = "SELECT m.id, m.subject FROM mail_messages m
                 JOIN mail_folders f ON f.id = m.folder_id
                 LEFT JOIN mail_analysis a ON a.message_id = m.id
                 WHERE m.user_id = ? AND m.is_deleted = 0 AND f.kind IN ('inbox','other','archive')
-                  AND m.msg_date >= ? AND m.msg_date <= ?" .
+                  AND $cond" .
                ($onlyMissing ? " AND a.id IS NULL" : "") .
-               " ORDER BY m.msg_date DESC, m.id DESC LIMIT " . (int)$limit;
+               " ORDER BY m.is_seen ASC, m.msg_date DESC, m.id DESC LIMIT " . (int)$limit;
         $st = $this->db->prepare($sql);
-        $st->execute([$this->uid, $from . ' 00:00:00', $to . ' 23:59:59']);
+        $st->execute(array_merge([$this->uid], $params));
         $rows = $st->fetchAll();
 
         $res = ['done' => 0, 'failed' => 0, 'skipped' => 0, 'remaining' => 0, 'items' => []];

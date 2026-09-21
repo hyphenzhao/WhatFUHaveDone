@@ -456,7 +456,10 @@ function handle_mark_email(PDO $db, array $args): array {
     $m = mail_get_message_full($db, $uid, (int)($args['id'] ?? 0));
     if (!$m) return ['error' => '邮件不存在'];
     $sets = []; $params = [];
-    if (array_key_exists('seen', $args)) { $sets[] = 'is_seen = ?'; $params[] = !empty($args['seen']) ? 1 : 0; }
+    if (array_key_exists('seen', $args)) {
+        $sets[] = 'is_seen = ?'; $params[] = !empty($args['seen']) ? 1 : 0;
+        $sets[] = !empty($args['seen']) ? 'read_at = COALESCE(read_at, NOW())' : 'read_at = NULL';
+    }
     if (array_key_exists('flagged', $args)) { $sets[] = 'is_flagged = ?'; $params[] = !empty($args['flagged']) ? 1 : 0; }
     if (!$sets) return ['error' => '未指定要修改的标记'];
     $params[] = $m['id']; $params[] = $uid;

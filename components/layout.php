@@ -5,7 +5,7 @@
  */
 $page_title = $page_title ?? APP_NAME;
 $current_page = $current_page ?? 'home';
-$asset_ver = '20260921a';
+$asset_ver = '20260921b';
 $layout_user = current_user();
 ?>
 <!DOCTYPE html>

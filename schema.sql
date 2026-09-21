@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     necessity INT DEFAULT 3,
     deadline VARCHAR(20) DEFAULT '',
     location VARCHAR(255) DEFAULT '',
+    mail_match_upto INT NOT NULL DEFAULT 0,           -- watermark over mail_analysis.id already compared with this task
     stage_changed_at DATETIME NULL DEFAULT NULL,
     archived TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -488,4 +489,23 @@ CREATE TABLE IF NOT EXISTS profile_impression_snapshots (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     KEY idx_imp_snap_user (user_id, kind, id),
     CONSTRAINT fk_imp_snap_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 29. 任务 ↔ 邮件关联（只存匹配与用户结论）— see migrations/005_task_mail_links.sql
+CREATE TABLE IF NOT EXISTS task_mail_links (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    task_id INT NOT NULL,
+    message_id INT NOT NULL,                        -- mail_messages.id
+    score TINYINT UNSIGNED NOT NULL DEFAULT 0,      -- 0-100 (AI); 100 when confirmed by the user
+    reason VARCHAR(300) NOT NULL DEFAULT '',
+    status VARCHAR(10) NOT NULL DEFAULT 'ai',       -- ai | confirmed | rejected
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_task_mail (task_id, message_id),
+    KEY idx_task_mail_user (user_id),
+    KEY idx_task_mail_message (message_id),
+    CONSTRAINT fk_task_mail_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_task_mail_task FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    CONSTRAINT fk_task_mail_message FOREIGN KEY (message_id) REFERENCES mail_messages(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

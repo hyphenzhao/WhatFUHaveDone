@@ -5,7 +5,7 @@
  */
 $page_title = $page_title ?? APP_NAME;
 $current_page = $current_page ?? 'home';
-$asset_ver = '20260920a';
+$asset_ver = '20260921a';
 $layout_user = current_user();
 ?>
 <!DOCTYPE html>
@@ -146,6 +146,7 @@ $layout_user = current_user();
     <script src="/assets/js/task-card.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/calendar.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/home.js?v=<?= $asset_ver ?>"></script>
+    <script src="/assets/js/task-detail.js?v=<?= $asset_ver ?>"></script>
     <?php elseif ($current_page === 'mail'): ?>
     <script src="/assets/js/mail.js?v=<?= $asset_ver ?>"></script>
     <?php elseif ($current_page === 'mail-admin'): ?>

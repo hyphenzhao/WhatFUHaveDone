@@ -211,9 +211,10 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 
 /* ============ MAIN CONTENT ============ */
 .main-content {
-    padding: 24px;
+    padding: var(--page-pad, 24px);
     overflow-y: auto;
     max-height: 100vh;
+    min-width: 0;   /* grid item must be allowed to shrink below its content */
 }
 
 /* ============ RIGHT PANEL (Home) ============ */
@@ -1644,15 +1645,13 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 }
 
 /* ============ RESPONSIVE ============ */
+/* Layout tiers live in assets/css/mobile.css. The two blocks that used to be
+   here never worked: they narrowed the sidebar track without adding the
+   .sidebar-collapsed class that all the collapsed-content rules key off, and
+   `.app-layout` (0,1,0) lost to `.app-layout.no-right-panel` (0,2,0) above, so
+   every non-home page kept a 220px sidebar at any width. */
 @media (max-width: 1200px) {
-    .app-layout { grid-template-columns: var(--sidebar-collapsed) 1fr 4px var(--right-panel-width); }
     .leaderboards { grid-template-columns: 1fr; }
-}
-@media (max-width: 900px) {
-    .app-layout, .app-layout.right-collapsed {
-        grid-template-columns: var(--sidebar-collapsed) 1fr 0;
-    }
-    .right-panel { display: none; }
 }
 
 /* Deadline badges */

@@ -1,0 +1,271 @@
+/* ============================================================================
+   mobile.css — the ONLY stylesheet with responsive rules.
+   Loaded after app.css and mail.css. Contains only max-width queries plus one
+   900–1279 block, so it CANNOT affect the ≥1280px desktop. Remove the <link>
+   in components/layout.php to roll the whole responsive layer back.
+
+   Tiers (keep these four numbers; CSS vars can't be used in media conditions):
+     A  ≥1280px           desktop, untouched
+     B  900–1279px        rotated monitor / landscape tablet: icon rail + overlay panel
+     C  ≤899px            touch: bottom tab bar, drawers, block layout
+     D  ≤560px            phone density
+     +  (pointer: coarse) touch targets — a capability, not a width
+   ============================================================================ */
+
+:root { --page-pad: 24px; --tabbar-h: 56px; }
+
+/* Mobile-only chrome is hidden by default so the desktop never sees it. */
+.mobile-tabbar, .m-scrim, .m-edge-tab, .m-sheet-close { display: none; }
+
+/* Off-home the right panel exists in the DOM for the mobile sheet, but the
+   desktop grid has no track for it (.no-right-panel), so keep it out of view. */
+@media (min-width: 1280px) {
+    .app-layout.no-right-panel > .right-panel { display: none; }
+}
+
+/* ============================================================================
+   TIER B — 900–1279px. The rotated 1080px monitor lives here.
+   Vertical space is abundant, horizontal space is scarce: give the main column
+   everything and make the right panel an overlay pulled out by an edge tab.
+   ============================================================================ */
+@media (min-width: 900px) and (max-width: 1279px) {
+    /* One column of content + a real icon rail. Enumerated at matching
+       specificity because app.css:62-77 uses .app-layout.<class> selectors. */
+    .app-layout,
+    .app-layout.sidebar-collapsed,
+    .app-layout.right-collapsed,
+    .app-layout.sidebar-collapsed.right-collapsed,
+    .app-layout.no-right-panel,
+    .app-layout.no-right-panel.sidebar-collapsed {
+        grid-template-columns: var(--sidebar-collapsed) minmax(0, 1fr);
+    }
+
+    /* The icon-rail styling app.css only applies via .sidebar-collapsed —
+       which the old media queries never added. That is why the rail has been
+       rendering 220px-wide labels inside a 56px slot. */
+    .sidebar-logo { display: none; }
+    .sidebar-header { justify-content: center; }
+    .sidebar-link { justify-content: center; padding: 10px; }
+    .sidebar-link span:not(.nav-icon) { display: none; }
+    .sidebar-link .nav-icon { font-size: 1.3rem; }
+    .sidebar-user-name { display: none; }
+    .sidebar-footer { flex-direction: column; gap: 6px; padding: 10px 4px; }
+    .nav-group-title { font-size: 0; height: 1px; background: rgba(255,255,255,.12); margin: 6px 8px; padding: 0; }
+    .sidebar-toggle { display: none; }
+
+    .panel-resize-handle { display: none; }
+
+    /* Right panel becomes an overlay drawer; the saved --right-panel-width
+       (written inline on <html> by app.js) is deliberately not referenced. */
+    .right-panel {
+        position: fixed; top: 0; right: 0; bottom: 0;
+        width: min(420px, 92vw); height: 100vh; height: 100dvh;
+        z-index: 1100; box-shadow: var(--shadow-lg);
+        transform: translateX(100%); transition: transform .22s ease;
+        display: flex; flex-direction: column;
+    }
+    body.m-sheet-open .right-panel { transform: none; }
+
+    .m-edge-tab {
+        display: block; position: fixed; right: 0; top: 50%; z-index: 1090;
+        transform: translateY(-50%);
+        width: 34px; height: 76px; border: none; cursor: pointer;
+        background: var(--color-surface); color: var(--color-text);
+        border-radius: var(--radius) 0 0 var(--radius);
+        box-shadow: var(--shadow-md); font-size: 1.1rem;
+    }
+    body.m-sheet-open .m-edge-tab { display: none; }
+
+    .m-scrim { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 1080; }
+    body.m-sheet-open .m-scrim { display: block; }
+
+    .m-sheet-close { display: block; }
+    .right-panel-header .panel-toggle { display: none; }
+}
+
+/* ============================================================================
+   TIER C — ≤899px. Touch: tablet portrait and phone.
+   ============================================================================ */
+@media (max-width: 899px) {
+    :root { --page-pad: 16px; }
+
+    /* ONE declaration retires all six grid-template-columns variants at once:
+       a block container has no tracks, so every .app-layout.<class> rule in
+       app.css becomes inert regardless of its specificity. */
+    .app-layout { display: block; min-height: 100vh; min-height: 100dvh; }
+
+    /* Let the DOCUMENT scroll, not an inner box — otherwise the browser's URL
+       bar never collapses and 100vh sizing fights the visual viewport. */
+    .main-content {
+        max-height: none; overflow: visible; min-width: 0;
+        padding: var(--page-pad);
+        padding-bottom: calc(var(--tabbar-h) + 20px + env(safe-area-inset-bottom));
+    }
+
+    /* Safe here (and only here): both sticky elements below are position:fixed
+       in this tier, so clipping the body cannot break them. */
+    body { overflow-x: hidden; }
+
+    .panel-resize-handle { display: none; }
+
+    /* ---- bottom tab bar ---- */
+    .mobile-tabbar {
+        display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 1150;
+        height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+        padding-bottom: env(safe-area-inset-bottom);
+        background: var(--color-sidebar); border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .mtab {
+        flex: 1; min-width: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 2px;
+        background: none; border: none; cursor: pointer;
+        color: var(--color-sidebar-text); font-size: .68rem; text-decoration: none;
+    }
+    .mtab span { font-size: 1.25rem; line-height: 1; }
+    .mtab.active, .mtab.on { color: #fff; }
+    .mtab.on span { transform: translateY(-1px); }
+
+    .m-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1100; }
+    body.m-nav-open .m-scrim, body.m-sheet-open .m-scrim { display: block; }
+
+    /* ---- sidebar → bottom drawer, nav flattened into an icon grid ---- */
+    .sidebar {
+        position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto;
+        height: auto; max-height: 80vh; overflow-y: auto; z-index: 1200;
+        border-radius: 16px 16px 0 0;
+        transform: translateY(102%); transition: transform .22s ease;
+        padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    }
+    body.m-nav-open .sidebar { transform: none; }
+    .sidebar-toggle { display: none; }
+    .sidebar-nav { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 10px; }
+    .nav-group { display: contents; }
+    .nav-group-title { grid-column: 1 / -1; font-size: .7rem; padding: 6px 2px 0; }
+    .sidebar-link {
+        flex-direction: column; gap: 4px; padding: 12px 6px;
+        min-height: 60px; font-size: .75rem; text-align: center; line-height: 1.25;
+    }
+    /* A stale sidebarCollapsed=true from the desktop must not icon-ify the drawer */
+    .app-layout.sidebar-collapsed .sidebar-logo { display: block; }
+    .app-layout.sidebar-collapsed .sidebar-link { justify-content: center; padding: 12px 6px; }
+    .app-layout.sidebar-collapsed .sidebar-link span:not(.nav-icon) { display: block; }
+    .app-layout.sidebar-collapsed .sidebar-user-name { display: inline; }
+
+    /* ---- right panel → bottom sheet ---- */
+    .right-panel {
+        position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto;
+        height: 88vh; height: 88dvh; z-index: 1200;
+        display: flex; flex-direction: column; border-left: none;
+        border-radius: 16px 16px 0 0; box-shadow: var(--shadow-lg);
+        transform: translateY(102%); transition: transform .22s ease;
+        padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    }
+    body.m-sheet-open .right-panel { transform: none; }
+    .right-panel-header .panel-toggle { display: none; }
+    .m-sheet-close { display: block; }
+    /* A stale rightCollapsed=true from the desktop would open the sheet EMPTY */
+    .app-layout.right-collapsed .right-panel-body { display: block; }
+    .app-layout.right-collapsed .right-panel-tabs { display: flex; }
+    .app-layout.right-collapsed .right-panel-body.rp-hidden { display: none; }
+
+    /* ---- rows that overflow because they never wrap ---- */
+    .page-header, .table-actions, .calendar-header, .calendar-nav,
+    .leaderboard-header, .period-selector, .daily-status-header,
+    .modal-header, .modal-footer, .task-card-actions, .detail-layout,
+    .weather-body, .almanac-body, .graph-header, .report-stats-header,
+    .mail-list-toolbar, .daily-mail-header, .report-day-item,
+    .doc-item, .imp-obs, .bazi-row, .td-row {
+        flex-wrap: wrap;
+    }
+
+    /* Tables scroll here; they become cards at ≤560. The .main-content prefix
+       is required to outrank pages/skills.php's in-body <style>. */
+    .main-content .data-table {
+        display: block; overflow-x: auto; overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+    .main-content .data-table th, .main-content .data-table td { white-space: nowrap; }
+    .main-content .data-table td:first-child { white-space: normal; min-width: 10em; }
+
+    /* Toasts sit above the tab bar, not under the (now absent) top chrome */
+    .toast-container { top: auto; bottom: calc(var(--tabbar-h) + 12px + env(safe-area-inset-bottom)); left: 12px; right: 12px; }
+    .toast { max-width: none; }
+
+    .modal-overlay { z-index: 1300; }   /* must outrank both drawers */
+}
+
+/* ============================================================================
+   TIER D — ≤560px. Phone density.
+   ============================================================================ */
+@media (max-width: 560px) {
+    :root { --page-pad: 12px; }
+
+    /* Stacked forms. .main-content prefix outranks pages/profile.php's <style>. */
+    .main-content .form-row-2, .main-content .form-row-3,
+    .form-row-2, .form-row-3, .bazi-row { flex-direction: column; }
+
+    /* 16px literal (not rem — html is 15px) or iOS zooms the page on focus
+       and never zooms back. */
+    .form-input, .form-select, .form-textarea, .ai-input, .mail-search,
+    .wl-note-input, .wl-dur-input, .ai-secret-input, .ai-conv-select,
+    input[type="text"], input[type="password"], input[type="date"],
+    input[type="time"], input[type="number"], input[type="email"], textarea, select {
+        font-size: 16px;
+    }
+
+    .btn { white-space: normal; }
+
+    /* Tables → one card per row. data-label is filled in by mobile.js from
+       <thead>, so none of the seven page scripts had to change. */
+    .main-content .data-table { display: block; overflow-x: visible; border: none; background: none; }
+    .main-content .data-table thead { display: none; }
+    .main-content .data-table tbody, .main-content .data-table tr, .main-content .data-table td { display: block; width: 100%; }
+    .main-content .data-table tr {
+        border: 1px solid var(--color-border); border-radius: var(--radius);
+        background: var(--color-surface); margin-bottom: 10px; padding: 6px 10px;
+    }
+    .main-content .data-table td {
+        display: flex; justify-content: space-between; align-items: center; gap: 12px;
+        border: none; padding: 6px 0; white-space: normal;
+        border-bottom: 1px solid var(--color-border);
+    }
+    .main-content .data-table tr td:last-child { border-bottom: none; }
+    .main-content .data-table td::before {
+        content: attr(data-label); flex: 0 0 auto;
+        font-size: .74rem; font-weight: 600; color: var(--color-text-secondary);
+    }
+    .main-content .data-table td:not([data-label])::before { content: none; }
+    .main-content .data-table td .table-actions { justify-content: flex-end; }
+
+    /* Modals as bottom sheets */
+    .modal-overlay { align-items: flex-end; }
+    .modal-container,
+    .modal-container.modal-wide,
+    .modal-container.modal-xl {
+        width: 100%; max-width: none; height: auto;
+        max-height: 92vh; max-height: 92dvh;
+        border-radius: 16px 16px 0 0;
+    }
+    .right-panel { height: 92vh; height: 92dvh; }
+}
+
+/* ============================================================================
+   TOUCH TARGETS — keyed on capability, so a mouse-driven 1080px monitor stays
+   compact while a touch tablet in landscape still gets big targets.
+   ============================================================================ */
+@media (pointer: coarse) {
+    .btn, .rbtn, .tag-chip, .dur-chip, .period-btn, .mail-filter-btn,
+    .multi-select-add, .graph-toggle button, .calendar-nav button, .rp-tab {
+        min-height: 40px;
+    }
+    .btn-sm, .btn-worklog, .btn-trophy, .btn-plan, .btn-log, .stage-select,
+    .plan-exec-btn, .daily-card-close, .wl-note-del, .wl-note-attach,
+    .wl-note-btn, .wl-dur-tag, .wl-log-btn, .modal-close, .td-linkbtn,
+    .doc-btn, .ai-attach-btn, .ai-conv-del, .ai-send-btn, .sidebar-logout,
+    .m-sheet-close {
+        min-height: 36px; min-width: 36px;
+    }
+    .star-rating { font-size: 1.6rem; gap: 6px; }
+    .calendar-dot { width: 12px; height: 12px; }
+    .im-tag-dot, .report-tag-dot { width: 12px; height: 12px; }
+}

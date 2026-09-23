@@ -1243,27 +1243,9 @@ async function analyzeDailyMail() {
     finally { if (btn) { btn.disabled = false; btn.textContent = '🤖 分析未分析'; } loadDailyMail(date, true); }
 }
 
-// --- Right panel tab switching ---
-function initPanelTabs() {
-    document.querySelectorAll('.rp-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            const tabName = tab.dataset.tab;
-            document.querySelectorAll('.rp-tab').forEach(t => t.classList.remove('rp-tab-active'));
-            tab.classList.add('rp-tab-active');
-
-            const taskBody = document.getElementById('rightPanelBody');
-            const aiBody = document.getElementById('rightPanelAi');
-            if (tabName === 'tasklist') {
-                taskBody.classList.remove('rp-hidden');
-                if (aiBody) aiBody.classList.add('rp-hidden');
-            } else {
-                taskBody.classList.add('rp-hidden');
-                if (aiBody) aiBody.classList.remove('rp-hidden');
-                if (aiBody && typeof AiChat !== 'undefined') AiChat.mount(aiBody);
-            }
-        });
-    });
-}
+// Right panel tab switching now lives in mobile.js (MobileUI.initPanelTabs),
+// because the panel is rendered on every page for the AI assistant and needs
+// one owner rather than a home-only one.
 
 // Skip full dashboard init on immersive page
 if (!document.getElementById('imApp')) {
@@ -1271,7 +1253,6 @@ if (!document.getElementById('imApp')) {
         initPeriodSelectors();
         await Calendar.init();
         await refreshAll();
-        initPanelTabs();
     });
 }
 

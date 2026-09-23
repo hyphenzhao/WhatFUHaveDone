@@ -12,12 +12,15 @@ $layout_user = current_user();
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title><?= htmlspecialchars($page_title) ?> — <?= APP_NAME ?></title>
     <link rel="stylesheet" href="/assets/css/app.css?v=<?= $asset_ver ?>">
     <link rel="stylesheet" href="/assets/css/mail.css?v=<?= $asset_ver ?>">
+    <!-- Loaded last: contains ONLY max-width media queries (+ one 900–1279 block),
+         so it cannot affect the ≥1280px desktop. Delete this line to roll back. -->
+    <link rel="stylesheet" href="/assets/css/mobile.css?v=<?= $asset_ver ?>">
 </head>
-<body>
+<body data-page="<?= htmlspecialchars($current_page) ?>">
     <div class="app-layout<?= $current_page !== 'home' ? ' no-right-panel' : '' ?>">
         <!-- Left Sidebar Navigation -->
         <aside class="sidebar" id="sidebar">
@@ -91,27 +94,52 @@ $layout_user = current_user();
             <?= $page_content ?? '' ?>
         </main>
 
-        <!-- Right Panel (task sidebar on home page) -->
-        <?php if ($current_page === 'home'): ?>
+        <?php
+        /* Right panel. Rendered on EVERY page so the AI assistant is reachable
+           everywhere on touch devices (it becomes a bottom sheet below 900px).
+           Off home there is no task list — home.js/task-card.js aren't loaded —
+           so only the assistant tab is emitted, and .app-layout keeps its
+           no-right-panel class so the >=1280px desktop grid is unchanged
+           (mobile.css hides the panel outright in that one case). */
+        $is_home = ($current_page === 'home');
+        ?>
+        <?php if ($is_home): ?>
         <div class="panel-resize-handle" id="panelResizeHandle"></div>
+        <?php endif; ?>
         <aside class="right-panel" id="rightPanel">
             <div class="right-panel-header">
                 <div class="right-panel-tabs">
+                    <?php if ($is_home): ?>
                     <button class="rp-tab rp-tab-active" data-tab="tasklist">📋 任务列表</button>
                     <button class="rp-refresh-btn" onclick="loadRightPanel()" title="刷新任务列表和备注">🔄</button>
-                    <button class="rp-tab" data-tab="ai-assistant">🤖 智能助手</button>
+                    <?php endif; ?>
+                    <button class="rp-tab<?= $is_home ? '' : ' rp-tab-active' ?>" data-tab="ai-assistant">🤖 智能助手</button>
                 </div>
                 <button class="panel-toggle" id="rightPanelToggle">▶</button>
+                <button class="m-sheet-close" id="mSheetClose" aria-label="关闭">&times;</button>
             </div>
+            <?php if ($is_home): ?>
             <div class="right-panel-body" id="rightPanelBody">
                 <!-- Task cards rendered by JS -->
             </div>
-            <div class="right-panel-body rp-hidden" id="rightPanelAi">
+            <?php endif; ?>
+            <div class="right-panel-body<?= $is_home ? ' rp-hidden' : '' ?>" id="rightPanelAi">
                 <!-- AI Assistant rendered by JS -->
             </div>
         </aside>
-        <?php endif; ?>
     </div>
+
+    <!-- Mobile chrome (≤899px only; display:none above that, so the desktop is untouched) -->
+    <div class="m-scrim" id="mScrim"></div>
+    <nav class="mobile-tabbar" id="mobileTabbar">
+        <a class="mtab<?= $is_home ? ' active' : '' ?>" href="/"><span>🏠</span>主页</a>
+        <button class="mtab" data-sheet="tasklist"<?= $is_home ? '' : ' data-href="/?panel=tasks"' ?>><span>📋</span>任务</button>
+        <button class="mtab" data-sheet="ai-assistant"><span>🤖</span>助手</button>
+        <a class="mtab<?= $current_page === 'mail' ? ' active' : '' ?>" href="/mail"><span>📧</span>邮箱</a>
+        <button class="mtab" id="mNavBtn"><span>☰</span>更多</button>
+    </nav>
+    <!-- Tier B (900–1279px): edge tab that pulls the right panel out as an overlay -->
+    <button class="m-edge-tab" id="mEdgeTab" aria-label="任务与助手">📋</button>
 
     <!-- Modal overlay -->
     <div class="modal-overlay" id="modalOverlay" style="display:none;">
@@ -168,5 +196,7 @@ $layout_user = current_user();
     <?php elseif ($current_page === 'users'): ?>
     <script src="/assets/js/users.js?v=<?= $asset_ver ?>"></script>
     <?php endif; ?>
+    <!-- Last: owns the panel tabs for every page and the mobile drawers/sheet -->
+    <script src="/assets/js/mobile.js?v=<?= $asset_ver ?>"></script>
 </body>
 </html>

@@ -25,7 +25,9 @@
 .mail-rel-lo { background: #f1f5f9; color: #64748b; }
 .mail-cat { background: #ede9fe; color: #5b21b6; font-weight: 500; }
 .mail-reply { background: #fce7f3; color: #9d174d; }
-.mail-deadline { background: #ffe4e6; color: #be123c; font-weight: 500; }
+/* Deadline is the most actionable thing in an analysis — read it at body size,
+   not badge size (0.86rem matches .mail-analysis-summary). */
+.mail-deadline { background: #ffe4e6; color: #be123c; font-weight: 600; font-size: 0.86rem; padding: 3px 10px; }
 .mail-pending { background: #f1f5f9; color: #94a3b8; font-weight: 500; }
 
 /* three-pane layout */

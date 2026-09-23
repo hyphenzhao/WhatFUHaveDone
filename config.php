@@ -16,6 +16,11 @@ define('APP_NAME', 'WorkLog');
 define('APP_URL', '/');
 define('TIMEZONE', 'Asia/Shanghai');
 
+// Static asset cache-buster. Bump on every CSS/JS change.
+// Shared by components/layout.php and pages/immersive.php (which has its own <head>),
+// so the two can never drift and serve a half-cached mix.
+define('ASSET_VER', '20260923a');
+
 date_default_timezone_set(TIMEZONE);
 
 // Error reporting (disable in production)

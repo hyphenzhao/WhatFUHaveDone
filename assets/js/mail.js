@@ -41,9 +41,11 @@ const Mail = {
             this._searchTimer = setTimeout(() => { this.filters.q = e.target.value.trim(); this.loadList(true); }, 300);
         });
 
-        // AI drawer
+        // AI drawer. Below 1100px the drawer is display:none (mail.css), and mounting
+        // there would park the chat singleton in an invisible container AND make it
+        // AiChat.homeContainer forever — leaving no way to reach the assistant.
         const drawerBody = document.getElementById('mailAiBody');
-        if (typeof AiChat !== 'undefined' && drawerBody) AiChat.mount(drawerBody);
+        if (typeof AiChat !== 'undefined' && drawerBody && window.innerWidth > 1100) AiChat.mount(drawerBody);
         if (localStorage.getItem('mailAiDrawer') === 'collapsed') this.toggleDrawer(true);
 
         // Deep links: /mail?open=ID  /mail?compose=reply&id=ID

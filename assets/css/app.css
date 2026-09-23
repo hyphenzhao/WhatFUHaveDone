@@ -558,8 +558,17 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     flex-wrap: wrap;
     margin-bottom: 8px;
 }
+.task-card-note {
+    font-size: 0.72rem;
+    color: var(--color-text-secondary);
+    margin: 2px 0;
+    line-height: 1.3;
+    font-style: italic;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .task-card-tag {
-.task-card-note { font-size: 0.72rem; color: var(--color-text-secondary); margin: 2px 0; line-height: 1.3; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     display: inline-block;
     padding: 1px 6px;
     border-radius: 10px;
@@ -756,8 +765,6 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .bazi-card-period { font-size: 0.72rem; color: var(--color-text-secondary); }
 .bazi-card-pillars { margin-bottom: 6px; }
 .bazi-card-pillar-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
-    align-items: center;
-    align-items: center;
 .bazi-card-gan { font-size: 1.1rem; font-weight: 700; letter-spacing: 2px; }
 .bazi-card-shishen {
     font-size: 0.75rem;
@@ -799,8 +806,6 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .liuri-analysis p { margin: 0 0 4px; }
 .liuri-analysis strong { font-weight: 700; color: var(--color-text); }
 .liuri-analysis em { font-style: italic; }
-    margin-top: 4px;
-}
 /* Liuri card in daily status */
 .daily-liuri { /* inside daily-almanac-wrap, auto width */ }
 .liuri-card {
@@ -1451,13 +1456,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .form-row-2 { display: flex; gap: 12px; }
 .form-row-2 .form-group { flex: 1; }
 .star-display { font-size: 0.9rem; }
-.drag-handle { color: var(--color-text-secondary); font-size: 0.85rem; }
-.form-row-2 { display: flex; gap: 12px; }
-.form-row-2 .form-group { flex: 1; }
 .star-display .star { color: #d1d5db; }
-.drag-handle { color: var(--color-text-secondary); font-size: 0.85rem; }
-.form-row-2 { display: flex; gap: 12px; }
-.form-row-2 .form-group { flex: 1; }
 .star-display .star.filled { color: #f59e0b; }
 
 /* Multi-select */
@@ -1717,7 +1716,6 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .rdi-log { font-size: 0.68rem; padding: 1px 8px; border-radius: 10px; background: var(--color-success-bg); color: #166534; border: 1px solid #86efac; }
 .report-content { max-height: 68vh; overflow-y: auto; }
 .report-empty, .report-loading { color: var(--color-text-secondary); text-align: center; padding: 30px 12px; }
-@media (max-width: 720px) { .report-actions { grid-template-columns: repeat(2, 1fr); } }
 .markdown-body { line-height: 1.7; overflow-x: auto; }
 .markdown-body h2 { font-size: 1.3rem; margin: 0.6em 0 0.4em; }
 .markdown-body h3 { font-size: 1.08rem; margin: 1em 0 0.4em; border-left: 3px solid var(--color-primary); padding-left: 8px; }
@@ -1730,7 +1728,6 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .markdown-body table.report-table th, .markdown-body table.report-table td { border: 1px solid var(--color-border); padding: 5px 10px; text-align: left; }
 .markdown-body table.report-table th { background: var(--color-surface-hover, rgba(0,0,0,0.04)); }
 .markdown-body code { background: var(--color-surface-hover, rgba(0,0,0,0.05)); padding: 1px 5px; border-radius: 3px; font-size: 0.85em; }
-@media (max-width: 720px) { .report-stat-grid { grid-template-columns: 1fr; } }
 
 /* ===== AI step notices (e.g. profile memory updates) ===== */
 .ai-step-notice { display:inline-block; margin-left:6px; padding:1px 8px; border-radius:10px; font-size:0.74rem; background:#ede9fe; color:#5b21b6; }

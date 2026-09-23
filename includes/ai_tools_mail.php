@@ -100,6 +100,31 @@ function ai_tools_mail_definitions(): array {
             'handler' => 'handle_analyze_emails_by_date',
         ],
         [
+            'name' => 'update_email_analysis',
+            'description' => '修改某封邮件的 AI 分析结论（相关度、优先级、截止时间、简明标题、摘要、类别、是否需回复、详细分析、建议行动）。'
+                . '用于用户指出判断有误时的人工校正，例如"这封其实跟我很相关，相关度调到 90"或"截止是下周五，不是这个"。'
+                . '只传需要修改的字段，其余保持不变。改前先用 get_email_analysis 读出当前值，并在提议时说明"从 X 改为 Y"。'
+                . '校正后该分析会被标记为人工校正，不会被日常自动分析覆盖。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer', 'description' => '邮件ID（必填）'],
+                    'relevance' => ['type' => 'integer', 'description' => '相关度 0-100'],
+                    'priority' => ['type' => 'integer', 'description' => '优先级 1-5（1 最高）'],
+                    'deadline_hint' => ['type' => 'string', 'description' => '截止时间说明；传空字符串表示清除'],
+                    'brief_title' => ['type' => 'string', 'description' => '简明标题（≤25 字）'],
+                    'summary' => ['type' => 'string', 'description' => '摘要'],
+                    'category' => ['type' => 'string', 'enum' => ['work', 'personal', 'notification', 'marketing', 'spam', 'other'], 'description' => '类别'],
+                    'needs_reply' => ['type' => 'boolean', 'description' => '是否需要回复'],
+                    'detailed_md' => ['type' => 'string', 'description' => '详细分析（Markdown）'],
+                    'actions' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => '建议行动列表'],
+                ],
+                'required' => ['id'],
+            ],
+            'requires_confirmation' => true,
+            'handler' => 'handle_update_email_analysis',
+        ],
+        [
             'name' => 'mark_email',
             'description' => '标记邮件为已读/未读、加星/取消星标。',
             'parameters' => [
@@ -422,6 +447,92 @@ function handle_get_email_analysis(PDO $db, array $args): array {
     unset($row['actions_json'], $row['user_id']);
     $row['priority'] = (int)$row['priority']; $row['relevance'] = (int)$row['relevance']; $row['needs_reply'] = (int)$row['needs_reply'];
     return $row + ['analyzed' => true];
+}
+
+/** Human correction of an AI verdict. Requires confirmation; only the given fields change. */
+function handle_update_email_analysis(PDO $db, array $args): array {
+    $uid = current_user_id();
+    $id = (int)($args['id'] ?? 0);
+
+    $st = $db->prepare('SELECT a.* FROM mail_analysis a JOIN mail_messages m ON m.id = a.message_id
+                        WHERE a.message_id = ? AND a.user_id = ? AND m.user_id = ?');
+    $st->execute([$id, $uid, $uid]);
+    $cur = $st->fetch();
+    if (!$cur) return ['error' => '该邮件还没有分析结果，请先用 analyze_email 分析'];
+
+    $sets = [];
+    $params = [];
+    $changed = [];
+    $put = function (string $col, $value, string $label, $before) use (&$sets, &$params, &$changed) {
+        $sets[] = "$col = ?";
+        $params[] = $value;
+        $changed[$label] = ['from' => $before, 'to' => $value];
+    };
+
+    if (array_key_exists('relevance', $args)) {
+        $v = max(0, min(100, (int)$args['relevance']));
+        if ($v !== (int)$cur['relevance']) $put('relevance', $v, '相关度', (int)$cur['relevance']);
+    }
+    if (array_key_exists('priority', $args)) {
+        $v = max(1, min(5, (int)$args['priority']));
+        if ($v !== (int)$cur['priority']) $put('priority', $v, '优先级', (int)$cur['priority']);
+    }
+    if (array_key_exists('deadline_hint', $args)) {
+        $v = mb_substr(trim((string)$args['deadline_hint']), 0, 100, 'UTF-8');
+        if ($v !== (string)$cur['deadline_hint']) $put('deadline_hint', $v, '截止时间', (string)$cur['deadline_hint']);
+    }
+    if (array_key_exists('brief_title', $args)) {
+        $v = mb_substr(trim((string)$args['brief_title']), 0, 200, 'UTF-8');
+        if ($v !== '' && $v !== (string)$cur['brief_title']) $put('brief_title', $v, '简明标题', (string)$cur['brief_title']);
+    }
+    if (array_key_exists('summary', $args)) {
+        $v = trim((string)$args['summary']);
+        if ($v !== (string)$cur['summary']) $put('summary', $v, '摘要', (string)$cur['summary']);
+    }
+    if (array_key_exists('category', $args)) {
+        $v = strtolower(trim((string)$args['category']));
+        if (!in_array($v, ['work', 'personal', 'notification', 'marketing', 'spam', 'other'], true)) {
+            return ['error' => 'category 无效（work/personal/notification/marketing/spam/other）'];
+        }
+        if ($v !== (string)$cur['category']) $put('category', $v, '类别', (string)$cur['category']);
+    }
+    if (array_key_exists('needs_reply', $args)) {
+        $v = !empty($args['needs_reply']) ? 1 : 0;
+        if ($v !== (int)$cur['needs_reply']) $put('needs_reply', $v, '需要回复', (int)$cur['needs_reply'] ? '是' : '否');
+    }
+    if (array_key_exists('detailed_md', $args)) {
+        $v = trim((string)$args['detailed_md']);
+        if ($v !== (string)$cur['detailed_md']) $put('detailed_md', $v, '详细分析', '(已更新)');
+    }
+    if (array_key_exists('actions', $args) && is_array($args['actions'])) {
+        $v = array_values(array_filter(array_map(fn($x) => trim((string)$x), $args['actions'])));
+        $encoded = json_encode($v, JSON_UNESCAPED_UNICODE);
+        if ($encoded !== (string)$cur['actions_json']) $put('actions_json', $encoded, '建议行动', '(已更新)');
+    }
+
+    if (!$sets) return ['ok' => true, 'unchanged' => true, 'message' => '没有需要修改的字段（给出的值与当前一致）'];
+
+    // A corrected row is never silently overwritten: analyze() already skips rows
+    // with status='ok' unless force is passed, and this flag makes the UI say so.
+    $sets[] = 'user_edited = 1';
+    $sets[] = 'user_edited_at = NOW()';
+    $sets[] = "status = 'ok'";
+    $params[] = $id;
+    $params[] = $uid;
+    $db->prepare('UPDATE mail_analysis SET ' . implode(', ', $sets) . ' WHERE message_id = ? AND user_id = ?')->execute($params);
+
+    $st->execute([$id, $uid, $uid]);
+    $row = $st->fetch();
+    $row['actions'] = json_decode((string)$row['actions_json'], true) ?: [];
+    unset($row['actions_json'], $row['user_id']);
+    foreach (['priority', 'relevance', 'needs_reply', 'user_edited'] as $k) $row[$k] = (int)$row[$k];
+
+    $summary = implode('、', array_map(
+        fn($label, $d) => is_scalar($d['from']) && is_scalar($d['to']) && mb_strlen((string)$d['to'], 'UTF-8') <= 24
+            ? "{$label} {$d['from']} → {$d['to']}" : $label,
+        array_keys($changed), $changed));
+    return ['updated' => true, 'changed' => $changed, 'analysis' => $row,
+            '_notice' => '✏️ 已校正邮件分析：' . mb_substr($summary, 0, 60, 'UTF-8')];
 }
 
 function handle_analyze_email(PDO $db, array $args): array {

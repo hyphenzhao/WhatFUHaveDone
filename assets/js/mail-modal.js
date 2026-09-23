@@ -93,6 +93,7 @@ const MailUI = {
                 ${this.priBadge(a)} ${this.relBadge(a)} ${this.catBadge(a)}
                 ${a.needs_reply ? '<span class="mail-badge mail-reply">需回复</span>' : ''}
                 ${a.deadline_hint ? `<span class="mail-badge mail-deadline">⏰ ${escapeHtml(a.deadline_hint)}</span>` : ''}
+                ${a.user_edited ? '<span class="mail-badge mail-verified" title="已由你校正，不会被自动分析覆盖">✏️ 人工校正</span>' : ''}
                 <span style="flex:1"></span>
                 <button class="btn btn-ghost btn-sm" title="重新分析" onclick="MailUI.analyze(${id}, ${opts.refresh ? `'${opts.refresh}'` : 'null'}, true)">🔄</button>
             </div>

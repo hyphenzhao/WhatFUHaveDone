@@ -411,11 +411,13 @@ const AiChat = {
     // ===== CONFIRMATION (inline card, so it works inside modals too) =====
     _toolIcons: { create_task:'➕', update_task:'✏️', delete_task:'🗑️', create_person:'➕', update_person:'✏️', create_tag:'➕', update_tag:'✏️',
                   toggle_worklog:'📝', add_plan:'📅', add_result_log:'🏆', update_worklog_duration:'⏱️', add_worklog_note:'📝', save_bazi_analysis:'🔮',
-                  mark_email:'🏷️', send_email:'📤', add_mail_account:'📮', update_mail_account:'📮', remove_mail_account:'🗑️' },
+                  mark_email:'🏷️', send_email:'📤', add_mail_account:'📮', update_mail_account:'📮', remove_mail_account:'🗑️',
+                  update_email_analysis:'✏️' },
     _toolNames: { create_task:'创建任务', update_task:'更新任务', delete_task:'删除任务', create_person:'创建人物', update_person:'更新人物',
                   create_tag:'创建标签', update_tag:'更新标签', toggle_worklog:'切换工作量', add_plan:'添加计划', add_result_log:'添加成果记录',
                   update_worklog_duration:'更新工作时长', add_worklog_note:'添加工作备注', save_bazi_analysis:'保存八字分析',
-                  mark_email:'标记邮件', send_email:'发送邮件', add_mail_account:'添加邮箱账户', update_mail_account:'修改邮箱账户', remove_mail_account:'删除邮箱账户' },
+                  mark_email:'标记邮件', send_email:'发送邮件', add_mail_account:'添加邮箱账户', update_mail_account:'修改邮箱账户', remove_mail_account:'删除邮箱账户',
+                  update_email_analysis:'校正邮件分析' },
 
     /** Tools whose confirmation card needs a secret typed by the user (never sent through the LLM). */
     _secretFor(call) {
@@ -606,6 +608,23 @@ const AiChat = {
         if (args.subject) p.push(`主题: ${escapeHtml(args.subject)}`);
         if (args.body) p.push(`正文: <div class="confirm-body-preview">${escapeHtml(String(args.body))}</div>`);
         if (args.in_reply_to_id) p.push(`回复邮件ID: ${args.in_reply_to_id}`);
+        if (name === 'update_email_analysis') {
+            const fields = [
+                ['relevance', '相关度', v => v + '%'], ['priority', '优先级', v => 'P' + v],
+                ['deadline_hint', '截止时间', v => v === '' ? '(清除)' : v],
+                ['brief_title', '简明标题', v => v], ['category', '类别', v => v],
+                ['needs_reply', '需要回复', v => v ? '是' : '否'],
+                ['summary', '摘要', v => v], ['detailed_md', '详细分析', () => '(重写)'],
+                ['actions', '建议行动', v => (Array.isArray(v) ? v.length : 0) + ' 条'],
+            ];
+            p.length = 0;   // this tool's own, clearer rendering
+            p.push(`邮件ID: ${args.id}`);
+            for (const [key, label, fmt] of fields) {
+                if (args[key] === undefined) continue;
+                p.push(`<b>${label}</b> → ${escapeHtml(String(fmt(args[key])))}`);
+            }
+            p.push('<span class="mail-hint">确认后该分析会标记为人工校正，不再被自动分析覆盖</span>');
+        }
         if (name === 'add_mail_account' || name === 'update_mail_account' || name === 'remove_mail_account') {
             if (args.id) p.push(`账户ID: ${args.id}`);
             if (args.email) p.push(`邮箱: ${escapeHtml(args.email)}`);

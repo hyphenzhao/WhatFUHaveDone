@@ -434,6 +434,8 @@ CREATE TABLE IF NOT EXISTS mail_analysis (
     detailed_md LONGTEXT,
     actions_json LONGTEXT,
     status VARCHAR(8) NOT NULL DEFAULT 'ok',            -- ok | error
+    user_edited TINYINT(1) NOT NULL DEFAULT 0,          -- corrected by the user (via the assistant)
+    user_edited_at DATETIME NULL,
     error TEXT,
     model VARCHAR(128) DEFAULT '',
     analyzed_at DATETIME NULL,

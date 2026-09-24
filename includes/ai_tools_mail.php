@@ -573,8 +573,9 @@ function handle_highlight_text(PDO $db, array $args): array {
         $out['hint'] = '这些片段在正文中找不到逐字匹配，未高亮。请从 get_email 返回的正文中原样复制。';
     }
     if ($added) $out['_notice'] = '🖍 已高亮 ' . count($added) . ' 处';
-    // Show the result immediately
-    $out['_action'] = ['type' => 'open_mail', 'id' => $id];
+    // Re-render wherever this mail is showing; open it if it is not. Without this
+    // the passages sit in the database and the user sees nothing change.
+    $out['_action'] = ['type' => 'refresh_mail', 'id' => $id];
     return $out;
 }
 
@@ -597,7 +598,8 @@ function handle_clear_text_highlights(PDO $db, array $args): array {
     $st = $db->prepare('DELETE FROM mail_highlights WHERE message_id = ? AND user_id = ?');
     $st->execute([$id, $uid]);
     mail_sync_highlight_flag($db, $uid, $id);
-    return ['ok' => true, 'removed' => $st->rowCount(), '_notice' => '🖍 已清除全部高亮'];
+    return ['ok' => true, 'removed' => $st->rowCount(), '_notice' => '🖍 已清除全部高亮',
+            '_action' => ['type' => 'refresh_mail', 'id' => $id]];
 }
 
 /** Human correction of an AI verdict. Requires confirmation; only the given fields change. */
@@ -683,7 +685,8 @@ function handle_update_email_analysis(PDO $db, array $args): array {
             ? "{$label} {$d['from']} → {$d['to']}" : $label,
         array_keys($changed), $changed));
     return ['updated' => true, 'changed' => $changed, 'analysis' => $row,
-            '_notice' => '✏️ 已校正邮件分析：' . mb_substr($summary, 0, 60, 'UTF-8')];
+            '_notice' => '✏️ 已校正邮件分析：' . mb_substr($summary, 0, 60, 'UTF-8'),
+            '_action' => ['type' => 'refresh_mail', 'id' => $id]];
 }
 
 function handle_analyze_email(PDO $db, array $args): array {

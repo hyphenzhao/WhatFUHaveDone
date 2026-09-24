@@ -368,24 +368,35 @@ const AiChat = {
 
     /**
      * UI actions a tool asked for (step.action), run once the reply has rendered.
-     * Only the last open_mail wins — the assistant may have looked at several.
+     * Only the last of each kind wins — the assistant may have touched several.
+     *
+     * open_mail  = "look at this one" (no data changed)
+     * refresh_mail = "I changed this one's content; show the new state"
      */
-    _runActions(steps) {
-        let openId = 0;
+    async _runActions(steps) {
+        let openId = 0, refreshId = 0;
         for (const s of (steps || [])) {
-            if (s && s.action && s.action.type === 'open_mail') openId = parseInt(s.action.id, 10) || 0;
+            if (!s || !s.action) continue;
+            if (s.action.type === 'open_mail') openId = parseInt(s.action.id, 10) || 0;
+            else if (s.action.type === 'refresh_mail') refreshId = parseInt(s.action.id, 10) || 0;
         }
-        if (!openId) return;
+        // A mail the assistant just edited has to re-render even when it is the one
+        // we are chatting about — that is exactly when the user is looking at it.
+        if (refreshId && typeof MailUI !== 'undefined') {
+            if (await MailUI.refreshMailViews(refreshId)) return;
+        }
+        const id = openId || refreshId;
+        if (!id) return;
         // Don't reopen the mail whose modal we are already chatting inside.
-        if (this.context && this.context.type === 'email' && this.context.id === openId) return;
+        if (this.context && this.context.type === 'email' && this.context.id === id) return;
         // On the mailbox page the reading pane IS the mail view — selecting there is
         // more natural (and more visible) than stacking a modal on top of it.
         if (typeof Mail !== 'undefined' && document.getElementById('mailReadPane')) {
-            Mail.openMessage(openId);
+            Mail.openMessage(id);
             document.getElementById('mailReadPane').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             return;
         }
-        if (typeof openMailModal === 'function') openMailModal(openId);
+        if (typeof openMailModal === 'function') openMailModal(id);
     },
 
     _genTitle(text) {

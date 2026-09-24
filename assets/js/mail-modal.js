@@ -40,10 +40,56 @@ const MailUI = {
     addr(a) { return a ? escapeHtml(a.name ? `${a.name} <${a.email}>` : (a.email || '')) : ''; },
     md(text) { return (typeof AiChat !== 'undefined' && AiChat._md) ? AiChat._md(text) : `<p>${escapeHtml(text || '')}</p>`; },
 
+    /** Whitespace that HTML treats as interchangeable, including the CJK ideographic space. */
+    _WS: /[\s 　]+/g,
+
     /**
-     * Wrap every stored snippet in <mark> by walking TEXT NODES of a detached DOM —
+     * Locate every stored snippet inside a flat string.
+     *
+     * Matching is whitespace-INSENSITIVE: the sender's HTML wraps lines wherever
+     * it likes, and the assistant copies from the text rendering, so an exact
+     * compare misses passages that are plainly there. We search a normalised
+     * copy and map the hit back to offsets in the original.
+     *
+     * @return {{s:number,e:number,hid:string}[]} inclusive offsets into `flat`,
+     *         sorted and non-overlapping (first match wins).
+     */
+    _findRanges(flat, highlights) {
+        if (!highlights || !highlights.length || !flat) return [];
+        let norm = '';
+        const map = [];
+        let prevSpace = false;
+        for (let i = 0; i < flat.length; i++) {
+            const ch = flat[i];
+            if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r' || ch === ' ' || ch === '　') {
+                if (prevSpace) continue;
+                norm += ' '; map.push(i); prevSpace = true;
+            } else {
+                norm += ch; map.push(i); prevSpace = false;
+            }
+        }
+        const hits = [];
+        for (const h of highlights) {
+            const needle = String(h.snippet || '').replace(this._WS, ' ').trim();
+            if (needle.length < 2) continue;
+            let from = 0, idx;
+            while ((idx = norm.indexOf(needle, from)) !== -1) {
+                hits.push({ s: map[idx], e: map[idx + needle.length - 1], hid: String(h.id) });
+                from = idx + needle.length;
+            }
+        }
+        hits.sort((a, b) => a.s - b.s || b.e - a.e);
+        const kept = [];
+        let lastEnd = -1;
+        for (const r of hits) { if (r.s > lastEnd) { kept.push(r); lastEnd = r.e; } }
+        return kept;
+    },
+
+    /**
+     * Wrap every stored snippet in <mark> by rewriting TEXT NODES of a detached DOM —
      * never by string-replacing in the HTML, which would corrupt tags and attributes.
-     * A snippet split across elements won't match; it still shows in the excerpt list.
+     * A passage may span several elements, so matches are found against the
+     * concatenated text and then split back across the nodes they cover.
      * @return {{html:string, found:number}}
      */
     markHtml(html, highlights) {
@@ -51,46 +97,72 @@ const MailUI = {
         let doc;
         try { doc = new DOMParser().parseFromString(html, 'text/html'); }
         catch (e) { return { html, found: 0 }; }
-        let found = 0;
-        for (const h of highlights) {
-            const needle = (h.snippet || '').trim();
-            if (needle.length < 2) continue;
-            const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
-            const targets = [];
-            let n;
-            while ((n = walker.nextNode())) {
-                if (n.parentNode && n.parentNode.closest && n.parentNode.closest('mark')) continue;
-                if (n.nodeValue && n.nodeValue.includes(needle)) targets.push(n);
-            }
-            for (const node of targets) {
-                const parts = node.nodeValue.split(needle);
-                const frag = doc.createDocumentFragment();
-                parts.forEach((part, i) => {
-                    if (i) {
-                        const mk = doc.createElement('mark');
-                        mk.className = 'mail-mark';
-                        mk.setAttribute('data-hl', String(h.id));
-                        mk.textContent = needle;
-                        frag.appendChild(mk);
-                        found++;
-                    }
-                    if (part) frag.appendChild(doc.createTextNode(part));
-                });
-                node.parentNode.replaceChild(frag, node);
+        if (!doc || !doc.body) return { html, found: 0 };
+
+        // Flatten the body's text nodes, remembering where each one starts.
+        // <style>/<script> text is markup, not prose — marking it would break the page.
+        const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+        const chunks = [];
+        let n, total = 0;
+        while ((n = walker.nextNode())) {
+            const p = n.parentNode;
+            if (p && p.closest && p.closest('script,style,noscript,mark')) continue;
+            const t = n.nodeValue || '';
+            if (!t) continue;
+            chunks.push({ node: n, start: total, text: t });
+            total += t.length;
+        }
+        if (!chunks.length) return { html, found: 0 };
+
+        const ranges = this._findRanges(chunks.map(c => c.text).join(''), highlights);
+        if (!ranges.length) return { html: doc.body.innerHTML, found: 0 };
+
+        // Group by node first, so a node holding two matches is still replaced once.
+        const perNode = new Map();
+        for (const r of ranges) {
+            for (let i = 0; i < chunks.length; i++) {
+                const c = chunks[i], cs = c.start, ce = cs + c.text.length;
+                if (ce <= r.s || cs > r.e) continue;
+                const from = Math.max(r.s, cs) - cs;
+                const to = Math.min(r.e, ce - 1) - cs + 1;
+                if (to <= from) continue;
+                if (!perNode.has(i)) perNode.set(i, []);
+                perNode.get(i).push({ from, to, hid: r.hid });
             }
         }
-        return { html: doc.body.innerHTML, found };
+        for (const [i, segs] of perNode) {
+            const c = chunks[i];
+            if (!c.node.parentNode) continue;
+            segs.sort((a, b) => a.from - b.from);
+            const frag = doc.createDocumentFragment();
+            let pos = 0;
+            for (const seg of segs) {
+                if (seg.from > pos) frag.appendChild(doc.createTextNode(c.text.slice(pos, seg.from)));
+                const mk = doc.createElement('mark');
+                mk.className = 'mail-mark';
+                mk.setAttribute('data-hl', seg.hid);
+                mk.textContent = c.text.slice(seg.from, seg.to);
+                frag.appendChild(mk);
+                pos = seg.to;
+            }
+            if (pos < c.text.length) frag.appendChild(doc.createTextNode(c.text.slice(pos)));
+            c.node.parentNode.replaceChild(frag, c.node);
+        }
+        return { html: doc.body.innerHTML, found: ranges.length };
     },
 
-    /** Same idea for the plain-text body: escape first, then wrap matches. */
+    /** Same idea for the plain-text body: find in the raw text, escape around the marks. */
     markText(text, highlights) {
-        let out = escapeHtml(text);
-        for (const h of (highlights || [])) {
-            const needle = escapeHtml((h.snippet || '').trim());
-            if (needle.length < 2) continue;
-            out = out.split(needle).join(`<mark class="mail-mark" data-hl="${h.id}">${needle}</mark>`);
+        text = String(text || '');
+        const ranges = this._findRanges(text, highlights);
+        if (!ranges.length) return escapeHtml(text);
+        let out = '', pos = 0;
+        for (const r of ranges) {
+            if (r.s > pos) out += escapeHtml(text.slice(pos, r.s));
+            out += `<mark class="mail-mark" data-hl="${r.hid}">${escapeHtml(text.slice(r.s, r.e + 1))}</mark>`;
+            pos = r.e + 1;
         }
-        return out;
+        return out + escapeHtml(text.slice(pos));
     },
 
     /** Render the message body into a container (sandboxed iframe for HTML, <pre> for text). */
@@ -207,16 +279,40 @@ const MailUI = {
         this._afterHighlightChange(id);
     },
 
-    /** Re-read the mail and re-render whichever views are showing it. */
-    async _afterHighlightChange(id) {
+    /**
+     * Re-read the mail and re-render every view currently showing it. Called both
+     * by the in-page highlight buttons and by the assistant's refresh_mail action,
+     * which is the only way an AI-side change becomes visible without a reload.
+     * @return {Promise<boolean>} whether the mail was on screen anywhere.
+     */
+    async refreshMailViews(id) {
+        id = parseInt(id, 10) || 0;
+        if (!id) return false;
         let msg;
-        try { msg = (await API.mail.message(id)).data; } catch (e) { return; }
-        if (typeof Mail !== 'undefined' && Mail.currentId === id) { Mail.currentMsg = msg; Mail.renderReadPane(msg); }
+        try { msg = (await API.mail.message(id)).data; } catch (e) { return false; }
+        let shown = false;
+
+        if (typeof Mail !== 'undefined' && Mail.currentId === id && document.getElementById('mailReadPane')) {
+            Mail.currentMsg = msg;
+            Mail.renderReadPane(msg);
+            shown = true;
+        }
         if (typeof Mail !== 'undefined' && Array.isArray(Mail.items)) Mail.updateListItem({ id, is_highlighted: msg.is_highlighted });
+
+        // Only touch the modal when it is showing THIS mail, or we would render
+        // one mail's body into another's window.
         const modalBody = document.getElementById('mailModalBody');
-        if (modalBody && Modal.isOpen && Modal.isOpen()) this.renderBody(msg, modalBody, { maxHeight: 1600 });
+        if (modalBody && Modal.isOpen && Modal.isOpen() && parseInt(modalBody.dataset.mailId, 10) === id) {
+            this.renderBody(msg, modalBody, { maxHeight: 1600 });
+            const box = document.getElementById('mailModalAnalysis');
+            if (box) box.innerHTML = this.analysisHtml(msg, { refresh: '_mailModalRefreshAnalysis' });
+            shown = true;
+        }
         if (typeof loadDailyMail === 'function' && typeof App !== 'undefined') loadDailyMail(App.selectedDate, true);
+        return shown;
     },
+
+    _afterHighlightChange(id) { return this.refreshMailViews(id); },
 
     attachmentsHtml(msg) {
         const list = msg.attachments || [];
@@ -305,7 +401,7 @@ async function openMailModal(id) {
                             <span style="flex:1"></span>
                             <button class="btn btn-primary btn-sm" onclick="MailUI.analyze(${id}, '_mailModalRefreshAnalysis', ${hasAnalysis ? 'true' : 'false'})">🤖 ${hasAnalysis ? '重新分析' : 'AI 分析'}</button>
                         </div>
-                        <div id="mailModalBody" class="mail-read-body"></div>
+                        <div id="mailModalBody" class="mail-read-body" data-mail-id="${id}"></div>
                         ${MailUI.attachmentsHtml(msg)}
                     </div>
                     <div class="mail-modal-pane" id="mailModalAi" style="display:none;">

@@ -127,7 +127,7 @@ const Mail = {
         const a = m.analysis && m.analysis.status === 'ok' ? m.analysis : null;
         return `<div class="mail-list-item ${m.is_seen ? '' : 'unseen'} ${m.is_highlighted ? 'highlighted' : ''} ${this.currentId === m.id ? 'selected' : ''}" data-id="${m.id}" onclick="Mail.openMessage(${m.id})">
             <div class="mail-li-row"><span class="mail-li-from">${escapeHtml(m.from_name || m.from_email)}</span><span class="mail-li-time">${MailUI.fmtDate(m.msg_date)}</span></div>
-            <div class="mail-li-subject">${m.is_highlighted ? '🔆 ' : ''}${m.is_flagged ? '⭐ ' : ''}${m.has_attachments ? '📎 ' : ''}${escapeHtml(m.subject || '(无主题)')}</div>
+            <div class="mail-li-subject">${m.is_highlighted ? '🖍 ' : ''}${m.is_flagged ? '⭐ ' : ''}${m.has_attachments ? '📎 ' : ''}${escapeHtml(m.subject || '(无主题)')}</div>
             <div class="mail-li-row"><span class="mail-li-snippet">${escapeHtml(a ? a.brief_title : (m.snippet || ''))}</span>${a ? `<span class="mail-li-badges">${MailUI.priBadge(a)}${MailUI.relBadge(a)}</span>` : ''}</div>
         </div>`;
     },
@@ -168,7 +168,6 @@ const Mail = {
                 <button class="btn btn-outline btn-sm" onclick="Mail.compose('reply_all', ${msg.id})">↩️↩️ 全部回复</button>
                 <button class="btn btn-outline btn-sm" onclick="Mail.compose('forward', ${msg.id})">↪️ 转发</button>
                 <button class="btn btn-ghost btn-sm" onclick="Mail.toggleFlag(${msg.id})">${msg.is_flagged ? '★ 取消星标' : '☆ 星标'}</button>
-                ${MailUI.highlightBtn(msg)}
                 <button class="btn btn-ghost btn-sm" onclick="Mail.markUnread(${msg.id})">✉️ 标为未读</button>
                 <button class="btn btn-ghost btn-sm" onclick="Mail.remove(${msg.id})">🗑️ 删除</button>
                 <span style="flex:1"></span>

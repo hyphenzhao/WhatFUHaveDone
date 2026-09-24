@@ -37,7 +37,7 @@ function ai_tools_mail_definitions(): array {
                     'account_id' => ['type' => 'integer', 'description' => '限定邮箱账户ID（可选）'],
                     'folder_kind' => ['type' => 'string', 'description' => '文件夹类型: inbox/sent/drafts/archive/other/junk/trash（可选）'],
                     'unread_only' => ['type' => 'boolean', 'description' => '仅未读'],
-                    'highlighted_only' => ['type' => 'boolean', 'description' => '仅用户/你高亮过的邮件——用户说"我高亮的那些"时用这个'],
+                    'highlighted_only' => ['type' => 'boolean', 'description' => '仅正文里划过高亮句子的邮件——用户说"我划线/高亮的那些"时用这个'],
                     'has_attachments' => ['type' => 'boolean', 'description' => '仅含附件'],
                     'limit' => ['type' => 'integer', 'description' => '最多返回条数，默认 30，上限 50'],
                     'page' => ['type' => 'integer', 'description' => '页码，默认 1'],
@@ -161,22 +161,6 @@ function ai_tools_mail_definitions(): array {
             ],
             'requires_confirmation' => true,
             'handler' => 'handle_clear_text_highlights',
-        ],
-        [
-            'name' => 'highlight_email',
-            'description' => '高亮或取消高亮邮件。高亮是你与用户之间的共享标记：用户可以说"看我高亮的那几封"，'
-                . '你也可以把需要处理的邮件高亮出来给用户指认。高亮只存在本地，不会同步到邮件服务器（与星标不同）。'
-                . '用 search_emails 的 highlighted_only 可以列出所有高亮邮件。',
-            'parameters' => [
-                'type' => 'object',
-                'properties' => [
-                    'id' => ['type' => 'integer', 'description' => '邮件ID（必填）'],
-                    'on' => ['type' => 'boolean', 'description' => 'true 高亮（默认），false 取消高亮'],
-                ],
-                'required' => ['id'],
-            ],
-            'requires_confirmation' => true,
-            'handler' => 'handle_highlight_email',
         ],
         [
             'name' => 'update_email_analysis',
@@ -614,26 +598,6 @@ function handle_clear_text_highlights(PDO $db, array $args): array {
     $st->execute([$id, $uid]);
     mail_sync_highlight_flag($db, $uid, $id);
     return ['ok' => true, 'removed' => $st->rowCount(), '_notice' => '🖍 已清除全部高亮'];
-}
-
-/** Whole-mail marker — a coarser pointer than the text highlighter above. */
-function handle_highlight_email(PDO $db, array $args): array {
-    $uid = current_user_id();
-    $id = (int)($args['id'] ?? 0);
-    $on = !array_key_exists('on', $args) || !empty($args['on']);
-    $st = $db->prepare('SELECT id, subject, is_highlighted FROM mail_messages WHERE id = ? AND user_id = ? AND is_deleted = 0');
-    $st->execute([$id, $uid]);
-    $m = $st->fetch();
-    if (!$m) return ['error' => '邮件不存在'];
-    if ((int)$m['is_highlighted'] === ($on ? 1 : 0)) {
-        return ['ok' => true, 'id' => $id, 'highlighted' => $on ? 1 : 0, 'unchanged' => true];
-    }
-    $db->prepare('UPDATE mail_messages SET is_highlighted = ?, highlighted_at = ' . ($on ? 'NOW()' : 'NULL') . ' WHERE id = ? AND user_id = ?')
-       ->execute([$on ? 1 : 0, $id, $uid]);
-    return [
-        'ok' => true, 'id' => $id, 'highlighted' => $on ? 1 : 0, 'subject' => $m['subject'],
-        '_notice' => ($on ? '🔆 已高亮：' : '⭘ 已取消高亮：') . mb_substr((string)$m['subject'], 0, 30, 'UTF-8'),
-    ];
 }
 
 /** Human correction of an AI verdict. Requires confirmation; only the given fields change. */

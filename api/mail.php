@@ -244,12 +244,8 @@ if ($res === 'messages' && $id && $method === 'PUT') {
         $sets[] = $flags['seen'] ? 'read_at = COALESCE(read_at, NOW())' : 'read_at = NULL';
     }
     if (array_key_exists('is_flagged', $data)) { $sets[] = 'is_flagged = ?'; $params[] = (int)!!$data['is_flagged']; $flags['flagged'] = !!$data['is_flagged']; }
-    // Highlight is a local marker shared with the assistant — never pushed to IMAP.
-    if (array_key_exists('is_highlighted', $data)) {
-        $on = !empty($data['is_highlighted']);
-        $sets[] = 'is_highlighted = ?'; $params[] = $on ? 1 : 0;
-        $sets[] = $on ? 'highlighted_at = NOW()' : 'highlighted_at = NULL';
-    }
+    // is_highlighted is NOT writable here: it is derived from the passage highlights
+    // (see mail_sync_highlight_flag). Write passages via /messages/{id}/highlights.
     if (!$sets) json_error('没有要更新的字段');
     $params[] = $id; $params[] = $uid;
     $db->prepare('UPDATE mail_messages SET ' . implode(', ', $sets) . ' WHERE id = ? AND user_id = ?')->execute($params);

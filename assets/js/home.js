@@ -1218,7 +1218,7 @@ async function loadDailyMail(date, force) {
             const sub = a ? a.summary : (m.snippet || '');
             const badges = a ? `${MailUI.priBadge(a)} ${MailUI.relBadge(a)}` : (d.ai_configured ? '<span class="mail-badge mail-pending">⏳ 待分析</span>' : '');
             return `<div class="daily-mail-item ${m.is_seen ? '' : 'unseen'} ${a ? '' : 'unanalyzed'} ${m.is_highlighted ? 'highlighted' : ''}" onclick="openMailModal(${m.id})">
-                <div class="daily-mail-row1">${badges}<span class="daily-mail-title">${m.is_highlighted ? '🔆 ' : ''}${escapeHtml(title)}</span><span class="daily-mail-time">${MailUI.fmtDate(m.msg_date)}</span></div>
+                <div class="daily-mail-row1">${badges}<span class="daily-mail-title">${m.is_highlighted ? '🖍 ' : ''}${escapeHtml(title)}</span><span class="daily-mail-time">${MailUI.fmtDate(m.msg_date)}</span></div>
                 <div class="daily-mail-row2"><span class="daily-mail-from">${escapeHtml(m.from_name || m.from_email)}</span>${sub ? ' · ' + escapeHtml(sub) : ''}</div>
             </div>`;
         }).join('');

@@ -1047,12 +1047,12 @@ For EVERY user request, follow this process:
   get_worklogs_by_date, get_workload_stats, get_results_stats, get_calendar_data, get_daily_status,
   get_relationships, get_weather, get_worklog_notes, get_user_profile, get_bazi_analysis, get_calendar_meta,
   get_profile_documents, get_profile_document_text, list_impressions,
-  list_mail_accounts, get_mail_presets, test_mail_account, sync_mail_account,
+  list_mail_accounts, get_mail_presets, test_mail_account, sync_mail_account, open_email,
   search_emails, get_email, get_email_analysis, analyze_email, analyze_emails_by_date
 - Silent memory tools (auto-executed, no confirmation): remember_about_user, forget_impression
 - Write tools (require user confirmation): create_task, update_task, delete_task, create_person,
   update_person, create_tag, update_tag, toggle_worklog, add_plan, update_worklog_duration, add_result_log,
-  add_worklog_note, save_bazi_analysis, mark_email, send_email, update_email_analysis, add_mail_account,
+  add_worklog_note, save_bazi_analysis, mark_email, send_email, update_email_analysis, highlight_email, add_mail_account,
   update_mail_account, remove_mail_account
 
 ## RULES
@@ -1102,6 +1102,11 @@ The identity / AI IMPRESSION SUMMARY blocks are not background decoration. Apply
   judge it before confirming. Pass only the fields being changed; a corrected analysis is flagged as
   human-verified and will not be overwritten by the daily automatic pass.
 - If a CURRENT EMAIL block is present, "这封邮件/该邮件" refers to it; use its id directly.
+- open_email pops the mail window open in the user's browser. Use it whenever you refer to a specific mail
+  the user will want to look at ("打开那封" / "给我看看"), instead of only naming it. It changes no data.
+- Highlight is a shared pointer between you and the user, separate from the IMAP star and local-only.
+  "我高亮的那几封" → search_emails with highlighted_only. When you triage a batch, you may offer to
+  highlight the ones needing action (highlight_email, needs confirmation) so the user can find them later.
 - send_email and mark_email modify the mailbox and require confirmation. Draft replies in the user's voice
   (based on identity documents) and show the draft before proposing send_email.
 - Mailbox setup: when the user wants to add a mailbox, call add_mail_account with the email address (and
@@ -1284,9 +1289,11 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
                         }
                     }
                     $result = $tool['handler']($db, $args);
-                    if (is_array($result) && isset($result['_notice'])) {
-                        $steps[] = ['type' => 'tool', 'name' => $call['function']['name'], 'status' => 'done', 'notice' => (string)$result['_notice']];
-                        unset($result['_notice']);
+                    if (is_array($result) && (isset($result['_notice']) || isset($result['_action']))) {
+                        $step = ['type' => 'tool', 'name' => $call['function']['name'], 'status' => 'done'];
+                        if (isset($result['_notice'])) { $step['notice'] = (string)$result['_notice']; unset($result['_notice']); }
+                        if (isset($result['_action'])) { $step['action'] = $result['_action']; unset($result['_action']); }
+                        $steps[] = $step;
                     }
                     $messages[] = ['role' => 'tool', 'tool_call_id' => $call['id'], 'content' => json_encode($result, JSON_UNESCAPED_UNICODE)];
                 } catch (Exception $e) {
@@ -1376,6 +1383,11 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
                     if (is_array($result) && isset($result['_notice'])) {
                         $steps[count($steps)-1]['notice'] = (string)$result['_notice'];
                         unset($result['_notice']);
+                    }
+                    // A tool may ask the browser to do something (e.g. open a mail window).
+                    if (is_array($result) && isset($result['_action'])) {
+                        $steps[count($steps)-1]['action'] = $result['_action'];
+                        unset($result['_action']);
                     }
                     $toolResults[] = ['role' => 'tool', 'tool_call_id' => $call['id'], 'content' => json_encode($result, JSON_UNESCAPED_UNICODE)];
                     $steps[count($steps)-1]['status'] = 'done';

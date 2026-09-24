@@ -31,6 +31,30 @@ const MailUI = {
         return same ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     },
     fmtSize(b) { b = b || 0; return b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(1) + ' KB' : (b / 1048576).toFixed(1) + ' MB'; },
+
+    /**
+     * Toggle the local highlight — a shared pointer between the user and the
+     * assistant ("look at the ones I highlighted"). Never synced to IMAP.
+     * Refreshes whichever views are on screen.
+     */
+    async toggleHighlight(id, on) {
+        try {
+            await API.mail.update(id, { is_highlighted: on ? 1 : 0 });
+            Toast.success(on ? '🔆 已高亮' : '已取消高亮');
+        } catch (e) { Toast.error(e.message); return; }
+        if (typeof Mail !== 'undefined' && Array.isArray(Mail.items)) {
+            Mail.updateListItem({ id, is_highlighted: on ? 1 : 0 });
+            if (Mail.currentId === id && Mail.currentMsg) { Mail.currentMsg.is_highlighted = on ? 1 : 0; Mail.renderReadPane(Mail.currentMsg); }
+        }
+        if (typeof loadDailyMail === 'function' && typeof App !== 'undefined') loadDailyMail(App.selectedDate, true);
+        if (typeof window._mailModalRefreshHeader === 'function') window._mailModalRefreshHeader(id);
+    },
+
+    highlightBtn(msg) {
+        const on = !!msg.is_highlighted;
+        return `<button class="btn ${on ? 'btn-warning' : 'btn-ghost'} btn-sm" onclick="MailUI.toggleHighlight(${msg.id}, ${on ? 0 : 1})"
+                    title="${on ? '取消高亮' : '高亮这封，便于和助手互相指认'}">${on ? '🔆 已高亮' : '🔆 高亮'}</button>`;
+    },
     addr(a) { return a ? escapeHtml(a.name ? `${a.name} <${a.email}>` : (a.email || '')) : ''; },
     md(text) { return (typeof AiChat !== 'undefined' && AiChat._md) ? AiChat._md(text) : `<p>${escapeHtml(text || '')}</p>`; },
 
@@ -138,10 +162,11 @@ async function openMailModal(id) {
                     </div>
                     <div class="mail-modal-pane" id="mailModalMail">
                         ${MailUI.headerHtml(msg)}
-                        <div class="mail-read-actions">
+                        <div class="mail-read-actions" id="mailModalActions">
                             <a class="btn btn-outline btn-sm" href="/mail?open=${id}">在邮箱中打开</a>
                             <a class="btn btn-outline btn-sm" href="/mail?compose=reply&id=${id}">↩️ 回复</a>
                             <a class="btn btn-outline btn-sm" href="/mail?compose=forward&id=${id}">↪️ 转发</a>
+                            ${MailUI.highlightBtn(msg)}
                             <span style="flex:1"></span>
                             <button class="btn btn-primary btn-sm" onclick="MailUI.analyze(${id}, '_mailModalRefreshAnalysis', ${hasAnalysis ? 'true' : 'false'})">🤖 ${hasAnalysis ? '重新分析' : 'AI 分析'}</button>
                         </div>
@@ -168,6 +193,15 @@ async function openMailModal(id) {
         document.getElementById('mailModalAi').style.display = name === 'ai' ? '' : 'none';
         document.getElementById('mailModalMail').style.display = name === 'mail' ? '' : 'none';
     };
+    // Re-render just the action row so the highlight button reflects the new state
+    window._mailModalRefreshHeader = (mid) => {
+        if (mid !== msg.id) return;
+        msg.is_highlighted = msg.is_highlighted ? 0 : 1;
+        const row = document.getElementById('mailModalActions');
+        const btn = row && row.querySelector('button[onclick^="MailUI.toggleHighlight"]');
+        if (btn) btn.outerHTML = MailUI.highlightBtn(msg);
+    };
+
     window._mailModalRefreshAnalysis = async (mid) => {
         try {
             const m = (await API.mail.message(mid)).data;

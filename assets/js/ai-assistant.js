@@ -350,6 +350,7 @@ const AiChat = {
             await this._typeText(data.content);
             this._showMeta(data);
             await this._saveConv(title);
+            this._runActions(data.steps);
             return false;
         }
         if (data.type === 'confirmation') {
@@ -360,6 +361,22 @@ const AiChat = {
             return true;
         }
         return false;
+    },
+
+    /**
+     * UI actions a tool asked for (step.action), run once the reply has rendered.
+     * Only the last open_mail wins — the assistant may have looked at several.
+     */
+    _runActions(steps) {
+        let openId = 0;
+        for (const s of (steps || [])) {
+            if (s && s.action && s.action.type === 'open_mail') openId = parseInt(s.action.id, 10) || 0;
+        }
+        if (openId && typeof openMailModal === 'function') {
+            // Don't reopen the mail whose modal we are already chatting inside.
+            if (this.context && this.context.type === 'email' && this.context.id === openId) return;
+            openMailModal(openId);
+        }
     },
 
     _genTitle(text) {
@@ -412,12 +429,12 @@ const AiChat = {
     _toolIcons: { create_task:'➕', update_task:'✏️', delete_task:'🗑️', create_person:'➕', update_person:'✏️', create_tag:'➕', update_tag:'✏️',
                   toggle_worklog:'📝', add_plan:'📅', add_result_log:'🏆', update_worklog_duration:'⏱️', add_worklog_note:'📝', save_bazi_analysis:'🔮',
                   mark_email:'🏷️', send_email:'📤', add_mail_account:'📮', update_mail_account:'📮', remove_mail_account:'🗑️',
-                  update_email_analysis:'✏️' },
+                  update_email_analysis:'✏️', highlight_email:'🔆' },
     _toolNames: { create_task:'创建任务', update_task:'更新任务', delete_task:'删除任务', create_person:'创建人物', update_person:'更新人物',
                   create_tag:'创建标签', update_tag:'更新标签', toggle_worklog:'切换工作量', add_plan:'添加计划', add_result_log:'添加成果记录',
                   update_worklog_duration:'更新工作时长', add_worklog_note:'添加工作备注', save_bazi_analysis:'保存八字分析',
                   mark_email:'标记邮件', send_email:'发送邮件', add_mail_account:'添加邮箱账户', update_mail_account:'修改邮箱账户', remove_mail_account:'删除邮箱账户',
-                  update_email_analysis:'校正邮件分析' },
+                  update_email_analysis:'校正邮件分析', highlight_email:'高亮邮件' },
 
     /** Tools whose confirmation card needs a secret typed by the user (never sent through the LLM). */
     _secretFor(call) {
@@ -527,7 +544,8 @@ const AiChat = {
             list_mail_accounts:'读取邮箱账户', search_emails:'搜索邮件', get_email:'读取邮件', get_email_analysis:'读取邮件分析',
             analyze_email:'AI 分析邮件', analyze_emails_by_date:'批量分析邮件', mark_email:'标记邮件', send_email:'发送邮件',
             get_mail_presets:'读取邮箱预设', add_mail_account:'添加邮箱账户', update_mail_account:'修改邮箱账户', test_mail_account:'测试邮箱连接',
-            sync_mail_account:'收取邮件', remove_mail_account:'删除邮箱账户' };
+            sync_mail_account:'收取邮件', remove_mail_account:'删除邮箱账户',
+            open_email:'打开邮件', highlight_email:'高亮邮件', update_email_analysis:'校正邮件分析' };
         if (step.type === 'think') {
             div.innerHTML = `<span class="ai-step-icon">💭</span> <span>${escapeHtml(step.content)}</span>`;
         } else if (step.type === 'tool') {

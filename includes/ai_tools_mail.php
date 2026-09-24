@@ -37,6 +37,7 @@ function ai_tools_mail_definitions(): array {
                     'account_id' => ['type' => 'integer', 'description' => '限定邮箱账户ID（可选）'],
                     'folder_kind' => ['type' => 'string', 'description' => '文件夹类型: inbox/sent/drafts/archive/other/junk/trash（可选）'],
                     'unread_only' => ['type' => 'boolean', 'description' => '仅未读'],
+                    'highlighted_only' => ['type' => 'boolean', 'description' => '仅用户/你高亮过的邮件——用户说"我高亮的那些"时用这个'],
                     'has_attachments' => ['type' => 'boolean', 'description' => '仅含附件'],
                     'limit' => ['type' => 'integer', 'description' => '最多返回条数，默认 30，上限 50'],
                     'page' => ['type' => 'integer', 'description' => '页码，默认 1'],
@@ -98,6 +99,34 @@ function ai_tools_mail_definitions(): array {
             ],
             'requires_confirmation' => false,
             'handler' => 'handle_analyze_emails_by_date',
+        ],
+        [
+            'name' => 'open_email',
+            'description' => '在用户界面中打开某封邮件（弹出邮件窗口，含正文、附件与 AI 分析）。'
+                . '当用户说"打开那封"、"给我看看"、或你提到某封邮件希望用户当场查看时使用。只影响界面，不修改任何数据。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => ['id' => ['type' => 'integer', 'description' => '邮件ID（必填）']],
+                'required' => ['id'],
+            ],
+            'requires_confirmation' => false,
+            'handler' => 'handle_open_email',
+        ],
+        [
+            'name' => 'highlight_email',
+            'description' => '高亮或取消高亮邮件。高亮是你与用户之间的共享标记：用户可以说"看我高亮的那几封"，'
+                . '你也可以把需要处理的邮件高亮出来给用户指认。高亮只存在本地，不会同步到邮件服务器（与星标不同）。'
+                . '用 search_emails 的 highlighted_only 可以列出所有高亮邮件。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer', 'description' => '邮件ID（必填）'],
+                    'on' => ['type' => 'boolean', 'description' => 'true 高亮（默认），false 取消高亮'],
+                ],
+                'required' => ['id'],
+            ],
+            'requires_confirmation' => true,
+            'handler' => 'handle_highlight_email',
         ],
         [
             'name' => 'update_email_analysis',
@@ -397,6 +426,7 @@ function handle_search_emails(PDO $db, array $args): array {
     if (!empty($args['account_id'])) $filters['account_id'] = (int)$args['account_id'];
     if (!empty($args['folder_kind'])) $filters['kind'] = $args['folder_kind'];
     if (!empty($args['unread_only'])) $filters['unread'] = 1;
+    if (!empty($args['highlighted_only'])) $filters['highlighted'] = 1;
     if (!empty($args['has_attachments'])) $filters['has_attachments'] = 1;
     $limit = max(1, min(50, (int)($args['limit'] ?? 30)));
     $page = max(1, (int)($args['page'] ?? 1));
@@ -407,6 +437,7 @@ function handle_search_emails(PDO $db, array $args): array {
             'id' => $it['id'], 'account_id' => $it['account_id'], 'folder' => $it['folder_kind'],
             'from' => trim($it['from_name'] . ' <' . $it['from_email'] . '>'), 'subject' => $it['subject'],
             'date' => $it['msg_date'], 'unread' => $it['is_seen'] ? 0 : 1, 'has_attachments' => $it['has_attachments'],
+            'highlighted' => $it['is_highlighted'] ?? 0,
             'snippet' => $it['snippet'],
             'analysis' => $it['analysis'] ? ['brief_title' => $it['analysis']['brief_title'], 'priority' => $it['analysis']['priority'], 'relevance' => $it['analysis']['relevance'], 'category' => $it['analysis']['category']] : null,
         ];
@@ -424,6 +455,7 @@ function handle_get_email(PDO $db, array $args): array {
         'id' => $m['id'], 'account_id' => $m['account_id'], 'folder' => $m['folder_name'], 'folder_kind' => $m['folder_kind'],
         'subject' => $m['subject'], 'from' => ['name' => $m['from_name'], 'email' => $m['from_email']],
         'to' => $m['to'], 'cc' => $m['cc'], 'date' => $m['msg_date'], 'unread' => $m['is_seen'] ? 0 : 1, 'flagged' => $m['is_flagged'],
+        'highlighted' => $m['is_highlighted'],
         'body' => ai_truncate($body, 8000),
         'attachments' => [],
         'analysis' => $m['analysis'] ? ['brief_title' => $m['analysis']['brief_title'], 'summary' => $m['analysis']['summary'], 'priority' => $m['analysis']['priority'],
@@ -447,6 +479,42 @@ function handle_get_email_analysis(PDO $db, array $args): array {
     unset($row['actions_json'], $row['user_id']);
     $row['priority'] = (int)$row['priority']; $row['relevance'] = (int)$row['relevance']; $row['needs_reply'] = (int)$row['needs_reply'];
     return $row + ['analyzed' => true];
+}
+
+/** Pure UI action: tell the browser to pop the mail modal open. Changes no data. */
+function handle_open_email(PDO $db, array $args): array {
+    $uid = current_user_id();
+    $id = (int)($args['id'] ?? 0);
+    $st = $db->prepare('SELECT id, subject, from_name, from_email, msg_date FROM mail_messages WHERE id = ? AND user_id = ? AND is_deleted = 0');
+    $st->execute([$id, $uid]);
+    $m = $st->fetch();
+    if (!$m) return ['error' => '邮件不存在'];
+    return [
+        'opened' => true, 'id' => (int)$m['id'], 'subject' => $m['subject'],
+        'from' => trim($m['from_name'] . ' <' . $m['from_email'] . '>'), 'date' => $m['msg_date'],
+        '_action' => ['type' => 'open_mail', 'id' => (int)$m['id']],
+        '_notice' => '📂 已打开：' . mb_substr((string)$m['subject'], 0, 30, 'UTF-8'),
+    ];
+}
+
+/** Local highlight — a shared pointer between the user and the assistant. */
+function handle_highlight_email(PDO $db, array $args): array {
+    $uid = current_user_id();
+    $id = (int)($args['id'] ?? 0);
+    $on = !array_key_exists('on', $args) || !empty($args['on']);
+    $st = $db->prepare('SELECT id, subject, is_highlighted FROM mail_messages WHERE id = ? AND user_id = ? AND is_deleted = 0');
+    $st->execute([$id, $uid]);
+    $m = $st->fetch();
+    if (!$m) return ['error' => '邮件不存在'];
+    if ((int)$m['is_highlighted'] === ($on ? 1 : 0)) {
+        return ['ok' => true, 'id' => $id, 'highlighted' => $on ? 1 : 0, 'unchanged' => true];
+    }
+    $db->prepare('UPDATE mail_messages SET is_highlighted = ?, highlighted_at = ' . ($on ? 'NOW()' : 'NULL') . ' WHERE id = ? AND user_id = ?')
+       ->execute([$on ? 1 : 0, $id, $uid]);
+    return [
+        'ok' => true, 'id' => $id, 'highlighted' => $on ? 1 : 0, 'subject' => $m['subject'],
+        '_notice' => ($on ? '🔆 已高亮：' : '⭘ 已取消高亮：') . mb_substr((string)$m['subject'], 0, 30, 'UTF-8'),
+    ];
 }
 
 /** Human correction of an AI verdict. Requires confirmation; only the given fields change. */

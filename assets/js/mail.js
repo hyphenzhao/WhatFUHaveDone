@@ -5,7 +5,7 @@ const Mail = {
     status: null,
     tree: [],
     current: { folderId: 0, accountId: 0, kind: '' },
-    filters: { q: '', unread: false, flagged: false },
+    filters: { q: '', unread: false, flagged: false, highlighted: false },
     page: 1,
     hasMore: false,
     loading: false,
@@ -95,7 +95,8 @@ const Mail = {
         if (reset) { this.page = 1; this.items = []; list.innerHTML = '<div class="mail-muted" style="padding:16px;">加载中...</div>'; }
         this.loading = true;
         try {
-            const params = { page: this.page, per_page: 50, q: this.filters.q, unread: this.filters.unread ? 1 : '', flagged: this.filters.flagged ? 1 : '' };
+            const params = { page: this.page, per_page: 50, q: this.filters.q, unread: this.filters.unread ? 1 : '',
+                             flagged: this.filters.flagged ? 1 : '', highlighted: this.filters.highlighted ? 1 : '' };
             if (this.current.folderId) params.folder_id = this.current.folderId;
             else if (this.current.kind) params.kind = this.current.kind;
             const d = (await API.mail.messages(params)).data;
@@ -124,9 +125,9 @@ const Mail = {
 
     itemHtml(m) {
         const a = m.analysis && m.analysis.status === 'ok' ? m.analysis : null;
-        return `<div class="mail-list-item ${m.is_seen ? '' : 'unseen'} ${this.currentId === m.id ? 'selected' : ''}" data-id="${m.id}" onclick="Mail.openMessage(${m.id})">
+        return `<div class="mail-list-item ${m.is_seen ? '' : 'unseen'} ${m.is_highlighted ? 'highlighted' : ''} ${this.currentId === m.id ? 'selected' : ''}" data-id="${m.id}" onclick="Mail.openMessage(${m.id})">
             <div class="mail-li-row"><span class="mail-li-from">${escapeHtml(m.from_name || m.from_email)}</span><span class="mail-li-time">${MailUI.fmtDate(m.msg_date)}</span></div>
-            <div class="mail-li-subject">${m.is_flagged ? '⭐ ' : ''}${m.has_attachments ? '📎 ' : ''}${escapeHtml(m.subject || '(无主题)')}</div>
+            <div class="mail-li-subject">${m.is_highlighted ? '🔆 ' : ''}${m.is_flagged ? '⭐ ' : ''}${m.has_attachments ? '📎 ' : ''}${escapeHtml(m.subject || '(无主题)')}</div>
             <div class="mail-li-row"><span class="mail-li-snippet">${escapeHtml(a ? a.brief_title : (m.snippet || ''))}</span>${a ? `<span class="mail-li-badges">${MailUI.priBadge(a)}${MailUI.relBadge(a)}</span>` : ''}</div>
         </div>`;
     },
@@ -167,6 +168,7 @@ const Mail = {
                 <button class="btn btn-outline btn-sm" onclick="Mail.compose('reply_all', ${msg.id})">↩️↩️ 全部回复</button>
                 <button class="btn btn-outline btn-sm" onclick="Mail.compose('forward', ${msg.id})">↪️ 转发</button>
                 <button class="btn btn-ghost btn-sm" onclick="Mail.toggleFlag(${msg.id})">${msg.is_flagged ? '★ 取消星标' : '☆ 星标'}</button>
+                ${MailUI.highlightBtn(msg)}
                 <button class="btn btn-ghost btn-sm" onclick="Mail.markUnread(${msg.id})">✉️ 标为未读</button>
                 <button class="btn btn-ghost btn-sm" onclick="Mail.remove(${msg.id})">🗑️ 删除</button>
                 <span style="flex:1"></span>

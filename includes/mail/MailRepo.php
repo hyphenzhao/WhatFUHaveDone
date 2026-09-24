@@ -8,7 +8,7 @@ require_once __DIR__ . '/MailHelpers.php';
 
 /**
  * Query messages with filters + pagination.
- * $filters: folder_id, account_id, kind, q, unread, flagged, has_attachments, date_from, date_to, ids
+ * $filters: folder_id, account_id, kind, q, unread, flagged, highlighted, has_attachments, date_from, date_to, ids
  * Returns ['items' => [...], 'page', 'per_page', 'total', 'has_more']
  */
 function mail_query_messages(PDO $db, int $uid, array $filters, int $page = 1, int $perPage = 50): array {
@@ -29,6 +29,7 @@ function mail_query_messages(PDO $db, int $uid, array $filters, int $page = 1, i
     }
     if (!empty($filters['unread'])) $where[] = 'm.is_seen = 0';
     if (!empty($filters['flagged'])) $where[] = 'm.is_flagged = 1';
+    if (!empty($filters['highlighted'])) $where[] = 'm.is_highlighted = 1';
     if (!empty($filters['has_attachments'])) $where[] = 'm.has_attachments = 1';
     if (!empty($filters['date_from'])) { $where[] = 'm.msg_date >= ?'; $params[] = $filters['date_from'] . ' 00:00:00'; }
     if (!empty($filters['date_to'])) { $where[] = 'm.msg_date <= ?'; $params[] = $filters['date_to'] . ' 23:59:59'; }
@@ -50,7 +51,7 @@ function mail_query_messages(PDO $db, int $uid, array $filters, int $page = 1, i
 
     $offset = ($page - 1) * $perPage;
     $sql = "SELECT m.id, m.account_id, m.folder_id, f.kind AS folder_kind, m.from_name, m.from_email, m.subject, m.msg_date,
-                   m.is_seen, m.is_flagged, m.is_answered, m.has_attachments, m.snippet, m.size,
+                   m.is_seen, m.is_flagged, m.is_highlighted, m.is_answered, m.has_attachments, m.snippet, m.size,
                    a.brief_title, a.summary, a.priority, a.relevance, a.category, a.needs_reply, a.status AS analysis_status
             FROM mail_messages m
             JOIN mail_folders f ON f.id = m.folder_id
@@ -89,7 +90,7 @@ function mail_row_public(array $r): array {
         ];
     }
     foreach (['brief_title', 'summary', 'priority', 'relevance', 'category', 'needs_reply', 'analysis_status'] as $k) unset($r[$k]);
-    foreach (['id', 'account_id', 'folder_id', 'is_seen', 'is_flagged', 'is_answered', 'has_attachments', 'size'] as $k) {
+    foreach (['id', 'account_id', 'folder_id', 'is_seen', 'is_flagged', 'is_highlighted', 'is_answered', 'has_attachments', 'size'] as $k) {
         if (isset($r[$k])) $r[$k] = (int)$r[$k];
     }
     $r['analysis'] = $analysis;
@@ -104,7 +105,7 @@ function mail_get_message_full(PDO $db, int $uid, int $id): ?array {
     $st->execute([$id, $uid]);
     $m = $st->fetch();
     if (!$m) return null;
-    foreach (['id', 'account_id', 'folder_id', 'uid', 'size', 'is_seen', 'is_flagged', 'is_answered', 'has_attachments', 'is_deleted'] as $k) $m[$k] = (int)$m[$k];
+    foreach (['id', 'account_id', 'folder_id', 'uid', 'size', 'is_seen', 'is_flagged', 'is_highlighted', 'is_answered', 'has_attachments', 'is_deleted'] as $k) $m[$k] = (int)$m[$k];
     $m['to'] = json_decode((string)$m['to_json'], true) ?: [];
     $m['cc'] = json_decode((string)$m['cc_json'], true) ?: [];
     unset($m['to_json'], $m['cc_json']);
@@ -138,6 +139,7 @@ function mail_get_message_full(PDO $db, int $uid, int $id): ?array {
         $analysis['priority'] = (int)$analysis['priority'];
         $analysis['relevance'] = (int)$analysis['relevance'];
         $analysis['needs_reply'] = (int)$analysis['needs_reply'];
+        $analysis['user_edited'] = (int)($analysis['user_edited'] ?? 0);
         $analysis['actions'] = json_decode((string)$analysis['actions_json'], true) ?: [];
         unset($analysis['actions_json']);
     }

@@ -174,7 +174,7 @@ if ($res === 'messages' && $method === 'GET' && !$id) {
     $filters = [
         'folder_id' => (int)($_GET['folder_id'] ?? 0), 'account_id' => (int)($_GET['account_id'] ?? 0),
         'kind' => $_GET['kind'] ?? '', 'q' => $_GET['q'] ?? '', 'unread' => !empty($_GET['unread']), 'flagged' => !empty($_GET['flagged']),
-        'has_attachments' => !empty($_GET['has_attachments']),
+        'highlighted' => !empty($_GET['highlighted']), 'has_attachments' => !empty($_GET['has_attachments']),
         'date_from' => validate_date((string)($_GET['date_from'] ?? '')) ? $_GET['date_from'] : '',
         'date_to' => validate_date((string)($_GET['date_to'] ?? '')) ? $_GET['date_to'] : '',
     ];
@@ -209,6 +209,12 @@ if ($res === 'messages' && $id && $method === 'PUT') {
         $sets[] = $flags['seen'] ? 'read_at = COALESCE(read_at, NOW())' : 'read_at = NULL';
     }
     if (array_key_exists('is_flagged', $data)) { $sets[] = 'is_flagged = ?'; $params[] = (int)!!$data['is_flagged']; $flags['flagged'] = !!$data['is_flagged']; }
+    // Highlight is a local marker shared with the assistant — never pushed to IMAP.
+    if (array_key_exists('is_highlighted', $data)) {
+        $on = !empty($data['is_highlighted']);
+        $sets[] = 'is_highlighted = ?'; $params[] = $on ? 1 : 0;
+        $sets[] = $on ? 'highlighted_at = NOW()' : 'highlighted_at = NULL';
+    }
     if (!$sets) json_error('没有要更新的字段');
     $params[] = $id; $params[] = $uid;
     $db->prepare('UPDATE mail_messages SET ' . implode(', ', $sets) . ' WHERE id = ? AND user_id = ?')->execute($params);
@@ -323,7 +329,7 @@ if ($res === 'daily' && $method === 'GET') {
     $acc->execute([$uid]);
     $hasAccounts = (int)$acc->fetchColumn() > 0;
     $st = $db->prepare("SELECT m.id, m.account_id, m.folder_id, f.kind AS folder_kind, m.from_name, m.from_email, m.subject, m.msg_date,
-                               m.is_seen, m.read_at, m.is_flagged, m.is_answered, m.has_attachments, m.snippet, m.size,
+                               m.is_seen, m.read_at, m.is_flagged, m.is_highlighted, m.is_answered, m.has_attachments, m.snippet, m.size,
                                a.brief_title, a.summary, a.priority, a.relevance, a.category, a.needs_reply, a.status AS analysis_status
                         FROM mail_messages m
                         JOIN mail_folders f ON f.id = m.folder_id

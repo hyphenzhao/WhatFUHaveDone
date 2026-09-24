@@ -18,6 +18,7 @@ $page_content = <<<'HTML'
             <input class="form-input mail-search" id="mailSearch" placeholder="搜索主题 / 发件人…">
             <button class="mail-filter-btn" data-filter="unread" title="仅未读">未读</button>
             <button class="mail-filter-btn" data-filter="flagged" title="仅星标">⭐</button>
+            <button class="mail-filter-btn" data-filter="highlighted" title="仅高亮（与助手共享的标记）">🔆</button>
             <button class="btn btn-ghost btn-sm" id="mailAnalyzePage" onclick="Mail.analyzeVisible()" title="AI 分析当前列表中尚未分析的邮件">🤖 分析本页</button>
         </div>
         <div class="mail-list" id="mailList"><div class="mail-muted" style="padding:16px;">选择左侧文件夹</div></div>

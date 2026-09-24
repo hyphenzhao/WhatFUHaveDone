@@ -401,6 +401,8 @@ CREATE TABLE IF NOT EXISTS mail_messages (
     is_seen TINYINT(1) NOT NULL DEFAULT 0,
     read_at DATETIME NULL,                              -- first marked read; NULL = unread (counts as "today")
     is_flagged TINYINT(1) NOT NULL DEFAULT 0,
+    is_highlighted TINYINT(1) NOT NULL DEFAULT 0,       -- local marker shared with the AI; never synced to IMAP
+    highlighted_at DATETIME NULL,
     is_answered TINYINT(1) NOT NULL DEFAULT 0,
     has_attachments TINYINT(1) NOT NULL DEFAULT 0,
     snippet VARCHAR(300) NOT NULL DEFAULT '',
@@ -412,6 +414,7 @@ CREATE TABLE IF NOT EXISTS mail_messages (
     UNIQUE KEY uniq_mail_msg_uid (folder_id, uid),
     KEY idx_mail_msg_user_date (user_id, msg_date),
     KEY idx_mail_msg_user_read (user_id, read_at),
+    KEY idx_mail_msg_highlight (user_id, is_highlighted),
     KEY idx_mail_msg_account_mid (account_id, message_id(191)),
     KEY idx_mail_msg_folder_date (folder_id, msg_date),
     CONSTRAINT fk_mail_msg_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

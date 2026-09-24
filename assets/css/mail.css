@@ -38,6 +38,25 @@
 .daily-mail-item.highlighted { background: #fffbeb; box-shadow: inset 3px 0 0 #f59e0b; }
 .td-mail.highlighted { background: #fffbeb; }
 
+/* Highlighter pen inside the body */
+mark.mail-mark { background: #fde68a; color: inherit; padding: 0 1px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(245,158,11,.35); }
+.mail-sel-hint { font-style: italic; }
+.mail-body-tools { display: flex; align-items: center; gap: 8px; }
+.mail-sel-btn {
+    display: none; position: fixed; z-index: 2100;
+    background: #f59e0b; color: #fff; border: none; cursor: pointer;
+    padding: 6px 12px; border-radius: 16px; font-size: 0.8rem; font-weight: 600;
+    box-shadow: var(--shadow-md);
+}
+.mail-sel-btn:hover { background: #d97706; }
+.mail-excerpts { margin-top: 12px; border: 1px solid #fcd34d; background: #fffbeb; border-radius: var(--radius); padding: 8px 10px; }
+.mail-excerpts-head { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px; }
+.mail-excerpt { display: flex; align-items: flex-start; gap: 6px; padding: 4px 0; border-top: 1px dashed #fcd34d; font-size: 0.82rem; line-height: 1.55; }
+.mail-excerpt:first-of-type { border-top: none; }
+.mail-excerpt-src { flex-shrink: 0; }
+.mail-excerpt-text { flex: 1; min-width: 0; word-break: break-word; }
+.mail-excerpt-note { color: var(--color-text-secondary); }
+
 /* three-pane layout */
 .mail-layout { display: grid; grid-template-columns: 220px 340px minmax(0, 1fr) auto; gap: 0; height: calc(100vh - 48px); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); overflow: hidden; }
 .mail-nav { border-right: 1px solid var(--color-border); display: flex; flex-direction: column; min-height: 0; background: var(--color-bg); }

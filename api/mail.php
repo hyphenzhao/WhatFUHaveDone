@@ -192,10 +192,45 @@ if ($res === 'messages' && $id && $sub === 'reply-template' && $method === 'GET'
     json_success($t);
 }
 
-if ($res === 'messages' && $id && $method === 'GET') {
+// $sub must be empty or this swallows every /messages/{id}/<something> GET
+if ($res === 'messages' && $id && $sub === '' && $method === 'GET') {
     $m = mail_get_message_full($db, $uid, $id);
     if (!$m) json_error('邮件不存在', 404);
     json_success($m);
+}
+
+// ---------- text highlights inside a body ----------
+if ($res === 'messages' && $id && $sub === 'highlights') {
+    $own = $db->prepare('SELECT 1 FROM mail_messages WHERE id = ? AND user_id = ?');
+    $own->execute([$id, $uid]);
+    if (!$own->fetchColumn()) json_error('邮件不存在', 404);
+
+    if ($method === 'GET') json_success(mail_get_highlights($db, $uid, $id));
+
+    if ($method === 'POST') {
+        $data = get_json_input();
+        $snippet = trim((string)($data['snippet'] ?? ''));
+        if (mb_strlen($snippet, 'UTF-8') < 2) json_error('选中的内容太短');
+        $snippet = mb_substr($snippet, 0, 1000, 'UTF-8');
+        $dup = $db->prepare('SELECT id FROM mail_highlights WHERE message_id = ? AND user_id = ? AND snippet = ?');
+        $dup->execute([$id, $uid, $snippet]);
+        if (!$dup->fetchColumn()) {
+            $db->prepare('INSERT INTO mail_highlights (user_id, message_id, snippet, note, source) VALUES (?, ?, ?, ?, ?)')
+               ->execute([$uid, $id, $snippet, mb_substr(trim((string)($data['note'] ?? '')), 0, 500, 'UTF-8'),
+                          ($data['source'] ?? 'user') === 'ai' ? 'ai' : 'user']);
+        }
+        mail_sync_highlight_flag($db, $uid, $id);
+        json_success(mail_get_highlights($db, $uid, $id), '已高亮');
+    }
+
+    if ($method === 'DELETE') {
+        $hid = (int)($parts[5] ?? 0);
+        if ($hid) $db->prepare('DELETE FROM mail_highlights WHERE id = ? AND message_id = ? AND user_id = ?')->execute([$hid, $id, $uid]);
+        else $db->prepare('DELETE FROM mail_highlights WHERE message_id = ? AND user_id = ?')->execute([$id, $uid]);
+        mail_sync_highlight_flag($db, $uid, $id);
+        json_success(mail_get_highlights($db, $uid, $id), '已取消高亮');
+    }
+    json_error('Method not allowed', 405);
 }
 
 if ($res === 'messages' && $id && $method === 'PUT') {

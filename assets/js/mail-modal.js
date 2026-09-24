@@ -58,28 +58,182 @@ const MailUI = {
     addr(a) { return a ? escapeHtml(a.name ? `${a.name} <${a.email}>` : (a.email || '')) : ''; },
     md(text) { return (typeof AiChat !== 'undefined' && AiChat._md) ? AiChat._md(text) : `<p>${escapeHtml(text || '')}</p>`; },
 
+    /**
+     * Wrap every stored snippet in <mark> by walking TEXT NODES of a detached DOM —
+     * never by string-replacing in the HTML, which would corrupt tags and attributes.
+     * A snippet split across elements won't match; it still shows in the excerpt list.
+     * @return {{html:string, found:number}}
+     */
+    markHtml(html, highlights) {
+        if (!highlights || !highlights.length) return { html, found: 0 };
+        let doc;
+        try { doc = new DOMParser().parseFromString(html, 'text/html'); }
+        catch (e) { return { html, found: 0 }; }
+        let found = 0;
+        for (const h of highlights) {
+            const needle = (h.snippet || '').trim();
+            if (needle.length < 2) continue;
+            const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+            const targets = [];
+            let n;
+            while ((n = walker.nextNode())) {
+                if (n.parentNode && n.parentNode.closest && n.parentNode.closest('mark')) continue;
+                if (n.nodeValue && n.nodeValue.includes(needle)) targets.push(n);
+            }
+            for (const node of targets) {
+                const parts = node.nodeValue.split(needle);
+                const frag = doc.createDocumentFragment();
+                parts.forEach((part, i) => {
+                    if (i) {
+                        const mk = doc.createElement('mark');
+                        mk.className = 'mail-mark';
+                        mk.setAttribute('data-hl', String(h.id));
+                        mk.textContent = needle;
+                        frag.appendChild(mk);
+                        found++;
+                    }
+                    if (part) frag.appendChild(doc.createTextNode(part));
+                });
+                node.parentNode.replaceChild(frag, node);
+            }
+        }
+        return { html: doc.body.innerHTML, found };
+    },
+
+    /** Same idea for the plain-text body: escape first, then wrap matches. */
+    markText(text, highlights) {
+        let out = escapeHtml(text);
+        for (const h of (highlights || [])) {
+            const needle = escapeHtml((h.snippet || '').trim());
+            if (needle.length < 2) continue;
+            out = out.split(needle).join(`<mark class="mail-mark" data-hl="${h.id}">${needle}</mark>`);
+        }
+        return out;
+    },
+
     /** Render the message body into a container (sandboxed iframe for HTML, <pre> for text). */
     renderBody(msg, container, opts = {}) {
         const allowRemote = !!opts.allowRemote;
+        const hl = msg.highlights || [];
         if (msg.body_html && msg.body_html.trim()) {
             const imgSrc = allowRemote ? '*' : "data: /api/attachments/";
             const csp = `default-src 'none'; img-src ${imgSrc}; style-src 'unsafe-inline'; font-src data:;`;
+            const marked = this.markHtml(msg.body_html, hl);
             const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><base target="_blank">` +
-                `<style>body{margin:12px;font-family:-apple-system,Segoe UI,Roboto,'PingFang SC','Microsoft YaHei',sans-serif;font-size:14px;line-height:1.6;color:#1f2937;word-break:break-word;}img{max-width:100%;height:auto;}table{max-width:100%;}pre{white-space:pre-wrap;}</style></head><body>${msg.body_html}</body></html>`;
-            container.innerHTML = `<div class="mail-body-tools"><button class="btn btn-ghost btn-sm mail-remote-btn">${allowRemote ? '🔒 隐藏远程图片' : '🖼️ 加载远程图片'}</button></div><iframe class="mail-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe>`;
+                `<style>body{margin:12px;font-family:-apple-system,Segoe UI,Roboto,'PingFang SC','Microsoft YaHei',sans-serif;font-size:14px;line-height:1.6;color:#1f2937;word-break:break-word;}img{max-width:100%;height:auto;}table{max-width:100%;}pre{white-space:pre-wrap;}` +
+                `mark.mail-mark{background:#fde68a;color:inherit;padding:0 1px;border-radius:2px;box-shadow:0 0 0 1px rgba(245,158,11,.35);}</style></head><body>${marked.html}</body></html>`;
+            container.innerHTML = `<div class="mail-body-tools"><span class="mail-hint mail-sel-hint">选中正文文字即可用荧光笔高亮</span><span style="flex:1"></span><button class="btn btn-ghost btn-sm mail-remote-btn">${allowRemote ? '🔒 隐藏远程图片' : '🖼️ 加载远程图片'}</button></div><iframe class="mail-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe>`;
             const frame = container.querySelector('.mail-frame');
             frame.addEventListener('load', () => {
                 try {
                     const h = frame.contentDocument.documentElement.scrollHeight;
                     frame.style.height = Math.min(Math.max(h + 24, 120), opts.maxHeight || 1400) + 'px';
+                    this._bindSelection(frame.contentDocument, msg, frame);
                 } catch (e) {}
             });
             frame.srcdoc = doc;
             container.querySelector('.mail-remote-btn').addEventListener('click', () => this.renderBody(msg, container, { ...opts, allowRemote: !allowRemote }));
         } else {
             const text = msg.body_text || msg.snippet || '(无正文)';
-            container.innerHTML = `<pre class="mail-text-body">${escapeHtml(text)}</pre>`;
+            container.innerHTML = `<div class="mail-body-tools"><span class="mail-hint mail-sel-hint">选中正文文字即可用荧光笔高亮</span></div><pre class="mail-text-body">${this.markText(text, hl)}</pre>`;
+            this._bindSelection(document, msg, container.querySelector('.mail-text-body'));
         }
+        this.renderExcerpts(msg, container);
+    },
+
+    /** Passages that could not be located in the body still need to be visible. */
+    renderExcerpts(msg, container) {
+        const hl = msg.highlights || [];
+        let box = container.parentNode && container.parentNode.querySelector('.mail-excerpts');
+        if (!hl.length) { if (box) box.remove(); return; }
+        if (!box) {
+            box = document.createElement('div');
+            box.className = 'mail-excerpts';
+            container.parentNode.insertBefore(box, container.nextSibling);
+        }
+        box.innerHTML = `<div class="mail-excerpts-head">🖍 高亮摘录 <span class="mail-hint">${hl.length} 条</span>
+                <button class="td-linkbtn" title="清除全部高亮" onclick="MailUI.clearHighlights(${msg.id})">🗑️</button></div>` +
+            hl.map(h => `<div class="mail-excerpt">
+                <span class="mail-excerpt-src" title="${h.source === 'ai' ? '助手标注' : '你标注'}">${h.source === 'ai' ? '🤖' : '🖍'}</span>
+                <span class="mail-excerpt-text">${escapeHtml(h.snippet)}${h.note ? `<i class="mail-excerpt-note"> — ${escapeHtml(h.note)}</i>` : ''}</span>
+                <button class="td-linkbtn" title="取消这条高亮" onclick="MailUI.removeHighlight(${msg.id}, ${h.id})">✕</button>
+            </div>`).join('');
+    },
+
+    /**
+     * Watch for a text selection and offer a highlighter button.
+     * Works inside the sandboxed iframe too: it has allow-same-origin, so the
+     * parent can read its document and selection.
+     */
+    _bindSelection(doc, msg, hostEl) {
+        if (!doc || doc._mailSelBound === msg.id) return;
+        doc._mailSelBound = msg.id;
+        const onUp = () => {
+            setTimeout(() => {
+                const sel = doc.getSelection && doc.getSelection();
+                const text = sel ? String(sel).trim() : '';
+                if (!sel || sel.isCollapsed || text.length < 2) { this._hideSelBtn(); return; }
+                let rect;
+                try { rect = sel.getRangeAt(0).getBoundingClientRect(); } catch (e) { return; }
+                const host = hostEl.getBoundingClientRect();
+                // Inside an iframe the rect is relative to the frame's viewport.
+                const inFrame = doc !== document;
+                this._showSelBtn(
+                    (inFrame ? host.left : 0) + rect.left + rect.width / 2,
+                    (inFrame ? host.top : 0) + rect.top - 8,
+                    mb => this.addHighlight(msg.id, text)
+                );
+            }, 10);
+        };
+        doc.addEventListener('mouseup', onUp);
+        doc.addEventListener('touchend', onUp);
+        doc.addEventListener('scroll', () => this._hideSelBtn(), true);
+    },
+
+    _showSelBtn(x, y, onClick) {
+        let btn = document.getElementById('mailSelBtn');
+        if (!btn) {
+            btn = document.createElement('button');
+            btn.id = 'mailSelBtn';
+            btn.className = 'mail-sel-btn';
+            btn.innerHTML = '🖍 高亮';
+            document.body.appendChild(btn);
+        }
+        btn.onclick = (e) => { e.preventDefault(); this._hideSelBtn(); onClick(); };
+        btn.style.left = Math.max(8, Math.min(window.innerWidth - 90, x - 40)) + 'px';
+        btn.style.top = Math.max(8, y - 36) + 'px';
+        btn.style.display = 'block';
+    },
+
+    _hideSelBtn() {
+        const btn = document.getElementById('mailSelBtn');
+        if (btn) btn.style.display = 'none';
+    },
+
+    async addHighlight(id, snippet, note) {
+        try { await API.mail.addHighlight(id, snippet, note); Toast.success('🖍 已高亮'); }
+        catch (e) { Toast.error(e.message); return; }
+        this._afterHighlightChange(id);
+    },
+    async removeHighlight(id, hid) {
+        try { await API.mail.removeHighlight(id, hid); } catch (e) { Toast.error(e.message); return; }
+        this._afterHighlightChange(id);
+    },
+    async clearHighlights(id) {
+        if (!confirm('清除这封邮件的全部高亮？')) return;
+        try { await API.mail.clearHighlights(id); } catch (e) { Toast.error(e.message); return; }
+        this._afterHighlightChange(id);
+    },
+
+    /** Re-read the mail and re-render whichever views are showing it. */
+    async _afterHighlightChange(id) {
+        let msg;
+        try { msg = (await API.mail.message(id)).data; } catch (e) { return; }
+        if (typeof Mail !== 'undefined' && Mail.currentId === id) { Mail.currentMsg = msg; Mail.renderReadPane(msg); }
+        if (typeof Mail !== 'undefined' && Array.isArray(Mail.items)) Mail.updateListItem({ id, is_highlighted: msg.is_highlighted });
+        const modalBody = document.getElementById('mailModalBody');
+        if (modalBody && Modal.isOpen && Modal.isOpen()) this.renderBody(msg, modalBody, { maxHeight: 1600 });
+        if (typeof loadDailyMail === 'function' && typeof App !== 'undefined') loadDailyMail(App.selectedDate, true);
     },
 
     attachmentsHtml(msg) {

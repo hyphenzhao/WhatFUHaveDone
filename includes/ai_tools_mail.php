@@ -113,6 +113,56 @@ function ai_tools_mail_definitions(): array {
             'handler' => 'handle_open_email',
         ],
         [
+            'name' => 'highlight_text',
+            'description' => '用荧光笔高亮邮件正文里的重点字句（可一次传多段）。snippets 必须是正文中**逐字出现**的原文片段，'
+                . '不要改写、不要跨段落拼接，否则无法在正文中定位（仍会作为摘录列出，但不会在正文里变黄）。'
+                . '用户说"高亮与我相关的部分"时用这个；每段可附一句 note 说明为什么重要。'
+                . '读取已有高亮用 get_email 或 list_text_highlights。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer', 'description' => '邮件ID（必填）'],
+                    'snippets' => [
+                        'type' => 'array',
+                        'description' => '要高亮的原文片段（必填）',
+                        'items' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'text' => ['type' => 'string', 'description' => '正文中逐字出现的片段'],
+                                'note' => ['type' => 'string', 'description' => '为什么重要（可选，≤50 字）'],
+                            ],
+                            'required' => ['text'],
+                        ],
+                    ],
+                ],
+                'required' => ['id', 'snippets'],
+            ],
+            'requires_confirmation' => true,
+            'handler' => 'handle_highlight_text',
+        ],
+        [
+            'name' => 'list_text_highlights',
+            'description' => '列出某封邮件正文中已高亮的片段（用户划的和你标的都在内）。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => ['id' => ['type' => 'integer', 'description' => '邮件ID（必填）']],
+                'required' => ['id'],
+            ],
+            'requires_confirmation' => false,
+            'handler' => 'handle_list_text_highlights',
+        ],
+        [
+            'name' => 'clear_text_highlights',
+            'description' => '清除某封邮件正文的全部文字高亮。',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => ['id' => ['type' => 'integer', 'description' => '邮件ID（必填）']],
+                'required' => ['id'],
+            ],
+            'requires_confirmation' => true,
+            'handler' => 'handle_clear_text_highlights',
+        ],
+        [
             'name' => 'highlight_email',
             'description' => '高亮或取消高亮邮件。高亮是你与用户之间的共享标记：用户可以说"看我高亮的那几封"，'
                 . '你也可以把需要处理的邮件高亮出来给用户指认。高亮只存在本地，不会同步到邮件服务器（与星标不同）。'
@@ -456,6 +506,7 @@ function handle_get_email(PDO $db, array $args): array {
         'subject' => $m['subject'], 'from' => ['name' => $m['from_name'], 'email' => $m['from_email']],
         'to' => $m['to'], 'cc' => $m['cc'], 'date' => $m['msg_date'], 'unread' => $m['is_seen'] ? 0 : 1, 'flagged' => $m['is_flagged'],
         'highlighted' => $m['is_highlighted'],
+        'text_highlights' => array_map(fn($h) => ['id' => $h['id'], 'snippet' => $h['snippet'], 'note' => $h['note'], 'source' => $h['source']], $m['highlights'] ?? []),
         'body' => ai_truncate($body, 8000),
         'attachments' => [],
         'analysis' => $m['analysis'] ? ['brief_title' => $m['analysis']['brief_title'], 'summary' => $m['analysis']['summary'], 'priority' => $m['analysis']['priority'],
@@ -497,7 +548,75 @@ function handle_open_email(PDO $db, array $args): array {
     ];
 }
 
-/** Local highlight — a shared pointer between the user and the assistant. */
+/** Highlighter pen over passages of the body. Verifies each snippet really occurs. */
+function handle_highlight_text(PDO $db, array $args): array {
+    $uid = current_user_id();
+    $id = (int)($args['id'] ?? 0);
+    $m = mail_get_message_full($db, $uid, $id);
+    if (!$m) return ['error' => '邮件不存在'];
+
+    $snippets = $args['snippets'] ?? [];
+    if (!is_array($snippets) || !$snippets) return ['error' => '请提供要高亮的原文片段'];
+
+    // Match against the plain text AND a tag-stripped version of the HTML, so a
+    // snippet the user can see is accepted regardless of which body we rendered.
+    $hay = (string)$m['body_text'];
+    if (!empty($m['body_html'])) $hay .= "\n" . mail_html_to_text((string)$m['body_html']);
+    $norm = fn($s) => preg_replace('/\s+/u', '', (string)$s);
+    $hayNorm = $norm($hay);
+
+    $ins = $db->prepare('INSERT INTO mail_highlights (user_id, message_id, snippet, note, source) VALUES (?, ?, ?, ?, "ai")');
+    $dup = $db->prepare('SELECT id FROM mail_highlights WHERE message_id = ? AND user_id = ? AND snippet = ?');
+    $added = []; $missing = []; $skipped = 0;
+    foreach ($snippets as $s) {
+        $text = trim(is_array($s) ? (string)($s['text'] ?? '') : (string)$s);
+        $note = trim(is_array($s) ? (string)($s['note'] ?? '') : '');
+        if (mb_strlen($text, 'UTF-8') < 2) continue;
+        $text = mb_substr($text, 0, 1000, 'UTF-8');
+        // Whitespace-insensitive check: wrapped lines in the source shouldn't reject it
+        if ($hayNorm !== '' && mb_strpos($hayNorm, $norm($text)) === false) { $missing[] = $text; continue; }
+        $dup->execute([$id, $uid, $text]);
+        if ($dup->fetchColumn()) { $skipped++; continue; }
+        $ins->execute([$uid, $id, $text, mb_substr($note, 0, 500, 'UTF-8')]);
+        $added[] = $text;
+    }
+    mail_sync_highlight_flag($db, $uid, $id);
+
+    $out = ['ok' => true, 'id' => $id, 'added' => count($added), 'already' => $skipped,
+            'highlights' => mail_get_highlights($db, $uid, $id)];
+    if ($missing) {
+        $out['not_found'] = $missing;
+        $out['hint'] = '这些片段在正文中找不到逐字匹配，未高亮。请从 get_email 返回的正文中原样复制。';
+    }
+    if ($added) $out['_notice'] = '🖍 已高亮 ' . count($added) . ' 处';
+    // Show the result immediately
+    $out['_action'] = ['type' => 'open_mail', 'id' => $id];
+    return $out;
+}
+
+function handle_list_text_highlights(PDO $db, array $args): array {
+    $uid = current_user_id();
+    $id = (int)($args['id'] ?? 0);
+    $own = $db->prepare('SELECT subject FROM mail_messages WHERE id = ? AND user_id = ?');
+    $own->execute([$id, $uid]);
+    $subject = $own->fetchColumn();
+    if ($subject === false) return ['error' => '邮件不存在'];
+    return ['id' => $id, 'subject' => $subject, 'highlights' => mail_get_highlights($db, $uid, $id)];
+}
+
+function handle_clear_text_highlights(PDO $db, array $args): array {
+    $uid = current_user_id();
+    $id = (int)($args['id'] ?? 0);
+    $own = $db->prepare('SELECT 1 FROM mail_messages WHERE id = ? AND user_id = ?');
+    $own->execute([$id, $uid]);
+    if (!$own->fetchColumn()) return ['error' => '邮件不存在'];
+    $st = $db->prepare('DELETE FROM mail_highlights WHERE message_id = ? AND user_id = ?');
+    $st->execute([$id, $uid]);
+    mail_sync_highlight_flag($db, $uid, $id);
+    return ['ok' => true, 'removed' => $st->rowCount(), '_notice' => '🖍 已清除全部高亮'];
+}
+
+/** Whole-mail marker — a coarser pointer than the text highlighter above. */
 function handle_highlight_email(PDO $db, array $args): array {
     $uid = current_user_id();
     $id = (int)($args['id'] ?? 0);

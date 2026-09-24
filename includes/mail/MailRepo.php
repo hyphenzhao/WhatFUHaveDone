@@ -144,7 +144,32 @@ function mail_get_message_full(PDO $db, int $uid, int $id): ?array {
         unset($analysis['actions_json']);
     }
     $m['analysis'] = $analysis ?: null;
+    $m['highlights'] = mail_get_highlights($db, $uid, $id);
     return $m;
+}
+
+/** Highlighted passages inside a mail body, oldest first. */
+function mail_get_highlights(PDO $db, int $uid, int $messageId): array {
+    $st = $db->prepare('SELECT id, snippet, note, source, created_at FROM mail_highlights
+                        WHERE message_id = ? AND user_id = ? ORDER BY id ASC');
+    $st->execute([$messageId, $uid]);
+    $rows = $st->fetchAll();
+    foreach ($rows as &$r) $r['id'] = (int)$r['id'];
+    return $rows;
+}
+
+/**
+ * Keep mail_messages.is_highlighted in step with "has at least one passage",
+ * so the list marker, the 🔆 filter and search_emails(highlighted_only) all
+ * keep meaning the same thing.
+ */
+function mail_sync_highlight_flag(PDO $db, int $uid, int $messageId): int {
+    $st = $db->prepare('SELECT COUNT(*) FROM mail_highlights WHERE message_id = ? AND user_id = ?');
+    $st->execute([$messageId, $uid]);
+    $n = (int)$st->fetchColumn();
+    $db->prepare('UPDATE mail_messages SET is_highlighted = ?, highlighted_at = ' . ($n ? 'COALESCE(highlighted_at, NOW())' : 'NULL')
+                 . ' WHERE id = ? AND user_id = ?')->execute([$n ? 1 : 0, $messageId, $uid]);
+    return $n;
 }
 
 /** Attachment texts for AI prompts (per-item and total budgets). */

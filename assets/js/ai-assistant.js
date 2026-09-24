@@ -358,6 +358,9 @@ const AiChat = {
             this.messages.push(data.message);
             for (const step of (data.steps || [])) { await this._showStep(step); await new Promise(r => setTimeout(r, 100)); }
             this._showConfirmation(this.pendingCalls);
+            // No-confirmation tools can run in the SAME turn as one awaiting approval
+            // (e.g. open_email beside highlight_email) — their UI actions still apply.
+            this._runActions(data.steps);
             return true;
         }
         return false;
@@ -372,11 +375,17 @@ const AiChat = {
         for (const s of (steps || [])) {
             if (s && s.action && s.action.type === 'open_mail') openId = parseInt(s.action.id, 10) || 0;
         }
-        if (openId && typeof openMailModal === 'function') {
-            // Don't reopen the mail whose modal we are already chatting inside.
-            if (this.context && this.context.type === 'email' && this.context.id === openId) return;
-            openMailModal(openId);
+        if (!openId) return;
+        // Don't reopen the mail whose modal we are already chatting inside.
+        if (this.context && this.context.type === 'email' && this.context.id === openId) return;
+        // On the mailbox page the reading pane IS the mail view — selecting there is
+        // more natural (and more visible) than stacking a modal on top of it.
+        if (typeof Mail !== 'undefined' && document.getElementById('mailReadPane')) {
+            Mail.openMessage(openId);
+            document.getElementById('mailReadPane').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            return;
         }
+        if (typeof openMailModal === 'function') openMailModal(openId);
     },
 
     _genTitle(text) {

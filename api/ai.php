@@ -1273,6 +1273,10 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
         // Secrets typed into the confirmation card (e.g. mail passwords). They are
         // merged into the handler args only — never into messages or LLM context.
         $secrets = is_array($input['secrets'] ?? null) ? $input['secrets'] : [];
+        // Steps produced while executing the just-confirmed writes. $steps is
+        // reset to [] before the LLM loop below, so these must be held aside
+        // and prepended afterwards or their notices/actions are lost.
+        $confirmedSteps = [];
 
         foreach ($assistantMsg['tool_calls'] ?? [] as $call) {
             $conf = null;
@@ -1293,7 +1297,7 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
                         $step = ['type' => 'tool', 'name' => $call['function']['name'], 'status' => 'done'];
                         if (isset($result['_notice'])) { $step['notice'] = (string)$result['_notice']; unset($result['_notice']); }
                         if (isset($result['_action'])) { $step['action'] = $result['_action']; unset($result['_action']); }
-                        $steps[] = $step;
+                        $confirmedSteps[] = $step;
                     }
                     $messages[] = ['role' => 'tool', 'tool_call_id' => $call['id'], 'content' => json_encode($result, JSON_UNESCAPED_UNICODE)];
                 } catch (Exception $e) {
@@ -1322,7 +1326,7 @@ if (($action === 'chat' || $action === 'confirm') && $method === 'POST') {
     $perCallTimeout = $isDeepAnalysis ? 180 : 60;
     $maxIter = 6;
     $deadline = microtime(true) + $overallTimeout;
-    $steps = [];
+    $steps = $confirmedSteps ?? [];
     for ($i = 0; $i < $maxIter; $i++) {
         $remaining = (int)floor($deadline - microtime(true));
         if ($remaining < 5) {

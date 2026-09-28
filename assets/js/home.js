@@ -881,10 +881,23 @@ async function loadWorklogNotes(wlId) {
         const res = await API.worklogNotes.list(wlId);
         const notes = res.data || [];
         el.innerHTML = notes.map(n => `
-            <div class="wl-note"><span class="wl-note-text">${escapeHtml(n.content)}</span><button class="wl-note-attach" onclick="Attach.openModal('worklog_note',${n.id},'备注附件')" title="附件">📎</button><button class="wl-note-del" onclick="delWorklogNote(${n.id},${wlId})" title="删除">−</button></div>
+            <div class="wl-note"><span class="wl-note-text" title="${escapeHtml(n.content)}">${escapeHtml(n.content)}</span><button class="wl-note-attach" onclick="Attach.openModal('worklog_note',${n.id},'备注附件')" title="附件">📎</button><button class="wl-note-del" onclick="delWorklogNote(${n.id},${wlId})" title="删除">−</button></div>
         `).join('');
+        markClippedNotes(el);
+        if (wlNotesResizeObserver) wlNotesResizeObserver.observe(el);
     } catch(e) {}
 }
+
+/** Fade only the notes that overflow their one line (see .wl-note-text.is-clipped). */
+function markClippedNotes(root) {
+    root.querySelectorAll('.wl-note-text').forEach(t => {
+        t.classList.toggle('is-clipped', t.scrollWidth > t.clientWidth + 1);
+    });
+}
+// Card width changes with the window and the draggable right panel.
+const wlNotesResizeObserver = typeof ResizeObserver !== 'undefined'
+    ? new ResizeObserver(entries => entries.forEach(e => markClippedNotes(e.target)))
+    : null;
 async function setWorklogDuration(wlId, duration) {
     try { await fetch('/api/worklogs', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id: wlId, duration}) }); refreshAll(); } catch(e) {}
 }
@@ -1009,6 +1022,7 @@ async function loadDailyStatus(date) {
             html += `<div class="daily-card" data-task-id="${t.id}" title="点击查看任务详情"><div class="daily-card-row"><div class="daily-card-info"><h4>📅 ${escapeHtml(t.name)}${t.location ? " 📍 " + escapeHtml(t.location) : ""}</h4>${tags ? tags : ''}<div class="daily-card-meta">${planTimeTag}</div></div><div style="display:flex;flex-direction:column;gap:4px;"><button class="plan-exec-btn" onclick="execPlan(${t.id},'${date}',${t.plan_id})" title="标记为已执行">✓</button><button class="daily-card-close" onclick="cancelPlan(${t.plan_id})" title="取消">✕</button></div></div></div>`;
         });
 
+        if (wlNotesResizeObserver) wlNotesResizeObserver.disconnect();
         container.innerHTML = html || '<div class="no-daily-data">📭 当日暂无记录</div>';
 
         // Load worklog notes

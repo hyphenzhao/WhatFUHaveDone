@@ -44,9 +44,9 @@
        which the old media queries never added. That is why the rail has been
        rendering 220px-wide labels inside a 56px slot. */
     .sidebar-logo { display: none; }
-    .sidebar-header { justify-content: center; }
-    .sidebar-link { justify-content: center; padding: 10px; }
-    .sidebar-link span:not(.nav-icon) { display: none; }
+    .sidebar-header { display: none; }
+    .sidebar-link { justify-content: center; gap: 0; padding: 10px 0; min-height: 44px; border-radius: var(--radius); }
+    .sidebar-link .nav-label { display: none; }
     .sidebar-link .nav-icon { font-size: 1.3rem; }
     .sidebar-user-name { display: none; }
     .sidebar-footer { flex-direction: column; gap: 6px; padding: 10px 4px; }
@@ -145,11 +145,7 @@
         flex-direction: column; gap: 4px; padding: 12px 6px;
         min-height: 60px; font-size: .75rem; text-align: center; line-height: 1.25;
     }
-    /* A stale sidebarCollapsed=true from the desktop must not icon-ify the drawer */
-    .app-layout.sidebar-collapsed .sidebar-logo { display: block; }
-    .app-layout.sidebar-collapsed .sidebar-link { justify-content: center; padding: 12px 6px; }
-    .app-layout.sidebar-collapsed .sidebar-link span:not(.nav-icon) { display: block; }
-    .app-layout.sidebar-collapsed .sidebar-user-name { display: inline; }
+    /* Desktop collapse styling is scoped to >=900px in app.css. */
 
     /* ---- right panel → bottom sheet ---- */
     .right-panel {

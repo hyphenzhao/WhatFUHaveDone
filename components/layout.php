@@ -26,56 +26,56 @@ $layout_user = current_user();
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h1 class="sidebar-logo">📋 <?= APP_NAME ?></h1>
-                <button class="sidebar-toggle" id="sidebarToggle" title="折叠/展开">◀</button>
+                <button class="sidebar-toggle" id="sidebarToggle" type="button" title="折叠菜单" aria-label="折叠菜单" aria-controls="sidebarNav" aria-expanded="true">◀</button>
             </div>
-            <nav class="sidebar-nav">
-                <a href="/" class="sidebar-link <?= $current_page === 'home' ? 'active' : '' ?>">
-                    <span class="nav-icon">🏠</span> 主页
+            <nav class="sidebar-nav" id="sidebarNav" aria-label="主菜单">
+                <a href="/" class="sidebar-link <?= $current_page === 'home' ? 'active' : '' ?>" title="主页" aria-label="主页">
+                    <span class="nav-icon" aria-hidden="true">🏠</span><span class="nav-label">主页</span>
                 </a>
-                <a href="/reports" class="sidebar-link <?= $current_page === 'reports' ? 'active' : '' ?>">
-                    <span class="nav-icon">📊</span> 周期报告
+                <a href="/reports" class="sidebar-link <?= $current_page === 'reports' ? 'active' : '' ?>" title="周期报告" aria-label="周期报告">
+                    <span class="nav-icon" aria-hidden="true">📊</span><span class="nav-label">周期报告</span>
                 </a>
-                <a href="/mail" class="sidebar-link <?= $current_page === 'mail' ? 'active' : '' ?>">
-                    <span class="nav-icon">📧</span> 邮箱
+                <a href="/mail" class="sidebar-link <?= $current_page === 'mail' ? 'active' : '' ?>" title="邮箱" aria-label="邮箱">
+                    <span class="nav-icon" aria-hidden="true">📧</span><span class="nav-label">邮箱</span>
                 </a>
                 <div class="nav-group">
                     <div class="nav-group-title">内容管理</div>
-                    <a href="/people" class="sidebar-link <?= $current_page === 'people' ? 'active' : '' ?>">
-                        <span class="nav-icon">👤</span> 人物
+                    <a href="/people" class="sidebar-link <?= $current_page === 'people' ? 'active' : '' ?>" title="人物" aria-label="人物">
+                        <span class="nav-icon" aria-hidden="true">👤</span><span class="nav-label">人物</span>
                     </a>
-                    <a href="/tasks" class="sidebar-link <?= $current_page === 'tasks' ? 'active' : '' ?>">
-                        <span class="nav-icon">📝</span> 任务
+                    <a href="/tasks" class="sidebar-link <?= $current_page === 'tasks' ? 'active' : '' ?>" title="任务" aria-label="任务">
+                        <span class="nav-icon" aria-hidden="true">📝</span><span class="nav-label">任务</span>
                     </a>
-                    <a href="/results" class="sidebar-link <?= $current_page === 'results' ? 'active' : '' ?>">
-                        <span class="nav-icon">🏆</span> 成果
+                    <a href="/results" class="sidebar-link <?= $current_page === 'results' ? 'active' : '' ?>" title="成果" aria-label="成果">
+                        <span class="nav-icon" aria-hidden="true">🏆</span><span class="nav-label">成果</span>
                     </a>
-                    <a href="/tags" class="sidebar-link <?= $current_page === 'tags' ? 'active' : '' ?>">
-                        <span class="nav-icon">🏷️</span> 标签
+                    <a href="/tags" class="sidebar-link <?= $current_page === 'tags' ? 'active' : '' ?>" title="标签" aria-label="标签">
+                        <span class="nav-icon" aria-hidden="true">🏷️</span><span class="nav-label">标签</span>
                     </a>
-                    <a href="/relationships" class="sidebar-link <?= $current_page === 'relationships' ? 'active' : '' ?>">
-                        <span class="nav-icon">🔗</span> 人际管理
+                    <a href="/relationships" class="sidebar-link <?= $current_page === 'relationships' ? 'active' : '' ?>" title="人际管理" aria-label="人际管理">
+                        <span class="nav-icon" aria-hidden="true">🔗</span><span class="nav-label">人际管理</span>
                     </a>
                 </div>
                 <div class="nav-group">
                     <div class="nav-group-title">系统管理</div>
-                    <a href="/calendar-admin" class="sidebar-link <?= $current_page === 'calendar-admin' ? 'active' : '' ?>">
-                        <span class="nav-icon">📅</span> 日历管理
+                    <a href="/calendar-admin" class="sidebar-link <?= $current_page === 'calendar-admin' ? 'active' : '' ?>" title="日历管理" aria-label="日历管理">
+                        <span class="nav-icon" aria-hidden="true">📅</span><span class="nav-label">日历管理</span>
                     </a>
-                    <a href="/ai-admin" class="sidebar-link <?= $current_page === 'ai-admin' ? 'active' : '' ?>">
-                        <span class="nav-icon">🤖</span> AI 配置
+                    <a href="/ai-admin" class="sidebar-link <?= $current_page === 'ai-admin' ? 'active' : '' ?>" title="AI 配置" aria-label="AI 配置">
+                        <span class="nav-icon" aria-hidden="true">🤖</span><span class="nav-label">AI 配置</span>
                     </a>
-                    <a href="/mail-admin" class="sidebar-link <?= $current_page === 'mail-admin' ? 'active' : '' ?>">
-                        <span class="nav-icon">📮</span> 邮箱管理
+                    <a href="/mail-admin" class="sidebar-link <?= $current_page === 'mail-admin' ? 'active' : '' ?>" title="邮箱管理" aria-label="邮箱管理">
+                        <span class="nav-icon" aria-hidden="true">📮</span><span class="nav-label">邮箱管理</span>
                     </a>
-                    <a href="/profile" class="sidebar-link <?= $current_page === 'profile' ? 'active' : '' ?>">
-                        <span class="nav-icon">👤</span> 个人侧写
+                    <a href="/profile" class="sidebar-link <?= $current_page === 'profile' ? 'active' : '' ?>" title="个人侧写" aria-label="个人侧写">
+                        <span class="nav-icon" aria-hidden="true">👤</span><span class="nav-label">个人侧写</span>
                     </a>
-                    <a href="/skills" class="sidebar-link <?= $current_page === 'skills' ? 'active' : '' ?>">
-                        <span class="nav-icon">🛠️</span> 技能管理
+                    <a href="/skills" class="sidebar-link <?= $current_page === 'skills' ? 'active' : '' ?>" title="技能管理" aria-label="技能管理">
+                        <span class="nav-icon" aria-hidden="true">🛠️</span><span class="nav-label">技能管理</span>
                     </a>
                     <?php if (is_admin()): ?>
-                    <a href="/users" class="sidebar-link <?= $current_page === 'users' ? 'active' : '' ?>">
-                        <span class="nav-icon">👥</span> 用户管理
+                    <a href="/users" class="sidebar-link <?= $current_page === 'users' ? 'active' : '' ?>" title="用户管理" aria-label="用户管理">
+                        <span class="nav-icon" aria-hidden="true">👥</span><span class="nav-label">用户管理</span>
                     </a>
                     <?php endif; ?>
                 </div>
@@ -85,7 +85,7 @@ $layout_user = current_user();
                     <span class="nav-icon">🙋</span>
                     <span class="sidebar-user-name"><?= htmlspecialchars(($layout_user['display_name'] ?? '') !== '' ? $layout_user['display_name'] : ($layout_user['username'] ?? '')) ?></span>
                 </span>
-                <button class="sidebar-logout" onclick="logout()" title="登出">⏻</button>
+                <button class="sidebar-logout" onclick="logout()" title="登出" aria-label="登出">⏻</button>
             </div>
         </aside>
 

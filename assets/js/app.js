@@ -12,15 +12,23 @@ const App = {
         // Sidebar toggle
         const sidebarToggle = document.getElementById('sidebarToggle');
         if (sidebarToggle) {
+            const layout = document.querySelector('.app-layout');
+            const updateSidebarToggle = () => {
+                const collapsed = layout.classList.contains('sidebar-collapsed');
+                sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+                sidebarToggle.setAttribute('aria-label', collapsed ? '展开菜单' : '折叠菜单');
+                sidebarToggle.title = collapsed ? '展开菜单' : '折叠菜单';
+            };
             sidebarToggle.addEventListener('click', () => {
-                document.querySelector('.app-layout').classList.toggle('sidebar-collapsed');
-                localStorage.setItem('sidebarCollapsed',
-                    document.querySelector('.app-layout').classList.contains('sidebar-collapsed'));
+                layout.classList.toggle('sidebar-collapsed');
+                updateSidebarToggle();
+                localStorage.setItem('sidebarCollapsed', layout.classList.contains('sidebar-collapsed'));
             });
             // Restore state
             if (localStorage.getItem('sidebarCollapsed') === 'true') {
-                document.querySelector('.app-layout').classList.add('sidebar-collapsed');
+                layout.classList.add('sidebar-collapsed');
             }
+            updateSidebarToggle();
         }
 
         // Right panel toggle (home page)

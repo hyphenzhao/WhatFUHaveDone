@@ -289,8 +289,17 @@ const Mail = {
     refreshAfterAi() { this.loadList(true); if (this.currentId) this.refreshAnalysis(this.currentId); },
 
     // ---------- compose ----------
+    composeText(body, signature, quote) {
+        const parts = [body.trimEnd()];
+        if (signature.trim()) parts.push('-- \n' + signature.trim());
+        if (quote.trim()) parts.push(quote.trim());
+        return parts.filter(Boolean).join('\n\n');
+    },
+
     async compose(mode, id) {
-        const accounts = (this.status && this.status.accounts || []).filter(a => a.enabled);
+        let accounts;
+        try { accounts = ((await API.mail.accounts.list()).data || []).filter(a => a.enabled); }
+        catch (e) { Toast.error('读取邮箱设置失败：' + e.message); return; }
         if (!accounts.length) { Toast.error('请先添加邮箱账户'); return; }
         let tpl = { to: [], cc: [], subject: '', quoted_text: '', account_id: accounts[0].id, in_reply_to_id: 0, attachment_ids: [] };
         if (mode !== 'new' && id) {
@@ -303,21 +312,47 @@ const Mail = {
             title: titles[mode] || '✏️ 写邮件',
             size: 'wide',
             body: `
-                <div class="form-group"><label>发件账户</label><select class="form-select" id="mcAccount">${accOpts}</select></div>
-                <div class="form-group"><label>收件人</label><input class="form-input" id="mcTo" value="${escapeHtml(tpl.to.join(', '))}" placeholder="多个地址用逗号分隔"></div>
+                <div class="form-group"><label for="mcAccount">发件账户</label><select class="form-select" id="mcAccount">${accOpts}</select></div>
+                <div class="form-group"><label for="mcTo">收件人</label><input class="form-input" id="mcTo" value="${escapeHtml(tpl.to.join(', '))}" placeholder="多个地址用逗号分隔"></div>
                 <div class="form-row-2">
-                    <div class="form-group"><label>抄送</label><input class="form-input" id="mcCc" value="${escapeHtml(tpl.cc.join(', '))}"></div>
-                    <div class="form-group"><label>密送</label><input class="form-input" id="mcBcc"></div>
+                    <div class="form-group"><label for="mcCc">抄送</label><input class="form-input" id="mcCc" value="${escapeHtml(tpl.cc.join(', '))}"></div>
+                    <div class="form-group"><label for="mcBcc">密送</label><input class="form-input" id="mcBcc"></div>
                 </div>
-                <div class="form-group"><label>主题</label><input class="form-input" id="mcSubject" value="${escapeHtml(tpl.subject)}"></div>
-                <div class="form-group"><label>正文</label><textarea class="form-textarea mail-compose-body" id="mcBody" rows="12">${escapeHtml(tpl.quoted_text || '')}</textarea></div>
+                <div class="form-group"><label for="mcSubject">主题</label><input class="form-input" id="mcSubject" value="${escapeHtml(tpl.subject)}"></div>
+                <div class="form-group"><label for="mcBody">正文</label><textarea class="form-textarea mail-compose-body" id="mcBody" rows="8"></textarea></div>
+                <div class="form-group mail-compose-signature">
+                    <label class="mail-check"><input type="checkbox" id="mcUseSignature"> 本封邮件使用签名</label>
+                    <textarea class="form-textarea" id="mcSignature" aria-label="本封邮件的签名" rows="3" maxlength="4000" placeholder="可在邮箱管理中保存默认签名，也可在此临时填写"></textarea>
+                    <div class="mail-hint">此处修改仅对本封邮件生效。<a href="/mail-admin" target="_blank" rel="noopener">管理默认签名</a></div>
+                </div>
+                ${tpl.quoted_text ? `<details class="form-group mail-compose-quote"><summary>原邮件（随信发送，位于签名之后）</summary><textarea class="form-textarea" id="mcQuote" aria-label="原邮件引用" rows="6">${escapeHtml(tpl.quoted_text.trim())}</textarea></details>` : ''}
                 <div class="form-group"><label>附件</label><input type="file" id="mcFiles" multiple>
                     ${tpl.attachment_ids && tpl.attachment_ids.length ? `<div class="mail-hint">将随转发一并附上原邮件的 ${tpl.attachment_ids.length} 个附件</div>` : ''}</div>
                 <div class="mail-hint">💡 可以在右侧/下方的智能助手中让 AI 帮你起草或润色，再粘贴到这里。</div>`,
             footer: `<button class="btn btn-ghost" onclick="Modal.close()">取消</button><button class="btn btn-primary" id="mcSend">📤 发送</button>`,
         });
         const body = document.getElementById('mcBody');
-        body.focus(); body.setSelectionRange(0, 0);
+        const accountSelect = document.getElementById('mcAccount');
+        const signature = document.getElementById('mcSignature');
+        const useSignature = document.getElementById('mcUseSignature');
+        const signatureDrafts = new Map();
+        let signatureAccount = accountSelect.value;
+        const loadSignature = () => {
+            const account = accounts.find(a => String(a.id) === accountSelect.value);
+            const draft = signatureDrafts.get(accountSelect.value);
+            signature.value = draft ? draft.text : (account.signature_text || '');
+            useSignature.checked = draft ? draft.enabled : Boolean(account.signature_enabled && signature.value.trim());
+            signature.disabled = !useSignature.checked;
+        };
+        loadSignature();
+        useSignature.addEventListener('change', () => { signature.disabled = !useSignature.checked; });
+        accountSelect.addEventListener('change', () => {
+            signatureDrafts.set(signatureAccount, { text: signature.value, enabled: useSignature.checked });
+            signatureAccount = accountSelect.value;
+            loadSignature();
+        });
+        body.focus({ preventScroll: true }); body.setSelectionRange(0, 0);
+        document.getElementById('modalBody').scrollTop = 0;
         document.getElementById('mcSend').addEventListener('click', async () => {
             const btn = document.getElementById('mcSend');
             btn.disabled = true; btn.textContent = '⏳ 发送中...';
@@ -328,7 +363,7 @@ const Mail = {
                 fd.append('cc', document.getElementById('mcCc').value);
                 fd.append('bcc', document.getElementById('mcBcc').value);
                 fd.append('subject', document.getElementById('mcSubject').value);
-                fd.append('body_text', document.getElementById('mcBody').value);
+                fd.append('body_text', this.composeText(body.value, useSignature.checked ? signature.value : '', document.getElementById('mcQuote')?.value || ''));
                 if (tpl.in_reply_to_id) fd.append('in_reply_to_id', tpl.in_reply_to_id);
                 if (tpl.attachment_ids && tpl.attachment_ids.length) fd.append('forward_attachment_ids', tpl.attachment_ids.join(','));
                 for (const f of document.getElementById('mcFiles').files) fd.append('files[]', f);

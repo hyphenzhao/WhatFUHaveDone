@@ -184,8 +184,11 @@ if ($res === 'messages' && $method === 'GET' && !$id) {
 if ($res === 'messages' && $id && $sub === 'reply-template' && $method === 'GET') {
     $m = mail_get_message_full($db, $uid, $id);
     if (!$m) json_error('邮件不存在', 404);
-    $mode = in_array($_GET['mode'] ?? 'reply', ['reply', 'reply_all', 'forward'], true) ? $_GET['mode'] : 'reply';
-    $t = mail_build_reply_template($m, $mode, (string)$m['account_email']);
+    $mode = (string)($_GET['mode'] ?? 'reply');
+    if (!in_array($mode, ['reply', 'reply_all', 'forward'], true)) $mode = 'reply';
+    $own = $db->prepare('SELECT email FROM mail_accounts WHERE user_id = ?');
+    $own->execute([$uid]);
+    $t = mail_build_reply_template($m, $mode, $own->fetchAll(PDO::FETCH_COLUMN));
     $t['account_id'] = $m['account_id'];
     $t['in_reply_to_id'] = $mode === 'forward' ? 0 : $m['id'];
     $t['attachment_ids'] = $mode === 'forward' ? array_values(array_map(fn($a) => $a['id'], array_filter($m['attachments'], fn($a) => $a['stored']))) : [];

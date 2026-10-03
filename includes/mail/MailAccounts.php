@@ -74,12 +74,16 @@ function mail_account_normalize(array $data, ?array $existing = null): array {
     if ($username === '') $username = $email;
     $name = trim((string)$get('name'));
     if ($name === '') $name = $email;
+    $signature = trim(str_replace(["\r\n", "\r"], "\n", (string)$get('signature_text')));
+    if (mb_strlen($signature, 'UTF-8') > 4000) throw new MailException('签名不能超过 4000 字');
     $bool = fn($k, $d) => (int)!!(array_key_exists($k, $data) && $data[$k] !== null ? $data[$k] : ($existing[$k] ?? $d));
     return [
         'name' => mb_substr($name, 0, 100), 'email' => $email, 'protocol' => 'imap',
         'imap_host' => $imapHost, 'imap_port' => $imapPort, 'imap_ssl' => $imapSsl,
         'smtp_host' => $smtpHost, 'smtp_port' => $smtpPort, 'smtp_ssl' => $smtpSsl,
         'username' => mb_substr($username, 0, 255),
+        'signature_text' => $signature,
+        'signature_enabled' => $bool('signature_enabled', 1),
         'validate_cert' => $bool('validate_cert', 1),
         'enabled' => $bool('enabled', 1),
         'sync_all_folders' => $bool('sync_all_folders', 1),
@@ -95,10 +99,10 @@ function mail_account_create(PDO $db, int $uid, array $data, string $password): 
     $dup = $db->prepare('SELECT id FROM mail_accounts WHERE user_id = ? AND email = ?');
     $dup->execute([$uid, $acc['email']]);
     if ($dup->fetchColumn()) throw new MailException('该邮箱地址已存在');
-    $st = $db->prepare('INSERT INTO mail_accounts (user_id, name, email, protocol, imap_host, imap_port, imap_ssl, smtp_host, smtp_port, smtp_ssl, username, password_enc, validate_cert, enabled, sync_all_folders, sort)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $st = $db->prepare('INSERT INTO mail_accounts (user_id, name, email, protocol, imap_host, imap_port, imap_ssl, smtp_host, smtp_port, smtp_ssl, username, password_enc, validate_cert, enabled, sync_all_folders, sort, signature_text, signature_enabled)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     $st->execute([$uid, $acc['name'], $acc['email'], $acc['protocol'], $acc['imap_host'], $acc['imap_port'], $acc['imap_ssl'],
-                  $acc['smtp_host'], $acc['smtp_port'], $acc['smtp_ssl'], $acc['username'], $enc, $acc['validate_cert'], $acc['enabled'], $acc['sync_all_folders'], $acc['sort']]);
+                  $acc['smtp_host'], $acc['smtp_port'], $acc['smtp_ssl'], $acc['username'], $enc, $acc['validate_cert'], $acc['enabled'], $acc['sync_all_folders'], $acc['sort'], $acc['signature_text'], $acc['signature_enabled']]);
     return mail_account_public(mail_get_account($db, $uid, (int)$db->lastInsertId()));
 }
 
@@ -106,8 +110,8 @@ function mail_account_update(PDO $db, int $uid, int $id, array $data, string $pa
     $existing = mail_get_account($db, $uid, $id);
     if (!$existing) throw new MailException('账户不存在');
     $acc = mail_account_normalize($data, $existing);
-    $sets = ['name=?', 'email=?', 'imap_host=?', 'imap_port=?', 'imap_ssl=?', 'smtp_host=?', 'smtp_port=?', 'smtp_ssl=?', 'username=?', 'validate_cert=?', 'enabled=?', 'sync_all_folders=?', 'sort=?'];
-    $params = [$acc['name'], $acc['email'], $acc['imap_host'], $acc['imap_port'], $acc['imap_ssl'], $acc['smtp_host'], $acc['smtp_port'], $acc['smtp_ssl'], $acc['username'], $acc['validate_cert'], $acc['enabled'], $acc['sync_all_folders'], $acc['sort']];
+    $sets = ['name=?', 'email=?', 'imap_host=?', 'imap_port=?', 'imap_ssl=?', 'smtp_host=?', 'smtp_port=?', 'smtp_ssl=?', 'username=?', 'validate_cert=?', 'enabled=?', 'sync_all_folders=?', 'sort=?', 'signature_text=?', 'signature_enabled=?'];
+    $params = [$acc['name'], $acc['email'], $acc['imap_host'], $acc['imap_port'], $acc['imap_ssl'], $acc['smtp_host'], $acc['smtp_port'], $acc['smtp_ssl'], $acc['username'], $acc['validate_cert'], $acc['enabled'], $acc['sync_all_folders'], $acc['sort'], $acc['signature_text'], $acc['signature_enabled']];
     if ($password !== '') {
         $sets[] = 'password_enc=?'; $params[] = crypto_encrypt($password);
         $sets[] = 'last_error=NULL';

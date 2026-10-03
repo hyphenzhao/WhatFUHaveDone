@@ -239,3 +239,8 @@ mark.mail-mark { background: #fde68a; color: inherit; padding: 0 1px; border-rad
 .td-mail-title.unseen { font-weight: 700; }
 .td-mail-row2 { font-size: 0.74rem; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
 .td-mail-actions { display: flex; flex-shrink: 0; }
+
+.mail-compose-signature { border-left: 3px solid var(--color-border); padding-left: 12px; }
+.mail-compose-signature .form-textarea { margin: 6px 0; }
+.mail-compose-signature .form-textarea:disabled { opacity: .6; }
+.mail-compose-quote summary { cursor: pointer; color: var(--color-text-secondary); margin-bottom: 8px; }

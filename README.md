@@ -269,6 +269,10 @@ mysql -uworklog -p worklog < migrations/002_mail_profile.sql
 
 左侧导航 **系统管理 → 📮 邮箱管理** → 添加邮箱（QQ / 163 / Gmail / Outlook 有预设；需使用**授权码 / 应用专用密码**）→ 测试连接 → 保存后自动首次收取。
 
+每个邮箱可在“编辑 → 邮件签名”中保存独立的纯文本签名，并选择是否自动使用。写信、回复、全部回复和转发的撰写窗口支持临时修改/关闭签名；发送顺序为正文、签名、原邮件引用。切换发件账户会切换签名，不改动正文。已有安装先执行 `mysql -uworklog -p worklog < migrations/010_mail_signatures.sql`；新安装的 `schema.sql` 已包含这些字段。
+
+“全部回复”包含原发件人和其他 To 收件人，原 CC 保留在抄送栏；地址不分大小写去重，并排除当前用户已配置的邮箱。只使用邮件实际保存的 To/CC，不推断密送人。回归检查：`php scripts/test_mail_compose.php`、`node scripts/test_mail_compose.cjs`。
+
 ### 5. 用户侧写
 
 **系统管理 → 👤 个人侧写** 上传简历等 PDF/DOCX 作为**身份文档（权威来源）**，AI 据此判断邮件相关度；AI 在对话中会静默记录职称、职位、工作重心等**印象（次级来源）**，可在同一页查看、编辑、删除。

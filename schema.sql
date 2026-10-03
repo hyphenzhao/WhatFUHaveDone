@@ -340,6 +340,8 @@ CREATE TABLE IF NOT EXISTS mail_accounts (
     smtp_port INT NOT NULL DEFAULT 465,
     smtp_ssl VARCHAR(8) NOT NULL DEFAULT 'ssl',         -- ssl | tls | none
     username VARCHAR(255) NOT NULL DEFAULT '',
+    signature_text TEXT NULL,
+    signature_enabled TINYINT(1) NOT NULL DEFAULT 1,
     password_enc TEXT,                                  -- base64(nonce || sodium secretbox)
     validate_cert TINYINT(1) NOT NULL DEFAULT 1,
     enabled TINYINT(1) NOT NULL DEFAULT 1,

@@ -200,7 +200,7 @@ function mail_get_account(PDO $db, int $uid, int $accountId): ?array {
 
 function mail_account_public(array $a): array {
     unset($a['password_enc']);
-    foreach (['id', 'user_id', 'imap_port', 'smtp_port', 'validate_cert', 'enabled', 'sync_all_folders', 'sort'] as $k) {
+    foreach (['id', 'user_id', 'imap_port', 'smtp_port', 'validate_cert', 'enabled', 'sync_all_folders', 'sort', 'signature_enabled'] as $k) {
         if (isset($a[$k])) $a[$k] = (int)$a[$k];
     }
     return $a;

@@ -138,9 +138,25 @@ function mail_clean_utf8(string $s, int $maxChars = 0): string {
  * Quoted reply / forward template for the compose form.
  * $mode: reply | reply_all | forward
  */
-function mail_build_reply_template(array $msg, string $mode, string $ownEmail): array {
+function mail_build_reply_template(array $msg, string $mode, string|array $ownEmails): array {
     $to = [];
     $cc = [];
+    // Repository results expose decoded to/cc; raw DB rows still use *_json.
+    $addresses = static function (string $field) use ($msg): array {
+        $list = $msg[$field] ?? json_decode((string)($msg[$field . '_json'] ?? '[]'), true);
+        return is_array($list) ? $list : [];
+    };
+    $toList = $addresses('to');
+    $ccList = $addresses('cc');
+    $own = array_fill_keys(array_map(fn($e) => strtolower(trim((string)$e)), (array)$ownEmails), true);
+    $seen = $own;
+    $add = static function (array &$list, string $email) use (&$seen): void {
+        $email = trim($email);
+        $key = strtolower($email);
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || isset($seen[$key])) return;
+        $seen[$key] = true;
+        $list[] = $email;
+    };
     $subject = (string)$msg['subject'];
     $from = trim(($msg['from_name'] ? $msg['from_name'] . ' ' : '') . '<' . $msg['from_email'] . '>');
     $date = (string)($msg['msg_date'] ?? '');
@@ -149,30 +165,32 @@ function mail_build_reply_template(array $msg, string $mode, string $ownEmail): 
 
     if ($mode === 'forward') {
         if (!preg_match('/^\s*fw(d)?\s*:/i', $subject)) $subject = 'Fwd: ' . $subject;
-        $toList = json_decode((string)($msg['to_json'] ?? '[]'), true) ?: [];
         $toStr = implode(', ', array_map(fn($a) => trim(($a['name'] ?? '') . ' <' . ($a['email'] ?? '') . '>'), $toList));
-        $quoted = "\n\n---------- 转发邮件 ----------\n发件人: {$from}\n日期: {$date}\n主题: {$msg['subject']}\n收件人: {$toStr}\n\n" . $body;
+        $ccStr = implode(', ', array_map(fn($a) => trim(($a['name'] ?? '') . ' <' . ($a['email'] ?? '') . '>'), $ccList));
+        $quoted = "\n\n---------- 转发邮件 ----------\n发件人: {$from}\n日期: {$date}\n主题: {$msg['subject']}\n收件人: {$toStr}"
+            . ($ccStr !== '' ? "\n抄送: {$ccStr}" : '') . "\n\n" . $body;
     } else {
         if (!preg_match('/^\s*re\s*:/i', $subject)) $subject = 'Re: ' . $subject;
-        $to[] = $msg['from_email'];
+        $add($to, (string)$msg['from_email']);
+        if ($mode === 'reply_all' || isset($own[strtolower(trim((string)$msg['from_email']))])) {
+            foreach ($toList as $a) {
+                $add($to, (string)($a['email'] ?? ''));
+            }
+        }
         if ($mode === 'reply_all') {
-            $own = strtolower($ownEmail);
-            foreach (json_decode((string)($msg['to_json'] ?? '[]'), true) ?: [] as $a) {
-                $e = strtolower((string)($a['email'] ?? ''));
-                if ($e !== '' && $e !== $own && $e !== strtolower($msg['from_email'])) $to[] = $a['email'];
+            foreach ($ccList as $a) {
+                $add($cc, (string)($a['email'] ?? ''));
             }
-            foreach (json_decode((string)($msg['cc_json'] ?? '[]'), true) ?: [] as $a) {
-                $e = strtolower((string)($a['email'] ?? ''));
-                if ($e !== '' && $e !== $own) $cc[] = $a['email'];
-            }
+            // The composer requires a To recipient, even for a sent mail with only CC peers.
+            if (!$to && $cc) $to[] = array_shift($cc);
         }
         $lines = explode("\n", $body);
         $quotedBody = implode("\n", array_map(fn($l) => '> ' . $l, $lines));
         $quoted = "\n\n\n在 {$date}，{$from} 写道：\n" . $quotedBody;
     }
     return [
-        'to' => array_values(array_unique($to)),
-        'cc' => array_values(array_unique($cc)),
+        'to' => $to,
+        'cc' => $cc,
         'subject' => $subject,
         'quoted_text' => $quoted,
     ];

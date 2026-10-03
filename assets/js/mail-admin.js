@@ -82,6 +82,12 @@ function accountFormHtml(a) {
         <label class="mail-check"><input type="checkbox" id="maEnabled" ${a.enabled === 0 ? '' : 'checked'}> 启用（参与自动收取）</label>
         <label class="mail-check"><input type="checkbox" id="maAllFolders" ${a.sync_all_folders === 0 ? '' : 'checked'}> 同步所有文件夹</label>
     </div>
+    <div class="form-group">
+        <label for="maSignature">邮件签名</label>
+        <textarea class="form-textarea" id="maSignature" rows="5" maxlength="4000" placeholder="姓名 / 职称&#10;单位&#10;联系方式">${escapeHtml(a.signature_text || '')}</textarea>
+        <label class="mail-check"><input type="checkbox" id="maSignatureEnabled" ${a.signature_enabled === 0 ? '' : 'checked'}> 写信、回复和转发时自动使用</label>
+        <div class="mail-hint">每个邮箱独立保存。回复时签名放在原邮件之前；写信时可临时修改或关闭。</div>
+    </div>
     <div id="maTestResult" class="mail-test-result" style="display:none;"></div>`;
 }
 
@@ -110,6 +116,8 @@ function readAccountForm() {
         validate_cert: document.getElementById('maValidate').checked ? 1 : 0,
         enabled: document.getElementById('maEnabled').checked ? 1 : 0,
         sync_all_folders: document.getElementById('maAllFolders').checked ? 1 : 0,
+        signature_text: document.getElementById('maSignature').value,
+        signature_enabled: document.getElementById('maSignatureEnabled').checked ? 1 : 0,
     };
 }
 

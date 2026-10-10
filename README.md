@@ -69,7 +69,7 @@ docker compose up -d
 
 #### 环境要求
 
-- **PHP 8.0+**（需 curl 扩展）
+- **PHP 8.1+**（需 curl 扩展）
 - **MySQL 8.0+**
 - **Apache**（或 Nginx + PHP-FPM）
 - **pdftotext**（可选，用于简历 PDF 解析）
@@ -281,6 +281,8 @@ mysql -uworklog -p worklog < migrations/002_mail_profile.sql
 
 ## 页面导航
 
+外部 Codex / MCP 接入：在「系统管理 → 外部 AI 接入」创建只读密钥，使用概览、检索、批量详情三个工具。配置、权限、分页和版本缓存说明见 [外部 AI API 文档](docs/external-api.md)。已有部署需执行 `migrations/011_external_api.sql`；可用 `php scripts/test_external_api.php --http` 验证接入。
+
 | 路径 | 功能 |
 |------|------|
 | `/` | 主页（日历 + 黄历 + 任务 + 今日邮件 + AI） |
@@ -295,6 +297,7 @@ mysql -uworklog -p worklog < migrations/002_mail_profile.sql
 | `/skills` | AI 技能管理 |
 | `/calendar-admin` | 日历数据更新 |
 | `/ai-admin` | AI 模型配置 |
+| `/external-access` | 外部 AI 只读密钥、权限与 Codex MCP 配置 |
 
 ---
 
@@ -322,7 +325,7 @@ mysql -uworklog -p worklog < migrations/002_mail_profile.sql
 
 | 层级 | 技术 |
 |------|------|
-| 后端 | PHP 8.0+（无框架） |
+| 后端 | PHP 8.1+（无框架） |
 | 数据库 | MySQL 8.0 |
 | 前端 | Vanilla JS + CSS3 Grid/Flexbox |
 | AI | DeepSeek / Ollama（OpenAI 兼容 API） |

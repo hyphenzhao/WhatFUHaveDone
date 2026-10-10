@@ -70,6 +70,9 @@ $layout_user = current_user();
                     <a href="/profile" class="sidebar-link <?= $current_page === 'profile' ? 'active' : '' ?>" title="个人侧写" aria-label="个人侧写">
                         <span class="nav-icon" aria-hidden="true">👤</span><span class="nav-label">个人侧写</span>
                     </a>
+                    <a href="/external-access" class="sidebar-link <?= $current_page === 'external-access' ? 'active' : '' ?>" title="外部 AI 接入" aria-label="外部 AI 接入">
+                        <span class="nav-icon" aria-hidden="true">🔌</span><span class="nav-label">外部 AI 接入</span>
+                    </a>
                     <a href="/skills" class="sidebar-link <?= $current_page === 'skills' ? 'active' : '' ?>" title="技能管理" aria-label="技能管理">
                         <span class="nav-icon" aria-hidden="true">🛠️</span><span class="nav-label">技能管理</span>
                     </a>
@@ -179,6 +182,8 @@ $layout_user = current_user();
     <script src="/assets/js/mail.js?v=<?= $asset_ver ?>"></script>
     <?php elseif ($current_page === 'mail-admin'): ?>
     <script src="/assets/js/mail-admin.js?v=<?= $asset_ver ?>"></script>
+    <?php elseif ($current_page === 'external-access'): ?>
+    <script src="/assets/js/external-access.js?v=<?= $asset_ver ?>"></script>
     <?php elseif ($current_page === 'people'): ?>
     <script src="/assets/js/people.js?v=<?= $asset_ver ?>"></script>
     <?php elseif ($current_page === 'tasks'): ?>

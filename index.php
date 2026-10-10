@@ -26,6 +26,12 @@ $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = trim($uri, '/');
 $parts = $uri ? explode('/', $uri) : [];
 
+// External AI uses its own scoped read-only bearer authentication, never a session.
+if (($parts[0] ?? '') === 'api' && ($parts[1] ?? '') === 'external') {
+    require __DIR__ . '/api/external.php';
+    exit;
+}
+
 // Authentication guard (login page and auth API are public)
 auth_boot();
 $is_api = ($parts[0] ?? '') === 'api';
@@ -70,6 +76,7 @@ $page_map = [
     'reports'       => 'reports',
     'mail'          => 'mail',
     'mail-admin'    => 'mail-admin',
+    'external-access' => 'external-access',
     'tags'          => 'tags',
     'relationships' => 'relationships',
     'calendar-admin' => 'calendar-admin',

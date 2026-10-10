@@ -1,4 +1,5 @@
 RewriteEngine On
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
 # Redirect all requests to index.php unless file/directory exists
 RewriteCond %{REQUEST_FILENAME} !-f

@@ -982,6 +982,7 @@ async function loadDailyStatus(date) {
         const workTasks = data.work_tasks || [];
         const resultTasks = data.result_tasks || [];
         const planTasks = data.plan_tasks || [];
+        const historyTitle = t => escapeHtml(t.name) + (Number(t.archived) ? ' <small style="font-weight:400;color:var(--color-text-secondary)">已归档</small>' : '');
 
         let html = '';
 
@@ -994,7 +995,7 @@ async function loadDailyStatus(date) {
             const tags = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${tg.color}">${tg.name}</span>`).join('');
             const dur = t.duration || '';
             const durLabel = dur ? '⏱️ ' + escapeHtml(dur) : '⏱️ 耗时';
-            html += `<div class="daily-card" data-task-id="${t.id}" title="点击查看任务详情"><div class="daily-card-row"><div class="daily-card-info"><h4>💪 ${escapeHtml(t.name)}${t.location ? " 📍 " + escapeHtml(t.location) : ""}</h4>${tags ? tags : ''}<div class="daily-card-meta">工作量 +1 · <span class="wl-dur-tag" onclick="showDurPicker(${wlId},'${escapeHtml(dur)}')">${durLabel}</span></div>
+            html += `<div class="daily-card" data-task-id="${t.id}" title="点击查看任务详情"><div class="daily-card-row"><div class="daily-card-info"><h4>💪 ${historyTitle(t)}${t.location ? " 📍 " + escapeHtml(t.location) : ""}</h4>${tags ? tags : ''}<div class="daily-card-meta">工作量 +1 · <span class="wl-dur-tag" onclick="showDurPicker(${wlId},'${escapeHtml(dur)}')">${durLabel}</span></div>
                 <span class="wl-log-btn" onclick="showWorklogHistory(${t.id})">📋 工作日志</span><div class="wl-notes" id="wl-notes-${wlId}"></div>
                 <div class="wl-note-add"><input class="wl-note-input" id="wl-input-${wlId}" placeholder="添加备注..." maxlength="200" onkeydown="if(event.key==='Enter')addWorklogNote(${wlId})"><button class="wl-note-btn" onclick="addWorklogNote(${wlId})">+</button></div>
             </div><button class="daily-card-close" onclick="cancelWorklog(${t.id},'${date}')" title="取消">✕</button></div></div>`;
@@ -1003,7 +1004,7 @@ async function loadDailyStatus(date) {
         resultTasks.forEach(t => {
             const tags = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${tg.color}">${tg.name}</span>`).join('');
             const dur = t.duration ? ' · ⏱️ ' + escapeHtml(t.duration) : '';
-            html += `<div class="daily-card" data-task-id="${t.id}" title="点击查看任务详情"><div class="daily-card-row"><div class="daily-card-info"><h4>🏆 ${escapeHtml(t.name)}${t.location ? " 📍 " + escapeHtml(t.location) : ""}</h4>${tags ? tags : ''}<div class="daily-card-meta">产出: ${escapeHtml(t.result_name || '')}${dur}</div></div><button class="daily-card-close" onclick="cancelResultLog(${t.result_log_id})" title="取消">✕</button></div></div>`;
+            html += `<div class="daily-card" data-task-id="${t.id}" title="点击查看任务详情"><div class="daily-card-row"><div class="daily-card-info"><h4>🏆 ${historyTitle(t)}${t.location ? " 📍 " + escapeHtml(t.location) : ""}</h4>${tags ? tags : ''}<div class="daily-card-meta">产出: ${escapeHtml(t.result_name || '')}${dur}</div></div><button class="daily-card-close" onclick="cancelResultLog(${t.result_log_id})" title="取消">✕</button></div></div>`;
         });
 
         planTasks.forEach(t => {
@@ -1019,7 +1020,7 @@ async function loadDailyStatus(date) {
                 timeLabel = fmtTime(t.plan_time) + (t.plan_end_time ? ' - ' + fmtTime(t.plan_end_time) : '');
             }
             const planTimeTag = `<span class="wl-dur-tag" onclick="showPlanTimePicker(${t.plan_id},'${escapeHtml(t.plan_time||'')}','${escapeHtml(t.plan_end_time||'')}')" style="margin-left:4px;">${t.plan_time ? '⏰ ' + timeLabel : '📅 全天'}</span>`;
-            html += `<div class="daily-card" data-task-id="${t.id}" title="点击查看任务详情"><div class="daily-card-row"><div class="daily-card-info"><h4>📅 ${escapeHtml(t.name)}${t.location ? " 📍 " + escapeHtml(t.location) : ""}</h4>${tags ? tags : ''}<div class="daily-card-meta">${planTimeTag}</div></div><div style="display:flex;flex-direction:column;gap:4px;"><button class="plan-exec-btn" onclick="execPlan(${t.id},'${date}',${t.plan_id})" title="标记为已执行">✓</button><button class="daily-card-close" onclick="cancelPlan(${t.plan_id})" title="取消">✕</button></div></div></div>`;
+            html += `<div class="daily-card" data-task-id="${t.id}" title="点击查看任务详情"><div class="daily-card-row"><div class="daily-card-info"><h4>📅 ${historyTitle(t)}${t.location ? " 📍 " + escapeHtml(t.location) : ""}</h4>${tags ? tags : ''}<div class="daily-card-meta">${planTimeTag}</div></div><div style="display:flex;flex-direction:column;gap:4px;"><button class="plan-exec-btn" onclick="execPlan(${t.id},'${date}',${t.plan_id})" title="标记为已执行">✓</button><button class="daily-card-close" onclick="cancelPlan(${t.plan_id})" title="取消">✕</button></div></div></div>`;
         });
 
         if (wlNotesResizeObserver) wlNotesResizeObserver.disconnect();

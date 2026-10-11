@@ -222,14 +222,14 @@ function profile_collect_updates(PDO $db, int $uid, ?string $since, int $budget 
         foreach ($rows as $r) $text .= "- [" . profile_field_label($r['field']) . "] " . trim($r['value']) . " ({$r['source']}, " . substr($r['updated_at'], 0, 10) . ")\n";
     }
 
-    $st = $db->prepare('SELECT name, stage, stage_number, deadline, updated_at FROM tasks WHERE user_id = ? AND archived = 0 AND updated_at > ? ORDER BY updated_at DESC LIMIT 40');
+    $st = $db->prepare('SELECT name, stage, stage_number, deadline, archived, updated_at FROM tasks WHERE user_id = ? AND updated_at > ? ORDER BY updated_at DESC LIMIT 40');
     $st->execute([$uid, $since]);
     $rows = $st->fetchAll();
     $counts['tasks'] = count($rows);
     if ($rows) {
         $stageMap = ['in_progress' => '进行中', 'stage_complete' => '阶段完成', 'completed' => '已完成', 'failed' => '失败/放弃'];
         $text .= "\n## 有变动的任务\n";
-        foreach ($rows as $r) $text .= "- {$r['name']}（" . ($stageMap[$r['stage']] ?? $r['stage']) . " 第{$r['stage_number']}阶段" . ($r['deadline'] ? "，截止 {$r['deadline']}" : '') . "）\n";
+        foreach ($rows as $r) $text .= "- {$r['name']}（" . ($stageMap[$r['stage']] ?? $r['stage']) . " 第{$r['stage_number']}阶段" . ($r['deadline'] ? "，截止 {$r['deadline']}" : '') . ($r['archived'] ? '，已归档，保留历史记录' : '') . "）\n";
     }
 
     $st = $db->prepare('SELECT t.name, COUNT(*) AS days FROM work_logs w JOIN tasks t ON t.id = w.task_id WHERE t.user_id = ? AND w.created_at > ? GROUP BY t.id ORDER BY days DESC LIMIT 20');

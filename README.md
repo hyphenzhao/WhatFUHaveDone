@@ -281,6 +281,8 @@ mysql -uworklog -p worklog < migrations/002_mail_profile.sql
 
 ## 页面导航
 
+任务归档只控制主页任务分类中的显示。已记录的工作量、成果、计划、日志、附件及历史统计继续保留，历史卡片显示“已归档”；永久删除任务才级联清理其工作记录、成果记录、计划和关联。归档/恢复/删除回归检查：`php scripts/test_task_archive.php`（使用临时测试用户，结束后清理）。
+
 外部 Codex / MCP 接入：在「系统管理 → 外部 AI 接入」创建只读密钥，使用概览、检索、批量详情三个工具。配置、权限、分页和版本缓存说明见 [外部 AI API 文档](docs/external-api.md)。已有部署需执行 `migrations/011_external_api.sql`；可用 `php scripts/test_external_api.php --http` 验证接入。
 
 | 路径 | 功能 |

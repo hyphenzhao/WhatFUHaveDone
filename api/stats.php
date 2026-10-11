@@ -11,6 +11,7 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/activity_queries.php';
 
 require_once __DIR__ . '/../includes/auth.php';
 
@@ -98,25 +99,7 @@ if ($type === 'calendar') {
     $start = $month . '-01';
     $end = date('Y-m-t', strtotime($start));
 
-    // Get all tasks that have work logs or plans in this month range
-    $sql = "SELECT DISTINCT t.id, t.name, wl.log_date as event_date, 'work' as event_type, '' as plan_time, '' as plan_end_time
-            FROM tasks t
-            JOIN work_logs wl ON t.id = wl.task_id
-            WHERE wl.log_date BETWEEN ? AND ? AND t.archived = 0 AND t.user_id = ?
-            UNION ALL
-            SELECT DISTINCT t.id, t.name, p.planned_date as event_date, 'plan' as event_type, p.plan_time, p.plan_end_time
-            FROM tasks t
-            JOIN plans p ON t.id = p.task_id
-            WHERE p.planned_date BETWEEN ? AND ? AND t.archived = 0 AND t.user_id = ?
-            UNION ALL
-            SELECT DISTINCT t.id, t.name, rl.log_date as event_date, 'result' as event_type, '' as plan_time, '' as plan_end_time
-            FROM tasks t
-            JOIN result_logs rl ON t.id = rl.task_id
-            WHERE rl.log_date BETWEEN ? AND ? AND t.archived = 0 AND t.user_id = ?
-            ORDER BY event_date, id";
-    $stmt = $db->prepare($sql);
-    $stmt->execute([$start, $end, $uid, $start, $end, $uid, $start, $end, $uid]);
-    $events = $stmt->fetchAll();
+    $events = activity_calendar_events($db, $uid, $start, $end);
 
     // Attach tags to each task
     foreach ($events as &$e) {
@@ -146,33 +129,10 @@ if ($type === 'calendar') {
 if ($type === 'daily') {
     $date = $_GET['date'] ?? today();
 
-    // Tasks with work logged on this date
-    $sql = "SELECT t.*, wl.id as work_log_id, wl.duration
-            FROM tasks t
-            JOIN work_logs wl ON t.id = wl.task_id
-            WHERE wl.log_date = ? AND t.archived = 0 AND t.user_id = ?";
-    $stmt = $db->prepare($sql);
-    $stmt->execute([$date, $uid]);
-    $work_tasks = $stmt->fetchAll();
-
-    // Tasks with results logged on this date
-    $sql = "SELECT t.*, rl.id as result_log_id, rl.result_id, r.name as result_name
-            FROM tasks t
-            JOIN result_logs rl ON t.id = rl.task_id
-            JOIN results r ON rl.result_id = r.id
-            WHERE rl.log_date = ? AND t.archived = 0 AND t.user_id = ?";
-    $stmt = $db->prepare($sql);
-    $stmt->execute([$date, $uid]);
-    $result_tasks = $stmt->fetchAll();
-
-    // Tasks planned for this date
-    $sql = "SELECT t.*, p.id as plan_id, p.plan_time, p.plan_end_time
-            FROM tasks t
-            JOIN plans p ON t.id = p.task_id
-            WHERE p.planned_date = ? AND t.archived = 0 AND t.user_id = ?";
-    $stmt = $db->prepare($sql);
-    $stmt->execute([$date, $uid]);
-    $plan_tasks = $stmt->fetchAll();
+    $daily = activity_daily_records($db, $uid, $date);
+    $work_tasks = $daily['work_tasks'];
+    $result_tasks = $daily['result_tasks'];
+    $plan_tasks = $daily['plan_tasks'];
 
     // Attach tags to each task
     $attach_tags = function(array &$tasks) use ($db) {
@@ -200,23 +160,7 @@ if ($type === 'workload_detail') {
     if (!$tag_id) json_error('tag_id required');
     $start = get_period_start($period, $ref_date);
 
-    $sql = "SELECT t.id, t.name, COUNT(wl.id) as work_days,
-                   GROUP_CONCAT(DISTINCT p.name ORDER BY p.name SEPARATOR ', ') as people_names
-            FROM tasks t
-            JOIN task_tags tt ON t.id = tt.task_id
-            JOIN work_logs wl ON t.id = wl.task_id
-            LEFT JOIN task_people tp ON t.id = tp.task_id
-            LEFT JOIN people p ON tp.people_id = p.id
-            WHERE tt.tag_id = ? AND t.archived = 0 AND t.user_id = ?";
-    $params = [(int)$tag_id, $uid];
-    if ($start) {
-        $sql .= " AND wl.log_date >= ?";
-        $params[] = $start;
-    }
-    $sql .= " GROUP BY t.id, t.name ORDER BY work_days DESC";
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    $tasks = $stmt->fetchAll();
+    $tasks = activity_workload_detail($db, $uid, $tag_id, $start);
 
     json_success([
         'tag_id' => $tag_id,

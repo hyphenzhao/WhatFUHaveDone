@@ -217,6 +217,7 @@ const IM = {
                 (notesRes.data||[]).forEach(n => { if (n.latest_note) wlNotes[n.task_id] = n.latest_note; });
             } catch(e) {}
 
+            const historyTitle = t => escapeHtml(t.name) + (Number(t.archived) ? ' <small style="font-weight:400;opacity:0.75">已归档</small>' : '');
             const renderCard = (t, showWorklog) => {
                 const note = wlNotes[t.id] || '';
                 const tags = (t.tags||[]).map(tg => `<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('');
@@ -230,7 +231,7 @@ const IM = {
                 const dur = t.duration || '';
                 const durHtml = showWorklog ? `<span class="im-dur-tag" onclick="showDurPicker(${(t.work_log_id||0)},'${escapeHtml(dur)}')">${dur?'⏱️ '+escapeHtml(dur):'⏱️ 耗时'}</span>` : '';
                 return `<div class="im-card">
-                    <div class="im-card-name">${escapeHtml(t.name)}${t.location?" 📍 "+escapeHtml(t.location):""}${deadlineHtml}</div>
+                    <div class="im-card-name">${historyTitle(t)}${t.location?" 📍 "+escapeHtml(t.location):""}${deadlineHtml}</div>
                     <div class="im-card-tags">${tags}</div>
                     ${durHtml}
                     ${wlLogBtn}
@@ -274,13 +275,13 @@ const IM = {
             } else {
                 workTasks.forEach(t => { html += renderCard(t, false); });
                 resultTasks.forEach(t => {
-                    html += `<div class="im-card"><div class="im-card-name">🏆 ${escapeHtml(t.name)}${t.location?" 📍 "+escapeHtml(t.location):""}</div><div class="im-card-tags">${(t.tags||[]).map(tg=>`<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('')}</div></div>`;
+                    html += `<div class="im-card"><div class="im-card-name">🏆 ${historyTitle(t)}${t.location?" 📍 "+escapeHtml(t.location):""}</div><div class="im-card-tags">${(t.tags||[]).map(tg=>`<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('')}</div></div>`;
                 });
                 planTasks.forEach(t => {
                     const pt = t.plan_time || '';
                     const pet = t.plan_end_time || '';
                     const timeLabel = pt ? '⏰ ' + (pt + (pet ? '-' + pet : '')) : '📅 全天';
-                    html += `<div class="im-card"><div class="im-card-name">📅 ${escapeHtml(t.name)}${t.location?" 📍 "+escapeHtml(t.location):""}</div><div class="im-card-tags">${(t.tags||[]).map(tg=>`<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('')}</div><span class="im-dur-tag" onclick="showPlanTimePicker(${t.plan_id},'${escapeHtml(pt)}','${escapeHtml(pet)}')">${timeLabel}</span><button class="plan-exec-btn" onclick="execPlan(${t.id},'${IM.date}',${t.plan_id})" style="margin-left:4px;" title="标记已执行">✓</button></div>`;
+                    html += `<div class="im-card"><div class="im-card-name">📅 ${historyTitle(t)}${t.location?" 📍 "+escapeHtml(t.location):""}</div><div class="im-card-tags">${(t.tags||[]).map(tg=>`<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('')}</div><span class="im-dur-tag" onclick="showPlanTimePicker(${t.plan_id},'${escapeHtml(pt)}','${escapeHtml(pet)}')">${timeLabel}</span><button class="plan-exec-btn" onclick="execPlan(${t.id},'${IM.date}',${t.plan_id})" style="margin-left:4px;" title="标记已执行">✓</button></div>`;
                 });
             }
             const sortLabel = (localStorage.getItem('taskSort') || 'priority') === 'deadline' ? '📅截止' : '🔢优先级';

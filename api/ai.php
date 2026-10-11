@@ -12,6 +12,7 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/activity_queries.php';
 require_once __DIR__ . '/../includes/ai_client.php';
 require_once __DIR__ . '/../includes/profile_context.php';
 require_once __DIR__ . '/../includes/ai_tools_profile.php';
@@ -422,7 +423,7 @@ function get_tool_definitions(): array {
         ],
         [
             'name' => 'get_calendar_data',
-            'description' => '获取某月的日历数据（含任务标记点）',
+            'description' => '获取某月的日历记录（工作量、成果、计划，包含归档任务的历史记录）',
             'parameters' => [
                 'type' => 'object',
                 'properties' => ['month' => ['type' => 'string', 'description' => '月份 YYYY-MM（必填）']],
@@ -433,7 +434,7 @@ function get_tool_definitions(): array {
         ],
         [
             'name' => 'get_daily_status',
-            'description' => '获取某日的详细状态（工作量、成果、计划）',
+            'description' => '获取某日的详细状态（工作量、成果、计划），归档任务的历史记录也保留，archived=1 不代表新待办',
             'parameters' => [
                 'type' => 'object',
                 'properties' => ['date' => ['type' => 'string', 'description' => '日期 YYYY-MM-DD（必填）']],
@@ -758,22 +759,14 @@ function handle_get_calendar_data(PDO $db, array $args): array {
     $month = $args['month'];
     $start = $month . '-01';
     $end = date('Y-m-t', strtotime($start));
-    $sql = "SELECT DISTINCT t.id, t.name, wl.log_date as event_date, 'work' as event_type FROM tasks t JOIN work_logs wl ON t.id = wl.task_id WHERE wl.log_date BETWEEN ? AND ? AND t.archived = 0 AND t.user_id = ?";
-    $stmt = $db->prepare($sql);
-    $stmt->execute([$start, $end, current_user_id()]);
-    return $stmt->fetchAll();
+    return activity_calendar_events($db, current_user_id(), $start, $end);
 }
 
 function handle_get_daily_status(PDO $db, array $args): array {
     $date = $args['date'];
-    $uid = current_user_id();
-    $workStmt = $db->prepare('SELECT t.* FROM tasks t JOIN work_logs wl ON t.id = wl.task_id WHERE wl.log_date = ? AND t.archived = 0 AND t.user_id = ?');
-    $workStmt->execute([$date, $uid]);
-    $resultStmt = $db->prepare('SELECT t.*, rl.result_id, r.name as result_name FROM tasks t JOIN result_logs rl ON t.id = rl.task_id JOIN results r ON rl.result_id = r.id WHERE rl.log_date = ? AND t.archived = 0 AND t.user_id = ?');
-    $resultStmt->execute([$date, $uid]);
-    $planStmt = $db->prepare('SELECT t.* FROM tasks t JOIN plans p ON t.id = p.task_id WHERE p.planned_date = ? AND t.archived = 0 AND t.user_id = ?');
-    $planStmt->execute([$date, $uid]);
-    return ['work_tasks' => $workStmt->fetchAll(), 'result_tasks' => $resultStmt->fetchAll(), 'plan_tasks' => $planStmt->fetchAll()];
+    $data = activity_daily_records($db, current_user_id(), $date);
+    unset($data['date']);
+    return $data;
 }
 
 function handle_get_relationships(PDO $db, array $args): array {
@@ -1075,6 +1068,9 @@ For EVERY user request, follow this process:
 - If the user corrects you ("我不是副教授"), update the field (or forget_impression) immediately.
 
 ## PERSONALISATION — how to USE what you know about the user
+Task archiving hides the task from active task lists only. Count archived tasks' work logs,
+results and plans in historical reviews. Records with archived=1 are history, not active
+tasks to recommend restarting unless the user explicitly asks.
 The identity / AI IMPRESSION SUMMARY blocks are not background decoration. Apply them actively:
 - Advice and prioritisation: weigh tasks against the user's position, research focus, active projects, stage goals and
   known deadlines. Say which of THEIR projects or goals a recommendation serves; avoid generic productivity advice.

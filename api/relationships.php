@@ -30,6 +30,14 @@ $me = $stmt->fetch();
 $nodes = [];
 $edges = [];
 
+// Aggregate once per metric; task archiving preserves historical activity.
+$stmt = $db->prepare('SELECT tp.people_id,COUNT(wl.id) AS cnt FROM task_people tp JOIN tasks t ON t.id=tp.task_id JOIN work_logs wl ON wl.task_id=t.id WHERE t.user_id=? GROUP BY tp.people_id');
+$stmt->execute([$uid]);
+$workloads = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+$stmt = $db->prepare('SELECT tp.people_id,COUNT(rl.id) AS cnt FROM task_people tp JOIN tasks t ON t.id=tp.task_id JOIN result_logs rl ON rl.task_id=t.id WHERE t.user_id=? GROUP BY tp.people_id');
+$stmt->execute([$uid]);
+$resultCounts = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
 // "Me" node (center) — use the "me" record's name if set
 $meName = $me ? $me['name'] : '我';
 $nodes[] = [
@@ -42,27 +50,8 @@ $nodes[] = [
 ];
 
 foreach ($people as $person) {
-    // Count workload: work_logs for tasks where this person is a beneficiary
-    $stmt = $db->prepare('
-        SELECT COUNT(wl.id) as cnt
-        FROM work_logs wl
-        JOIN task_people tp ON wl.task_id = tp.task_id
-        JOIN tasks t ON wl.task_id = t.id
-        WHERE tp.people_id = ? AND t.user_id = ?
-    ');
-    $stmt->execute([$person['id'], $uid]);
-    $workload = (int)$stmt->fetchColumn();
-
-    // Count results: result_logs for tasks where this person is a beneficiary
-    $stmt = $db->prepare('
-        SELECT COUNT(rl.id) as cnt
-        FROM result_logs rl
-        JOIN task_people tp ON rl.task_id = tp.task_id
-        JOIN tasks t ON rl.task_id = t.id
-        WHERE tp.people_id = ? AND t.user_id = ?
-    ');
-    $stmt->execute([$person['id'], $uid]);
-    $result_count = (int)$stmt->fetchColumn();
+    $workload = (int)($workloads[$person['id']] ?? 0);
+    $result_count = (int)($resultCounts[$person['id']] ?? 0);
 
     $nodes[] = [
         'id' => $person['id'],
@@ -71,6 +60,7 @@ foreach ($people as $person) {
         'relationship' => $person['relationship'],
         'importance' => (int)$person['importance'],
         'usefulness' => (int)$person['usefulness'],
+        'closeness' => (int)$person['closeness'],
         'workload' => $workload,
         'results' => $result_count,
     ];

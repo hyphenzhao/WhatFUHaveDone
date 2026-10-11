@@ -19,6 +19,9 @@ $layout_user = current_user();
     <!-- Loaded last: contains ONLY max-width media queries (+ one 900–1279 block),
          so it cannot affect the ≥1280px desktop. Delete this line to roll back. -->
     <link rel="stylesheet" href="/assets/css/mobile.css?v=<?= $asset_ver ?>">
+    <?php if ($current_page === 'relationships'): ?>
+    <link rel="stylesheet" href="/assets/css/relationships.css?v=<?= $asset_ver ?>">
+    <?php endif; ?>
 </head>
 <body data-page="<?= htmlspecialchars($current_page) ?>">
     <div class="app-layout<?= $current_page !== 'home' ? ' no-right-panel' : '' ?>">

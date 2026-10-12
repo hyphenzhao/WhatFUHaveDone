@@ -115,7 +115,7 @@ const Calendar = {
         const seen = new Set();
         const uniqueEvents = events.filter(e => {
             const key = e.event_type === 'plan'
-                ? `plan-${e.plan_id || `${e.id}-${e.plan_time || ''}-${e.plan_end_time || ''}`}`
+                ? `plan-${e.plan_id || e.completion_key || `${e.id}-${e.plan_time || ''}-${e.plan_end_time || ''}`}`
                 : `${e.id}-${e.event_type}`;
             if (seen.has(key)) return false;
             seen.add(key);

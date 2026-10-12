@@ -31,4 +31,11 @@ Calendar.calendarData={'2026-10-12':[pending,done,pending]}; Calendar.calendarMe
 const html=Calendar._renderDay(12,'2026-10-12',false,1);
 check((html.match(/data-plan-id=/g)||[]).length===2,'two plans on same task/day remain distinct');
 check((html.match(/class="calendar-plan-check"/g)||[]).length===1,'completion only affects selected plan');
+const allDay={...done,plan_id:13,plan_time:'',plan_end_time:''};
+check(PlanUI.calendarLine(allDay).includes('is-completed') && PlanUI.calendarLine(allDay).includes('calendar-plan-check'),'all-day completed plans have the same fill and check');
+check(!PlanUI.calendarLine(allDay).includes('14:00'),'no fabricated time for all-day plans');
+const legacy1={...allDay,plan_id:null,completion_key:'execution:42|09:00|10:00'};
+const legacy2={...allDay,plan_id:null,completion_key:'execution:42|14:00|15:00'};
+Calendar.calendarData={'2026-10-12':[legacy1,legacy2,legacy1]};
+check((Calendar._renderDay(12,'2026-10-12',false,1).match(/class="calendar-plan-check"/g)||[]).length===2,'legacy entries use their own deduplication keys');
 console.log(`PASS: ${checks} plan appearance checks`);

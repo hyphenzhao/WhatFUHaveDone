@@ -1,4 +1,4 @@
-/** Shared completed-plan appearance for the calendar and daily cards. */
+/** Completed calendar entries, including all-day and legacy execution records. */
 const PlanUI = {
     isCompleted(plan) { return Number(plan.is_completed) === 1; },
     colors(value) {

@@ -15,7 +15,54 @@ function activity_calendar_events(PDO $db, int $uid, string $start, string $end)
         WHERE rl.log_date BETWEEN ? AND ? AND t.user_id=?
         ORDER BY event_date,id");
     $st->execute([$start,$end,$uid,$start,$end,$uid,$start,$end,$uid]);
-    return $st->fetchAll();
+    $events = $st->fetchAll();
+    return activity_add_execution_history($db, $uid, $start, $end, $events);
+}
+
+/** Recognise the application's execution marker, not arbitrary mentions of plans. */
+function activity_execution_time(string $content): ?array {
+    $text = trim($content);
+    if (!preg_match('/^已按计划执行(?:执行)?(?:[（(](\d{2}:\d{2})(?:\s*[-–—~～至]\s*(\d{2}:\d{2}))?[）)])?[。.!！]?$/u', $text, $m)) return null;
+    $from = $m[1] ?? ''; $to = $m[2] ?? '';
+    foreach ([$from, $to] as $time) {
+        if ($time !== '' && !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $time)) return null;
+    }
+    return [$from, $to];
+}
+
+/** Old releases deleted the plan on execution; project the surviving evidence only.
+ * No plan rows or workloads are created or changed by this read path.
+ */
+function activity_add_execution_history(PDO $db, int $uid, string $start, string $end, array $events): array {
+    $represented = [];
+    foreach ($events as $event) {
+        if ($event['event_type'] === 'plan' && (int)$event['is_completed'] === 1) {
+            $represented[$event['id'].'|'.$event['event_date']] = true;
+        }
+    }
+    $st = $db->prepare("SELECT t.id,t.name,t.archived,w.id AS work_log_id,w.log_date,n.id AS note_id,n.content,n.created_at
+        FROM work_logs w JOIN tasks t ON t.id=w.task_id JOIN worklog_notes n ON n.worklog_id=w.id
+        WHERE t.user_id=? AND w.log_date BETWEEN ? AND ? AND TRIM(n.content) LIKE '已按计划执行%'
+        ORDER BY n.created_at,n.id");
+    $st->execute([$uid,$start,$end]);
+    $seen = [];
+    foreach ($st->fetchAll() as $row) {
+        $time = activity_execution_time($row['content']);
+        if ($time === null || isset($represented[$row['id'].'|'.$row['log_date']])) continue;
+        $key = $row['work_log_id'].'|'.implode('|',$time);
+        if (isset($seen[$key])) continue;
+        $seen[$key] = true;
+        $events[] = [
+            'id'=>$row['id'], 'name'=>$row['name'], 'archived'=>$row['archived'],
+            'event_date'=>$row['log_date'], 'event_type'=>'plan',
+            'plan_time'=>$time[0], 'plan_end_time'=>$time[1], 'plan_id'=>null,
+            'is_completed'=>1, 'completed_at'=>$row['created_at'],
+            'completion_source'=>'execution_note', 'source_work_log_id'=>$row['work_log_id'],
+            'source_note_id'=>$row['note_id'], 'completion_key'=>'execution:'.$key,
+        ];
+    }
+    usort($events, static fn($a,$b) => strcmp($a['event_date'],$b['event_date']) ?: (int)$a['id'] <=> (int)$b['id']);
+    return $events;
 }
 
 function activity_daily_records(PDO $db, int $uid, string $date): array {

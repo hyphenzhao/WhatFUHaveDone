@@ -114,7 +114,9 @@ const Calendar = {
         // Deduplicate by task id
         const seen = new Set();
         const uniqueEvents = events.filter(e => {
-            const key = `${e.id}-${e.event_type}`;
+            const key = e.event_type === 'plan'
+                ? `plan-${e.plan_id || `${e.id}-${e.plan_time || ''}-${e.plan_end_time || ''}`}`
+                : `${e.id}-${e.event_type}`;
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
@@ -139,11 +141,7 @@ const Calendar = {
                 const ta = a.plan_time || '99:99', tb = b.plan_time || '99:99';
                 return ta.localeCompare(tb);
             });
-            planLinesHtml = '<div class="calendar-plans">' + planEvents.map(e => {
-                const time = e.plan_time ? e.plan_time.substring(0,5) + (e.plan_end_time ? '-' + e.plan_end_time.substring(0,5) : '') : '';
-                const label = time ? time + ' ' + escapeHtml(e.name) : escapeHtml(e.name);
-                return '<div class="calendar-plan-line" title="' + escapeHtml(e.name) + '">' + label + '</div>';
-            }).join('') + '</div>';
+            planLinesHtml = '<div class="calendar-plans">' + planEvents.map(e => PlanUI.calendarLine(e)).join('') + '</div>';
         }
 
         // Color days that have results; both work + result gets the gradient

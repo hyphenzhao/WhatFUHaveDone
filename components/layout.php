@@ -175,6 +175,9 @@ $layout_user = current_user();
     <script src="/assets/js/attachments.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/ai-assistant.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/mail-modal.js?v=<?= $asset_ver ?>"></script>
+    <?php if (in_array($current_page, ['home', 'reports'], true)): ?>
+    <script src="/assets/js/plan-status.js?v=<?= $asset_ver ?>"></script>
+    <?php endif; ?>
     <?php if ($current_page === 'home'): ?>
     <script src="/assets/js/lunar.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/task-card.js?v=<?= $asset_ver ?>"></script>

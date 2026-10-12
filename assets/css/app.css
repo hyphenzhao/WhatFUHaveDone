@@ -1698,7 +1698,19 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .task-location { font-size: 0.7rem; color: #e53e3e; font-weight: 400; }
 
 .calendar-plans { margin-top: 2px; }
-.calendar-plan-line { font-size: 0.52rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--color-text-secondary); padding: 1px 2px; border-left: 2px solid var(--color-primary); margin: 1px 0; }
+.calendar-plan-line { display: flex; align-items: center; gap: 3px; font-size: 0.64rem; line-height: 1.5; white-space: nowrap; overflow: hidden; color: #111827; background: #fff; padding: 2px 4px; border-left: 3px solid var(--plan-color, var(--color-primary)); border-radius: 3px; margin: 2px 0; }
+.calendar-plan-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.calendar-plan-line.is-completed { background: var(--plan-color); color: var(--plan-foreground); }
+.calendar-plan-check { flex-shrink: 0; font-weight: 800; }
+.daily-plan-card { border-left: 3px solid var(--plan-color, var(--color-primary)); }
+.daily-plan-card.is-completed, .im-plan-card.is-completed { background: var(--plan-color); color: var(--plan-foreground); border-color: var(--plan-color); }
+.daily-plan-card.is-completed .daily-card-meta, .daily-plan-card.is-completed .daily-card-close, .im-plan-card.is-completed .im-card-name { color: inherit; }
+.daily-plan-card.is-completed small, .im-plan-card.is-completed small { color: inherit !important; }
+.daily-plan-card.is-completed .wl-dur-tag, .im-plan-card.is-completed .im-dur-tag { color: inherit; border-color: currentColor; background: transparent; }
+.daily-plan-card.is-completed .task-card-tag { color: inherit; background: transparent !important; border: 1px solid currentColor; }
+.im-plan-card.is-completed .im-tag-dot { outline: 1px solid currentColor; }
+.plan-completed-badge { display: inline-flex; align-items: center; gap: 3px; color: inherit; font-size: .75rem; font-weight: 600; white-space: nowrap; padding: 2px 4px; }
+.plan-completed-badge > span { font-size: 1rem; font-weight: 800; }
 .wl-log-btn { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 0.65rem; cursor: pointer; background: #f0fdf4; color: #166534; border: 1px solid #86efac; margin-bottom: 4px; } .wl-log-btn:hover { background: #dcfce7; }
 
 /* ===== Periodic Reports (home-styled) ===== */

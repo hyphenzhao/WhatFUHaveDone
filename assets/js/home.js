@@ -851,23 +851,19 @@ async function cancelWorklog(taskId, date) {
 async function cancelResultLog(logId) {
     try { await API.resultLogs.remove(logId); refreshAll(); } catch(e) { Toast.error('取消失败'); }
 }
+const completingPlans = new Set();
 async function execPlan(taskId, date, planId) {
+    if (completingPlans.has(planId)) return;
+    completingPlans.add(planId);
     try {
-        // Ensure a worklog exists for this task+date. toggle() removes an existing log,
-        // so if one was already there (active===false), toggle again to restore the +1.
-        let wlRes = await API.worklogs.toggle(taskId, date);
-        if (wlRes.data && wlRes.data.active === false) {
-            wlRes = await API.worklogs.toggle(taskId, date);
-        }
-        if (wlRes.data && wlRes.data.id) {
-            // Add auto note
-            await API.worklogNotes.add(wlRes.data.id, '已按计划执行');
-        }
-        // Delete the plan
-        await API.plans.remove(planId);
-        refreshAll();
-        Toast.success('已执行');
-    } catch(e) { Toast.error('操作失败'); }
+        await API.plans.complete(planId);
+        if (typeof IM !== 'undefined' && document.getElementById('imApp')) {
+            ['stats:', 'worklogs:', 'notes:'].forEach(p => DayCache.clear(p));
+            await IM.loadTasks();
+        } else await refreshAll();
+        Toast.success('计划已完成');
+    } catch(e) { Toast.error('操作失败: ' + e.message); }
+    finally { completingPlans.delete(planId); }
 }
 
 async function cancelPlan(planId) {
@@ -1008,6 +1004,7 @@ async function loadDailyStatus(date) {
         });
 
         planTasks.forEach(t => {
+            const done = PlanUI.isCompleted(t);
             const tags = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${tg.color}">${tg.name}</span>`).join('');
             let timeLabel = '全天';
             if (t.plan_time) {
@@ -1020,7 +1017,7 @@ async function loadDailyStatus(date) {
                 timeLabel = fmtTime(t.plan_time) + (t.plan_end_time ? ' - ' + fmtTime(t.plan_end_time) : '');
             }
             const planTimeTag = `<span class="wl-dur-tag" onclick="showPlanTimePicker(${t.plan_id},'${escapeHtml(t.plan_time||'')}','${escapeHtml(t.plan_end_time||'')}')" style="margin-left:4px;">${t.plan_time ? '⏰ ' + timeLabel : '📅 全天'}</span>`;
-            html += `<div class="daily-card" data-task-id="${t.id}" title="点击查看任务详情"><div class="daily-card-row"><div class="daily-card-info"><h4>📅 ${historyTitle(t)}${t.location ? " 📍 " + escapeHtml(t.location) : ""}</h4>${tags ? tags : ''}<div class="daily-card-meta">${planTimeTag}</div></div><div style="display:flex;flex-direction:column;gap:4px;"><button class="plan-exec-btn" onclick="execPlan(${t.id},'${date}',${t.plan_id})" title="标记为已执行">✓</button><button class="daily-card-close" onclick="cancelPlan(${t.plan_id})" title="取消">✕</button></div></div></div>`;
+            html += `<div class="daily-card daily-plan-card${done ? ' is-completed' : ''}" style="${PlanUI.style(t)}" data-task-id="${t.id}" title="点击查看任务详情"><div class="daily-card-row"><div class="daily-card-info"><h4>📅 ${historyTitle(t)}${t.location ? " 📍 " + escapeHtml(t.location) : ""}</h4>${tags ? tags : ''}<div class="daily-card-meta">${planTimeTag}</div></div><div style="display:flex;flex-direction:column;gap:4px;">${done ? PlanUI.badge() : `<button class="plan-exec-btn" onclick="execPlan(${t.id},'${date}',${t.plan_id})" title="标记为已完成">✓</button>`}<button class="daily-card-close" onclick="cancelPlan(${t.plan_id})" title="${done ? '删除计划记录' : '取消计划'}">✕</button></div></div></div>`;
         });
 
         if (wlNotesResizeObserver) wlNotesResizeObserver.disconnect();

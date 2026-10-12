@@ -107,6 +107,7 @@ const API = {
     // --- Plans ---
     plans: {
         add(taskId, plannedDate, planTime, planEndTime) { return API.post('/plans', { task_id: taskId, planned_date: plannedDate, plan_time: planTime || '', plan_end_time: planEndTime || '' }); },
+        complete(id) { return API.post(`/plans/${id}/complete`, {}); },
         remove(id) { return API.delete(`/plans/${id}`); },
         forTask(taskId) { return API.get(`/plans?task_id=${taskId}`); },
         forDate(date) { return API.get(`/plans?date=${date}`); },

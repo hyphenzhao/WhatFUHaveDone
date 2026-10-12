@@ -28,6 +28,7 @@ $current_page = 'immersive';
     <script src="/assets/js/api.js?v=<?= ASSET_VER ?>"></script>
     <script src="/assets/js/modal.js?v=<?= ASSET_VER ?>"></script>
     <script src="/assets/js/app.js?v=<?= ASSET_VER ?>"></script>
+    <script src="/assets/js/plan-status.js?v=<?= ASSET_VER ?>"></script>
     <script src="/assets/js/calendar.js?v=<?= ASSET_VER ?>"></script>
     <script src="/assets/js/ai-assistant.js?v=<?= ASSET_VER ?>"></script>
     <script src="/assets/js/mail-modal.js?v=<?= ASSET_VER ?>"></script>

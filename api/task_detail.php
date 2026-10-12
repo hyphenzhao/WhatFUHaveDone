@@ -60,7 +60,7 @@ if ($method === 'GET' && $sub === '') {
     $cnt = $q('SELECT COUNT(*) AS n, MIN(log_date) AS first_day, MAX(log_date) AS last_day FROM work_logs WHERE task_id = ?', [$id])[0];
     $task['work_log_stats'] = ['days' => (int)$cnt['n'], 'first_day' => $cnt['first_day'], 'last_day' => $cnt['last_day']];
 
-    $task['plans'] = $q('SELECT id, planned_date, plan_time, plan_end_time FROM plans WHERE task_id = ? AND planned_date >= CURDATE() ORDER BY planned_date, plan_time LIMIT 30', [$id]);
+    $task['plans'] = $q('SELECT id, planned_date, plan_time, plan_end_time, is_completed, completed_at FROM plans WHERE task_id = ? AND planned_date >= CURDATE() ORDER BY planned_date, plan_time LIMIT 30', [$id]);
     $task['result_logs'] = $q('SELECT rl.id, rl.log_date, r.name FROM result_logs rl JOIN results r ON r.id = rl.result_id WHERE rl.task_id = ? ORDER BY rl.log_date DESC LIMIT 30', [$id]);
 
     // Mail section is optional (mail tables / migration 005 may be absent on some installs)

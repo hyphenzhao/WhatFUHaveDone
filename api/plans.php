@@ -5,6 +5,7 @@
  * GET    /api/plans?task_id=...  — get plans for a task
  * GET    /api/plans?date=...     — get plans for a date
  * POST   /api/plans              — add plan {task_id, planned_date}
+ * POST   /api/plans/{id}/complete — preserve the completed plan and ensure +1 work log
  * DELETE /api/plans/{id}          — remove plan
  */
 
@@ -12,10 +13,19 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/plan_completion.php';
 
 $method = get_method();
 $db = get_db();
 $uid = current_user_id();
+$parts = get_path_parts();
+
+// Explicit per-plan completion, not task-wide completion inferred from work logs.
+if ($method === 'POST' && ($parts[2] ?? '') !== '' && ($parts[3] ?? '') === 'complete') {
+    $plan = complete_plan($db, $uid, (int)$parts[2]);
+    if (!$plan) json_error('Plan not found', 404);
+    json_success($plan, 'Plan completed');
+}
 
 if ($method === 'GET') {
     $task_id = $_GET['task_id'] ?? null;
@@ -58,6 +68,8 @@ if ($method === 'POST') {
         'planned_date' => $planned_date,
         'plan_time' => $plan_time,
         'plan_end_time' => $plan_end_time,
+        'is_completed' => 0,
+        'completed_at' => null,
     ], 'Plan added');
 }
 

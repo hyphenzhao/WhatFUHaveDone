@@ -12,7 +12,7 @@ final class ExternalReader {
             'task' => $s('work','tasks r','r.user_id','r.name','r.updated_at','r.description','r.stage,r.priority,r.importance,r.necessity,r.deadline,r.location,r.archived'),
             'worklog' => $s('work','work_logs r JOIN tasks t ON t.id=r.task_id','t.user_id','t.name','r.log_date','r.duration',"CONCAT('task:',r.task_id) AS task_ref,r.duration"),
             'note' => $s('work','worklog_notes r JOIN work_logs w ON w.id=r.worklog_id JOIN tasks t ON t.id=w.task_id','t.user_id','t.name','w.log_date','r.content',"CONCAT('task:',w.task_id) AS task_ref,CONCAT('worklog:',r.worklog_id) AS worklog_ref,r.created_at"),
-            'plan' => $s('work','plans r JOIN tasks t ON t.id=r.task_id','t.user_id','t.name','r.planned_date',"''","CONCAT('task:',r.task_id) AS task_ref,r.plan_time,r.plan_end_time"),
+            'plan' => $s('work','plans r JOIN tasks t ON t.id=r.task_id','t.user_id','t.name','r.planned_date',"''","CONCAT('task:',r.task_id) AS task_ref,r.plan_time,r.plan_end_time,r.is_completed,r.completed_at"),
             'result' => $s('work','results r','r.user_id','r.name','r.updated_at',"''",'r.quantity,r.level,r.archived'),
             'result_log' => $s('work','result_logs r JOIN tasks t ON t.id=r.task_id JOIN results z ON z.id=r.result_id AND z.user_id=t.user_id','t.user_id','z.name','r.log_date',"''","CONCAT('task:',r.task_id) AS task_ref,CONCAT('result:',r.result_id) AS result_ref"),
             'tag' => $s('work','tags r','r.user_id','r.name','r.updated_at',"''",'r.archived'),

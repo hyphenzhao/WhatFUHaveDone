@@ -30,7 +30,7 @@ const TaskDetail = {
         const results = (t.results || []).map(r => `<span class="td-chip">🏆 ${escapeHtml(r.name)}${r.level ? ' · ' + escapeHtml(r.level) : ''}</span>`).join(' ');
         const deadline = t.deadline ? (typeof getDeadlineBadge === 'function' ? getDeadlineBadge(t.deadline) : escapeHtml(t.deadline)) : '';
         const s = t.work_log_stats || {};
-        const plans = (t.plans || []).map(p => `<span class="td-chip">📅 ${escapeHtml(p.planned_date)}${p.plan_time ? ' ' + escapeHtml(p.plan_time) + (p.plan_end_time ? '-' + escapeHtml(p.plan_end_time) : '') : ''}</span>`).join(' ');
+        const plans = (t.plans || []).map(p => `<span class="td-chip">${Number(p.is_completed) ? '✓ 已完成' : '📅'} ${escapeHtml(p.planned_date)}${p.plan_time ? ' ' + escapeHtml(p.plan_time) + (p.plan_end_time ? '-' + escapeHtml(p.plan_end_time) : '') : ''}</span>`).join(' ');
         const resultLogs = (t.result_logs || []).map(r => `<span class="td-chip">🏆 ${escapeHtml(r.log_date)} ${escapeHtml(r.name)}</span>`).join(' ');
 
         return `

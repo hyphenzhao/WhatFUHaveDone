@@ -164,6 +164,8 @@ CREATE TABLE IF NOT EXISTS plans (
     planned_date DATE NOT NULL,
     plan_time VARCHAR(10) DEFAULT '',
     plan_end_time VARCHAR(10) DEFAULT '',
+    is_completed TINYINT(1) NOT NULL DEFAULT 0,
+    completed_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

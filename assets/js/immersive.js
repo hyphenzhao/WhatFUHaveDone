@@ -282,7 +282,7 @@ const IM = {
                     const pt = t.plan_time || '';
                     const pet = t.plan_end_time || '';
                     const timeLabel = pt ? '⏰ ' + (pt + (pet ? '-' + pet : '')) : '📅 全天';
-                    html += `<div class="im-card im-plan-card${done ? ' is-completed' : ''}" style="${PlanUI.style(t)}"><div class="im-card-name">📅 ${historyTitle(t)}${t.location?" 📍 "+escapeHtml(t.location):""}</div><div class="im-card-tags">${(t.tags||[]).map(tg=>`<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('')}</div><span class="im-dur-tag" onclick="showPlanTimePicker(${t.plan_id},'${escapeHtml(pt)}','${escapeHtml(pet)}')">${timeLabel}</span>${done ? PlanUI.badge() : `<button class="plan-exec-btn" onclick="execPlan(${t.id},'${IM.date}',${t.plan_id})" style="margin-left:4px;" title="标记已完成">✓</button>`}</div>`;
+                    html += `<div class="im-card"><div class="im-card-name">📅 ${historyTitle(t)}${t.location?" 📍 "+escapeHtml(t.location):""}</div><div class="im-card-tags">${(t.tags||[]).map(tg=>`<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('')}</div><span class="im-dur-tag" onclick="showPlanTimePicker(${t.plan_id},'${escapeHtml(pt)}','${escapeHtml(pet)}')">${timeLabel}</span>${done ? PlanUI.badge() : `<button class="plan-exec-btn" onclick="execPlan(${t.id},'${IM.date}',${t.plan_id})" style="margin-left:4px;" title="标记已完成">✓</button>`}</div>`;
                 });
             }
             const sortLabel = (localStorage.getItem('taskSort') || 'priority') === 'deadline' ? '📅截止' : '🔢优先级';

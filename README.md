@@ -229,6 +229,20 @@ define('DB_PASS', 'your_password');
 - 点击完成会保留原计划及起止时间，并在执行备注中保存时间段；日历将时间单独显示，任务标题过长时仅截断标题。旧版未保留时间的记录会在提示中说明。
 - 旧部署执行 `migrations/012_plan_completion.sql`。完成接口为 `POST /api/plans/{id}/complete`，重复调用不会重建工作量或覆盖备注。
 
+### 会议任务
+
+- 新建或编辑任务可选择“会议”，任务列表支持按分类筛选。AI 的创建、修改和查询任务工具也支持 `task_type: "meeting"`，修改仍需用户确认；一般任务默认 `general`。
+- 会议计划到达结束时间后自动完成，并保留原计划日期、起止时间和工作日志。没有结束时间时在次日 00:00 完成；结束时间早于开始时间表示跨午夜的会议。
+- 同一任务有多场会议时逐场完成，最后一场结束才将任务阶段设为“已完成”；再添加会议计划会重新进入“进行中”。归档或失败/放弃的任务不自动处理。
+- 自动处理从开启会议分类的当天起生效，避免将更早的普通计划补记为已执行。换回“一般任务”可停止自动处理。外部只读 API 可读取 `task_type` 和 `meeting_auto_from`。
+- 旧部署先执行 `migrations/013_meeting_tasks.sql`，再为运行网站的服务器用户添加下列定时任务（按实际路径调整）。网站打开时也每分钟检查一次状态，但后台定时任务保证关闭网站后仍能完成。
+
+```cron
+* * * * * /usr/bin/php /Volumes/Storage/Workspace/WhatFUHaveDone/scripts/meeting_worker.php >> /home/haifeng/meeting_worker.log 2>&1
+```
+
+验证：`php scripts/test_meetings.php`（使用合成用户和记录并清理，不改用户现有会议）。
+
 ### 人际关系图
 
 - `/relationships` 支持自然展开、防碰撞的 SVG 布局；拖动人物或空白处、滚轮/双指缩放、适应画面和重新排列。

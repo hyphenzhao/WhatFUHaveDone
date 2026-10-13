@@ -217,7 +217,7 @@ const IM = {
                 (notesRes.data||[]).forEach(n => { if (n.latest_note) wlNotes[n.task_id] = n.latest_note; });
             } catch(e) {}
 
-            const historyTitle = t => escapeHtml(t.name) + (Number(t.archived) ? ' <small style="font-weight:400;opacity:0.75">已归档</small>' : '');
+            const historyTitle = t => escapeHtml(t.name) + ' ' + taskTypeBadge(t) + (Number(t.archived) ? ' <small style="font-weight:400;opacity:0.75">已归档</small>' : '');
             const renderCard = (t, showWorklog) => {
                 const note = wlNotes[t.id] || '';
                 const tags = (t.tags||[]).map(tg => `<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('');

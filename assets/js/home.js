@@ -978,7 +978,7 @@ async function loadDailyStatus(date) {
         const workTasks = data.work_tasks || [];
         const resultTasks = data.result_tasks || [];
         const planTasks = data.plan_tasks || [];
-        const historyTitle = t => escapeHtml(t.name) + (Number(t.archived) ? ' <small style="font-weight:400;color:var(--color-text-secondary)">已归档</small>' : '');
+        const historyTitle = t => escapeHtml(t.name) + ' ' + taskTypeBadge(t) + (Number(t.archived) ? ' <small style="font-weight:400;color:var(--color-text-secondary)">已归档</small>' : '');
 
         let html = '';
 
@@ -1048,6 +1048,7 @@ async function showAddTaskModal() {
         body: `
             <div class="form-group"><label>任务名称 *</label><input type="text" class="form-input" id="taskName" placeholder="输入任务名称"></div>
             <div class="form-group"><label>描述</label><textarea class="form-textarea" id="taskDesc" placeholder="任务描述（可选）"></textarea></div>
+            <div class="form-group"><label>任务分类</label><select class="form-select" id="taskType"><option value="general">一般任务</option><option value="meeting">会议</option></select><small class="task-type-hint">会议计划结束后自动完成；未填结束时间则在当天结束后完成。</small></div>
             <div class="form-row-2">
                 <div class="form-group"><label>重要度</label>${starHtml('importance', 3)}</div>
                 <div class="form-group"><label>必要度</label>${starHtml('necessity', 3)}</div>
@@ -1084,6 +1085,7 @@ async function showAddTaskModal() {
                 name, description: document.getElementById('taskDesc').value.trim(),
                 people_ids: getSelectedTagIds('people'), tag_ids: getSelectedTagIds('tags'),
                 stage: 'in_progress', importance: getStarVal('star_importance'), necessity: getStarVal('star_necessity'),
+                task_type: document.getElementById('taskType').value,
                 deadline: (() => { const t = document.getElementById('taskDeadlineTypeH').value; return t === 'date' ? document.getElementById('taskDeadlineDateH').value : t; })(),
                 location: document.getElementById('taskLocationH').value.trim(),
             });

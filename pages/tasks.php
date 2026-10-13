@@ -7,7 +7,12 @@ $current_page = 'tasks';
 $page_content = <<<HTML
 <div class="page-header">
     <h2>📝 任务管理</h2>
-    <div style="display:flex;gap:8px;align-items:center;">
+    <div class="task-toolbar">
+        <select class="form-select" id="typeFilter" style="width:auto;">
+            <option value="all">全部分类</option>
+            <option value="general">一般任务</option>
+            <option value="meeting">会议</option>
+        </select>
         <select class="form-select" id="stageFilter" style="width:auto;">
             <option value="all">全部阶段</option>
             <option value="in_progress">🔄 进行中</option>

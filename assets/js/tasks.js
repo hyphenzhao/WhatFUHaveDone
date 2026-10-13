@@ -5,10 +5,15 @@ const STAGE_LABELS = { in_progress: '🔄 进行中', stage_complete: '✅ 阶�
 let tasksData = { active: [], archived: [] };
 let sortBy = 'priority';
 let filterStage = 'all';
+let filterType = 'all';
 let isPrioritySort = true;
 let sortAsc = true;
 
 document.addEventListener('DOMContentLoaded', async () => {
+    document.getElementById('typeFilter').addEventListener('change', e => {
+        filterType = e.target.value;
+        loadTasks();
+    });
     document.getElementById('stageFilter').addEventListener('change', (e) => {
         filterStage = e.target.value;
         loadTasks();
@@ -28,6 +33,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadTasks() {
     try {
+        // Reordering a filtered subset would overwrite hidden tasks' priorities.
+        isPrioritySort = sortBy === 'priority' && filterType === 'all' && filterStage === 'all';
         let stageParam = filterStage === 'all' ? '' : '&stage=' + filterStage;
         const sortParam = '&sort=' + sortBy;
         const [active, archived] = await Promise.all([
@@ -35,6 +42,7 @@ async function loadTasks() {
             API.tasks.list(1)
         ]);
         let activeList = active.data || [];
+        if (filterType !== 'all') activeList = activeList.filter(t => t.task_type === filterType);
         if (filterStage !== 'all') {
             activeList = activeList.filter(t => t.stage === filterStage);
         }
@@ -47,7 +55,7 @@ async function loadTasks() {
                 return sortAsc ? cmp : -cmp;
             });
         }
-        tasksData = { active: activeList, archived: archived.data || [] };
+        tasksData = { active: activeList, archived: (archived.data || []).filter(t => filterType === 'all' || t.task_type === filterType) };
         renderTasksTable(tasksData.active, 'tasksTableBody', false);
         renderTasksTable(tasksData.archived, 'archivedTasksBody', true);
         document.getElementById('archivedTasksSection').style.display = tasksData.archived.length ? 'block' : 'none';
@@ -65,9 +73,9 @@ function renderTasksTable(tasks, tbodyId, isArchived) {
     tbody.innerHTML = tasks.map(t => {
         const peopleNames = (t.people || []).map(p => escapeHtml(p.name)).join(', ') || '-';
         const tagSpans = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${tg.color}">${escapeHtml(tg.name)}</span>`).join(' ') || '-';
-        if (isArchived) return `<tr data-id="${t.id}"><td><strong>${escapeHtml(t.name)}</strong></td><td>${STAGE_LABELS[t.stage] || t.stage}</td><td>${t.stage_number}</td><td><div class="table-actions"><button class="btn btn-outline btn-sm" onclick="restoreTask(${t.id})">恢复</button><button class="btn btn-danger btn-sm" onclick="deleteTask(${t.id})">删除</button></div></td></tr>`;
+        if (isArchived) return `<tr data-id="${t.id}"><td><strong>${escapeHtml(t.name)}</strong> ${taskTypeBadge(t)}</td><td>${STAGE_LABELS[t.stage] || t.stage}</td><td>${t.stage_number}</td><td><div class="table-actions"><button class="btn btn-outline btn-sm" onclick="restoreTask(${t.id})">恢复</button><button class="btn btn-danger btn-sm" onclick="deleteTask(${t.id})">删除</button></div></td></tr>`;
         return `<tr data-id="${t.id}" class="${isPrioritySort?'draggable':''}">
-            <td><span class="drag-handle" style="cursor:${isPrioritySort?'grab':'default'};margin-right:4px;">${isPrioritySort?'⋮⋮':''}</span><strong>${escapeHtml(t.name)}</strong></td>
+            <td><span class="drag-handle" style="cursor:${isPrioritySort?'grab':'default'};margin-right:4px;">${isPrioritySort?'⋮⋮':''}</span><strong>${escapeHtml(t.name)}</strong> ${taskTypeBadge(t)}</td>
             <td>${t.priority || '-'}</td>
             <td>${STAGE_LABELS[t.stage] || t.stage}</td>
             <td>${t.stage_number}</td>
@@ -134,6 +142,7 @@ async function showTaskModal(taskId = null) {
         title: task ? '编辑任务' : '新建任务',
         body: `<div class="form-group"><label>任务名称 *</label><input class="form-input" id="taskName" value="${escapeHtml(task?.name||'')}"></div>
             <div class="form-group"><label>描述</label><textarea class="form-textarea" id="taskDesc">${escapeHtml(task?.description||'')}</textarea></div>
+            <div class="form-group"><label>任务分类</label><select class="form-select" id="taskType"><option value="general" ${task?.task_type!=='meeting'?'selected':''}>一般任务</option><option value="meeting" ${task?.task_type==='meeting'?'selected':''}>会议</option></select><small class="task-type-hint">会议计划结束后自动完成；未填结束时间则在当天结束后完成。</small></div>
             <div class="form-group"><label>阶段</label><select class="form-select" id="taskStage">${Object.entries(STAGE_LABELS).map(([k,v])=>`<option value="${k}" ${task?.stage===k?'selected':''}>${v}</option>`).join('')}</select></div>
             <div class="form-row-2">
                 <div class="form-group"><label>重要度</label>${starHtml('importance', imp)}</div>
@@ -157,6 +166,7 @@ async function showTaskModal(taskId = null) {
         const data = {
             name, description: document.getElementById('taskDesc').value.trim(),
             stage: document.getElementById('taskStage').value,
+            task_type: document.getElementById('taskType').value,
             people_ids: getSelectedTagIds('people'), tag_ids: getSelectedTagIds('tags'),
             importance: getStarVal('star_importance'), necessity: getStarVal('star_necessity'),
             deadline: (() => { const t = document.getElementById('taskDeadlineType').value; return t === 'date' ? document.getElementById('taskDeadlineDate').value : t; })(),

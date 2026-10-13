@@ -631,6 +631,7 @@ const AiChat = {
     _fmtArgs(name, args) {
         const p = [];
         if (args.name) p.push(`名称: ${escapeHtml(args.name)}`);
+        if (args.task_type) p.push(`分类: ${args.task_type === 'meeting' ? '会议（结束后自动完成）' : '一般任务'}`);
         if (args.description) p.push(`描述: ${escapeHtml(args.description)}`);
         if (args.stage) { const m={in_progress:'进行中',stage_complete:'阶段性完成',completed:'已完成',failed:'失败/放弃'}; p.push(`阶段: ${m[args.stage]||args.stage}`); }
         if (args.archived !== undefined) p.push(`归档: ${args.archived?'是':'否'}`);

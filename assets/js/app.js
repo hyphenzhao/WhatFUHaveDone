@@ -212,5 +212,9 @@ async function logout() {
     window.location.href = '/login';
 }
 
+function taskTypeBadge(task) {
+    return task.task_type === 'meeting' ? '<span class="task-type-badge" title="会议计划结束后自动完成">会议</span>' : '';
+}
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => App.init());

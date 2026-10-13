@@ -36,6 +36,7 @@ const TaskDetail = {
         return `
         <div class="td-meta">
             <span class="td-stage">${this.stageLabel[t.stage] || escapeHtml(t.stage)} · 第 ${t.stage_number} 阶段</span>
+            ${taskTypeBadge(t)}
             ${deadline ? `<span>${deadline}</span>` : ''}
             <span class="td-muted">重要 ${this.stars(t.importance)} · 必要 ${this.stars(t.necessity)}</span>
             ${t.location ? `<span>📍 ${escapeHtml(t.location)}</span>` : ''}

@@ -2,15 +2,15 @@
 /** Historical activity survives task archiving. Only task deletion cascades records. */
 
 function activity_calendar_events(PDO $db, int $uid, string $start, string $end): array {
-    $st = $db->prepare("SELECT DISTINCT t.id,t.name,t.archived,wl.log_date AS event_date,'work' AS event_type,'' AS plan_time,'' AS plan_end_time,NULL AS plan_id,0 AS is_completed,NULL AS completed_at
+    $st = $db->prepare("SELECT DISTINCT t.id,t.name,t.archived,t.task_type,wl.log_date AS event_date,'work' AS event_type,'' AS plan_time,'' AS plan_end_time,NULL AS plan_id,0 AS is_completed,NULL AS completed_at
         FROM tasks t JOIN work_logs wl ON t.id=wl.task_id
         WHERE wl.log_date BETWEEN ? AND ? AND t.user_id=?
         UNION ALL
-        SELECT DISTINCT t.id,t.name,t.archived,p.planned_date AS event_date,'plan' AS event_type,p.plan_time,p.plan_end_time,p.id AS plan_id,p.is_completed,p.completed_at
+        SELECT DISTINCT t.id,t.name,t.archived,t.task_type,p.planned_date AS event_date,'plan' AS event_type,p.plan_time,p.plan_end_time,p.id AS plan_id,p.is_completed,p.completed_at
         FROM tasks t JOIN plans p ON t.id=p.task_id
         WHERE p.planned_date BETWEEN ? AND ? AND t.user_id=?
         UNION ALL
-        SELECT DISTINCT t.id,t.name,t.archived,rl.log_date AS event_date,'result' AS event_type,'' AS plan_time,'' AS plan_end_time,NULL AS plan_id,0 AS is_completed,NULL AS completed_at
+        SELECT DISTINCT t.id,t.name,t.archived,t.task_type,rl.log_date AS event_date,'result' AS event_type,'' AS plan_time,'' AS plan_end_time,NULL AS plan_id,0 AS is_completed,NULL AS completed_at
         FROM tasks t JOIN result_logs rl ON t.id=rl.task_id
         WHERE rl.log_date BETWEEN ? AND ? AND t.user_id=?
         ORDER BY event_date,id");
@@ -40,7 +40,7 @@ function activity_add_execution_history(PDO $db, int $uid, string $start, string
             $represented[$event['id'].'|'.$event['event_date']] = true;
         }
     }
-    $st = $db->prepare("SELECT t.id,t.name,t.archived,w.id AS work_log_id,w.log_date,n.id AS note_id,n.content,n.created_at
+    $st = $db->prepare("SELECT t.id,t.name,t.archived,t.task_type,w.id AS work_log_id,w.log_date,n.id AS note_id,n.content,n.created_at
         FROM work_logs w JOIN tasks t ON t.id=w.task_id JOIN worklog_notes n ON n.worklog_id=w.id
         WHERE t.user_id=? AND w.log_date BETWEEN ? AND ? AND TRIM(n.content) LIKE '已按计划执行%'
         ORDER BY n.created_at,n.id");
@@ -53,7 +53,7 @@ function activity_add_execution_history(PDO $db, int $uid, string $start, string
         if (isset($seen[$key])) continue;
         $seen[$key] = true;
         $events[] = [
-            'id'=>$row['id'], 'name'=>$row['name'], 'archived'=>$row['archived'],
+            'id'=>$row['id'], 'name'=>$row['name'], 'archived'=>$row['archived'], 'task_type'=>$row['task_type'],
             'event_date'=>$row['log_date'], 'event_type'=>'plan',
             'plan_time'=>$time[0], 'plan_end_time'=>$time[1], 'plan_id'=>null,
             'is_completed'=>1, 'completed_at'=>$row['created_at'],

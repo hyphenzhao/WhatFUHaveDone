@@ -209,5 +209,6 @@ $layout_user = current_user();
     <?php endif; ?>
     <!-- Last: owns the panel tabs for every page and the mobile drawers/sheet -->
     <script src="/assets/js/mobile.js?v=<?= $asset_ver ?>"></script>
+    <script src="/assets/js/meetings.js?v=<?= $asset_ver ?>"></script>
 </body>
 </html>

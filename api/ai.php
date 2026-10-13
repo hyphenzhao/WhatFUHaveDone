@@ -13,6 +13,7 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/activity_queries.php';
+require_once __DIR__ . '/../includes/meeting_tasks.php';
 require_once __DIR__ . '/../includes/ai_client.php';
 require_once __DIR__ . '/../includes/profile_context.php';
 require_once __DIR__ . '/../includes/ai_tools_profile.php';
@@ -169,6 +170,7 @@ function get_tool_definitions(): array {
                 'type' => 'object',
                 'properties' => [
                     'archived' => ['type' => 'integer', 'description' => '0=活跃(默认), 1=已归档'],
+                    'task_type' => ['type' => 'string', 'enum' => ['general','meeting'], 'description' => '一般任务或会议'],
                     'stage' => ['type' => 'string', 'enum' => ['in_progress', 'stage_complete', 'completed', 'failed'], 'description' => '按阶段筛选'],
                 ],
             ],
@@ -193,6 +195,7 @@ function get_tool_definitions(): array {
                 'type' => 'object',
                 'properties' => [
                     'name' => ['type' => 'string', 'description' => '任务名称（必填）'],
+                    'task_type' => ['type' => 'string', 'enum' => ['general','meeting'], 'description' => '会议请选 meeting：结束时间到达后自动完成；无结束时间则当天结束后完成'],
                     'description' => ['type' => 'string', 'description' => '任务描述'],
                     'stage' => ['type' => 'string', 'enum' => ['in_progress', 'stage_complete', 'completed', 'failed']],
                     'people_ids' => ['type' => 'array', 'items' => ['type' => 'integer']],
@@ -212,6 +215,7 @@ function get_tool_definitions(): array {
                 'properties' => [
                     'id' => ['type' => 'integer', 'description' => '任务ID（必填）'],
                     'name' => ['type' => 'string'],
+                    'task_type' => ['type' => 'string', 'enum' => ['general','meeting'], 'description' => '任务分类；meeting 会启用会议计划自动完成'],
                     'description' => ['type' => 'string'],
                     'stage' => ['type' => 'string', 'enum' => ['in_progress', 'stage_complete', 'completed', 'failed']],
                     'stage_number' => ['type' => 'integer'],
@@ -553,9 +557,13 @@ function get_tool_definitions(): array {
 function handle_list_tasks(PDO $db, array $args): array {
     $archived = $args['archived'] ?? 0;
     $stage = $args['stage'] ?? null;
-    $sql = 'SELECT id, name, description, stage, stage_number, archived FROM tasks WHERE archived = ? AND user_id = ?';
+    $sql = 'SELECT id, name, description, stage, stage_number, archived, task_type FROM tasks WHERE archived = ? AND user_id = ?';
     $params = [$archived, current_user_id()];
     if ($stage) { $sql .= ' AND stage = ?'; $params[] = $stage; }
+    if (isset($args['task_type'])) {
+        if (!task_type_valid((string)$args['task_type'])) return ['error'=>'Invalid task type'];
+        $sql .= ' AND task_type=?'; $params[] = $args['task_type'];
+    }
     $sql .= ' ORDER BY updated_at DESC';
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
@@ -567,8 +575,10 @@ function handle_get_task(PDO $db, array $args): ?array {
 }
 
 function handle_create_task(PDO $db, array $args): array {
-    $stmt = $db->prepare('INSERT INTO tasks (user_id, name, description, stage, location) VALUES (?, ?, ?, ?, ?)');
-    $stmt->execute([current_user_id(), $args['name'], $args['description'] ?? '', $args['stage'] ?? 'in_progress', $args['location'] ?? '']);
+    $type=(string)($args['task_type'] ?? 'general');
+    if (!task_type_valid($type)) return ['error'=>'Invalid task type'];
+    $stmt = $db->prepare('INSERT INTO tasks (user_id, name, description, stage, location, task_type, meeting_auto_from) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    $stmt->execute([current_user_id(), $args['name'], $args['description'] ?? '', $args['stage'] ?? 'in_progress', $args['location'] ?? '', $type, $type === 'meeting' ? today() : null]);
     $id = (int)$db->lastInsertId();
     if (!empty($args['people_ids'])) attach_people($db, $id, $args['people_ids']);
     if (!empty($args['tag_ids'])) attach_task_tags($db, $id, $args['tag_ids']);
@@ -578,10 +588,13 @@ function handle_create_task(PDO $db, array $args): array {
 function handle_update_task(PDO $db, array $args): array {
     $id = (int)$args['id'];
     $fields = []; $params = [];
-    foreach (['name', 'description', 'stage', 'stage_number', 'archived', 'priority', 'importance', 'necessity', 'deadline', 'location'] as $f) {
+    if (array_key_exists('task_type', $args) && !task_type_valid((string)$args['task_type'])) return ['error'=>'Invalid task type'];
+    foreach (['name', 'description', 'stage', 'stage_number', 'archived', 'priority', 'importance', 'necessity', 'deadline', 'location', 'task_type'] as $f) {
         if (array_key_exists($f, $args)) { $fields[] = "$f = ?"; $params[] = $args[$f]; }
     }
+    if (array_key_exists('task_type', $args)) { $fields[]="meeting_auto_from=CASE WHEN ?='meeting' THEN COALESCE(meeting_auto_from,CURDATE()) ELSE NULL END"; $params[]=$args['task_type']; }
     if ($fields) { $params[] = $id; $params[] = current_user_id(); $db->prepare('UPDATE tasks SET ' . implode(', ', $fields) . ' WHERE id = ? AND user_id = ?')->execute($params); }
+    if (($args['task_type'] ?? '') === 'meeting') meeting_reopen_task($db, current_user_id(), $id);
     if (isset($args['people_ids'])) attach_people($db, $id, $args['people_ids']);
     if (isset($args['tag_ids'])) attach_task_tags($db, $id, $args['tag_ids']);
     return get_task_full($db, $id);
@@ -688,12 +701,9 @@ function handle_get_worklogs_by_date(PDO $db, array $args): array {
 function handle_add_plan(PDO $db, array $args): array {
     $pt = $args['plan_time'] ?? '';
     $pet = $args['plan_end_time'] ?? '';
-    $chk = $db->prepare('SELECT 1 FROM tasks WHERE id = ? AND user_id = ?');
-    $chk->execute([(int)$args['task_id'], current_user_id()]);
-    if (!$chk->fetchColumn()) return ['error' => 'Task not found'];
-    $stmt = $db->prepare('INSERT INTO plans (task_id, planned_date, plan_time, plan_end_time) VALUES (?, ?, ?, ?)');
-    $stmt->execute([(int)$args['task_id'], $args['planned_date'], $pt, $pet]);
-    return ['id' => (int)$db->lastInsertId(), 'task_id' => (int)$args['task_id'], 'planned_date' => $args['planned_date']];
+    if (!validate_date((string)($args['planned_date'] ?? ''))) return ['error'=>'Invalid planned date'];
+    $plan=add_task_plan($db,current_user_id(),['task_id'=>(int)$args['task_id'],'planned_date'=>$args['planned_date'],'plan_time'=>$pt,'plan_end_time'=>$pet]);
+    return $plan ?: ['error'=>'Task not found'];
 }
 
 function handle_update_worklog_duration(PDO $db, array $args): array {
@@ -1079,6 +1089,9 @@ The identity / AI IMPRESSION SUMMARY blocks are not background decoration. Apply
 - Time arrangement / scheduling: before proposing a plan, read the real data (get_daily_status, get_calendar_data,
   list_tasks for deadlines, existing plans) and fit the plan to their known working patterns, fixed commitments and
   preferences from the impressions. Propose concrete dates/time slots, then use add_plan (needs confirmation).
+- Meetings: create/update their task with task_type="meeting" (needs confirmation). Store the actual scheduled
+  date, start and end using add_plan. The system completes each meeting at its end time; with no end time it
+  waits until the day is over. Several plans on one task complete that task only after its final meeting.
 - Email: judge relevance and draft replies in the user's voice, with their title, affiliation and relationship to the
   sender in mind.
 - People: when a collaborator or contact appears, connect it to what you know about that relationship.

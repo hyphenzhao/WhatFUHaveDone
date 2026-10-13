@@ -92,6 +92,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     user_id INT NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    task_type ENUM('general','meeting') NOT NULL DEFAULT 'general',
+    meeting_auto_from DATE NULL,
     stage ENUM('in_progress', 'stage_complete', 'completed', 'failed') DEFAULT 'in_progress',
     stage_number INT DEFAULT 1,
     priority INT DEFAULT 0,
@@ -167,6 +169,7 @@ CREATE TABLE IF NOT EXISTS plans (
     is_completed TINYINT(1) NOT NULL DEFAULT 0,
     completed_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_plans_completion (is_completed, planned_date, task_id),
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 

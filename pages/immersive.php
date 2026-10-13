@@ -34,5 +34,6 @@ $current_page = 'immersive';
     <script src="/assets/js/mail-modal.js?v=<?= ASSET_VER ?>"></script>
     <script src="/assets/js/home.js?v=<?= ASSET_VER ?>"></script>
     <script src="/assets/js/immersive.js?v=<?= ASSET_VER ?>"></script>
+    <script src="/assets/js/meetings.js?v=<?= ASSET_VER ?>"></script>
 </body>
 </html>

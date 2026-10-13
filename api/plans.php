@@ -13,12 +13,19 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/plan_completion.php';
+require_once __DIR__ . '/../includes/meeting_tasks.php';
 
 $method = get_method();
 $db = get_db();
 $uid = current_user_id();
 $parts = get_path_parts();
+
+// Completes only meetings the user has explicitly enabled for automatic completion.
+if ($method === 'POST' && ($parts[2] ?? '') === 'complete-due') {
+    $out = complete_due_meetings($db, $uid);
+    $out['revision'] = meeting_revision($db, $uid);
+    json_success($out);
+}
 
 // Explicit per-plan completion, not task-wide completion inferred from work logs.
 if ($method === 'POST' && ($parts[2] ?? '') !== '' && ($parts[3] ?? '') === 'complete') {
@@ -53,24 +60,11 @@ if ($method === 'POST') {
     if (!$task_id) json_error('task_id required');
     if (!$planned_date || !validate_date($planned_date)) json_error('Valid planned_date required (YYYY-MM-DD)');
 
-    $chk = $db->prepare('SELECT 1 FROM tasks WHERE id = ? AND user_id = ?');
-    $chk->execute([$task_id, $uid]);
-    if (!$chk->fetchColumn()) json_error('Not found', 404);
-
     $plan_time = optional_string($data, 'plan_time');
     $plan_end_time = optional_string($data, 'plan_end_time');
-    $stmt = $db->prepare('INSERT INTO plans (task_id, planned_date, plan_time, plan_end_time) VALUES (?, ?, ?, ?)');
-    $stmt->execute([$task_id, $planned_date, $plan_time, $plan_end_time]);
-
-    json_success([
-        'id' => (int)$db->lastInsertId(),
-        'task_id' => $task_id,
-        'planned_date' => $planned_date,
-        'plan_time' => $plan_time,
-        'plan_end_time' => $plan_end_time,
-        'is_completed' => 0,
-        'completed_at' => null,
-    ], 'Plan added');
+    $plan = add_task_plan($db, $uid, compact('task_id','planned_date','plan_time','plan_end_time'));
+    if (!$plan) json_error('Not found', 404);
+    json_success($plan, 'Plan added');
 }
 
 // PUT /api/plans/{id} — update time

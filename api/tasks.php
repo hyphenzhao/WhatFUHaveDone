@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/response.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/attachments_util.php';
+require_once __DIR__ . '/../includes/meeting_tasks.php';
 
 require_once __DIR__ . '/../includes/auth.php';
 
@@ -67,9 +68,12 @@ if ($method === 'GET') {
     } else {
         $archived = isset($_GET['archived']) ? (int)$_GET['archived'] : 0;
         $stage = $_GET['stage'] ?? null;
+        $taskType = $_GET['task_type'] ?? null;
+        if ($taskType !== null && !task_type_valid((string)$taskType)) json_error('任务分类无效');
         $sort = $_GET['sort'] ?? 'priority';
         $sql = 'SELECT * FROM tasks WHERE archived = ? AND user_id = ?';
         $params = [$archived, $uid];
+        if ($taskType) { $sql .= ' AND task_type=?'; $params[] = $taskType; }
         if ($stage && $stage !== 'all') {
             $sql .= ' AND stage = ?';
             $params[] = $stage;
@@ -98,6 +102,8 @@ if ($method === 'POST') {
     $data = get_json_input();
     $name = optional_string($data, 'name');
     if (!$name) json_error('Name is required');
+    $taskType = optional_string($data, 'task_type', 'general');
+    if (!task_type_valid($taskType)) json_error('任务分类无效');
 
     $imp = optional_int($data, 'importance', 3);
     $nec = optional_int($data, 'necessity', 3);
@@ -108,8 +114,8 @@ if ($method === 'POST') {
         $stmt->execute([$uid]);
         $pri = (int)$stmt->fetch()['next_pri'];
     }
-    $stmt = $db->prepare('INSERT INTO tasks (user_id, name, description, stage, stage_number, priority, importance, necessity, deadline, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-    $stmt->execute([$uid, $name, optional_string($data, 'description'), optional_string($data, 'stage', 'in_progress'), optional_int($data, 'stage_number', 1), $pri, $imp, $nec, optional_string($data, 'deadline'), optional_string($data, 'location')]);
+    $stmt = $db->prepare('INSERT INTO tasks (user_id, name, description, stage, stage_number, priority, importance, necessity, deadline, location, task_type, meeting_auto_from) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $stmt->execute([$uid, $name, optional_string($data, 'description'), optional_string($data, 'stage', 'in_progress'), optional_int($data, 'stage_number', 1), $pri, $imp, $nec, optional_string($data, 'deadline'), optional_string($data, 'location'), $taskType, $taskType === 'meeting' ? today() : null]);
     $id = $db->lastInsertId();
 
     if (isset($data['people_ids'])) attach_people($db, $id, optional_array($data, 'people_ids'));
@@ -140,13 +146,18 @@ if ($method === 'PUT') {
     $data = get_json_input();
     $fields = [];
     $params = [];
-    foreach (['name', 'description', 'stage', 'stage_number', 'archived', 'priority', 'importance', 'necessity', 'deadline', 'location'] as $f) {
+    if (array_key_exists('task_type', $data) && !task_type_valid((string)$data['task_type'])) json_error('任务分类无效');
+    foreach (['name', 'description', 'stage', 'stage_number', 'archived', 'priority', 'importance', 'necessity', 'deadline', 'location', 'task_type'] as $f) {
         if (array_key_exists($f, $data)) {
             $fields[] = "$f = ?";
 if (in_array($f, ['stage_number', 'priority', 'importance', 'necessity'])) $params[] = optional_int($data, $f, $f === 'stage_number' ? 1 : 3);
             elseif ($f === 'archived') $params[] = (int)$data[$f];
             else $params[] = optional_string($data, $f, $f === 'stage' ? 'in_progress' : '');
         }
+    }
+    if (array_key_exists('task_type', $data)) {
+        $fields[] = "meeting_auto_from = CASE WHEN ?='meeting' THEN COALESCE(meeting_auto_from,CURDATE()) ELSE NULL END";
+        $params[] = $data['task_type'];
     }
     if ($fields) {
         if (array_key_exists('stage', $data)) {
@@ -155,6 +166,7 @@ if (in_array($f, ['stage_number', 'priority', 'importance', 'necessity'])) $para
         $params[] = $id;
         $params[] = $uid;
         $db->prepare('UPDATE tasks SET ' . implode(', ', $fields) . ' WHERE id = ? AND user_id = ?')->execute($params);
+        if (array_key_exists('task_type', $data) && $data['task_type'] === 'meeting') meeting_reopen_task($db, $uid, $id);
     }
 
     if (isset($data['people_ids'])) attach_people($db, $id, optional_array($data, 'people_ids'));

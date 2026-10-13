@@ -9,7 +9,7 @@ final class ExternalReader {
     private function specs(): array {
         $s = static fn($scope, $from, $owner, $title, $date, $body, $fields = '', $where = '1=1') => compact('scope','from','owner','title','date','body','fields','where');
         return [
-            'task' => $s('work','tasks r','r.user_id','r.name','r.updated_at','r.description','r.stage,r.priority,r.importance,r.necessity,r.deadline,r.location,r.archived'),
+            'task' => $s('work','tasks r','r.user_id','r.name','r.updated_at','r.description','r.stage,r.priority,r.importance,r.necessity,r.deadline,r.location,r.archived,r.task_type,r.meeting_auto_from'),
             'worklog' => $s('work','work_logs r JOIN tasks t ON t.id=r.task_id','t.user_id','t.name','r.log_date','r.duration',"CONCAT('task:',r.task_id) AS task_ref,r.duration"),
             'note' => $s('work','worklog_notes r JOIN work_logs w ON w.id=r.worklog_id JOIN tasks t ON t.id=w.task_id','t.user_id','t.name','w.log_date','r.content',"CONCAT('task:',w.task_id) AS task_ref,CONCAT('worklog:',r.worklog_id) AS worklog_ref,r.created_at"),
             'plan' => $s('work','plans r JOIN tasks t ON t.id=r.task_id','t.user_id','t.name','r.planned_date',"''","CONCAT('task:',r.task_id) AS task_ref,r.plan_time,r.plan_end_time,r.is_completed,r.completed_at"),

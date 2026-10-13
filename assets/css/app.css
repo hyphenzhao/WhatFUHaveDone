@@ -520,6 +520,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
     margin-bottom: 12px;
 }
 .task-section-header {
+    width: 100%; border: 0; background: transparent; font-family: inherit; text-align: left;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1703,6 +1704,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .calendar-plan-time { flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .task-type-badge { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 8px; background: #e0f2fe; color: #075985; font-size: .72rem; font-weight: 500; white-space: nowrap; vertical-align: middle; }
 .task-type-hint { display: block; margin-top: 5px; color: var(--color-text-secondary); }
+.task-stage-badge { display: inline-block; padding: 1px 5px; border-radius: 6px; background: var(--color-bg); color: var(--color-text-secondary); font-size: .7rem; font-weight: 400; white-space: nowrap; }
 .task-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; max-width: 100%; min-width: 0; }
 .calendar-plan-line.is-completed { background: var(--plan-background); color: var(--plan-foreground); }
 .calendar-plan-check { flex-shrink: 0; font-weight: 800; }

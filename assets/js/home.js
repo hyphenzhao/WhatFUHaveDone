@@ -537,6 +537,12 @@ async function analyzeBazi(dateStr, type, label, gz, ss) {
     }
 }
 
+// Expansion choices last for this page session; a fresh page opens only in-progress.
+const taskSectionState = new Map();
+function isTaskSectionCollapsed(key) {
+    return taskSectionState.has(key) ? taskSectionState.get(key) : key !== 'in_progress';
+}
+
 async function loadRightPanel() {
     const panel = document.getElementById('rightPanelBody');
     if (!panel) return;
@@ -585,18 +591,19 @@ async function loadRightPanel() {
 
         const renderSection = (title, tasks, icon, stageClass) => {
             const sorted = sortTasks(tasks);
+            const collapsed = isTaskSectionCollapsed(stageClass);
             const cardsHtml = sorted.map(t =>
-                TaskCard.render(t, { date: App.selectedDate, workLogActive: workLogTaskIds.has(t.id), latestNote: workLogNotes[t.id] || '' })
+                TaskCard.render(t, { date: App.selectedDate, workLogActive: workLogTaskIds.has(t.id), latestNote: workLogNotes[t.id] || '', showStage: stageClass === 'meeting' })
             ).join('');
 
             return `
-                <div class="task-section">
-                    <div class="task-section-header" onclick="toggleSection(this)">
+                <div class="task-section${collapsed ? ' collapsed' : ''}" data-task-section="${stageClass}">
+                    <button type="button" class="task-section-header" onclick="toggleSection(this)" aria-expanded="${!collapsed}" aria-controls="task-list-${stageClass}">
                         <span class="toggle-arrow">▼</span>
                         <span>${icon} ${title}</span>
                         <span class="section-count">${tasks.length}</span>
-                    </div>
-                    <div class="task-list">
+                    </button>
+                    <div class="task-list" id="task-list-${stageClass}">
                         ${stageClass === 'in_progress' ? `
                             <div style="display:flex;gap:6px;align-items:center;">
                                 <div class="add-task-bar" onclick="showAddTaskModal()" style="flex:1;">
@@ -611,11 +618,15 @@ async function loadRightPanel() {
             `;
         };
 
+        const regular = response => (response.data || []).filter(t => t.task_type !== 'meeting');
+        const meetings = [...new Map([inProgress, stageComplete, completed, failed]
+            .flatMap(r => r.data || []).filter(t => t.task_type === 'meeting').map(t => [t.id, t])).values()];
         panel.innerHTML =
-            renderSection('进行中', inProgress.data || [], '🔄', 'in_progress') +
-            renderSection('阶段性完成', stageComplete.data || [], '✅', 'stage_complete') +
-            renderSection('已完成', completed.data || [], '🎉', 'completed') +
-            renderSection('失败/放弃', failed.data || [], '❌', 'failed');
+            renderSection('进行中', regular(inProgress), '🔄', 'in_progress') +
+            renderSection('会议', meetings, '📅', 'meeting') +
+            renderSection('阶段性完成', regular(stageComplete), '✅', 'stage_complete') +
+            renderSection('已完成', regular(completed), '🎉', 'completed') +
+            renderSection('失败/放弃', regular(failed), '❌', 'failed');
 
     } catch (e) {
         panel.innerHTML = '<div style="padding:16px;color:var(--color-danger);">加载失败: ' + escapeHtml(e.message) + '</div>';
@@ -629,7 +640,10 @@ function IMtoggleTaskSort() {
 }
 
 function toggleSection(header) {
-    header.parentElement.classList.toggle('collapsed');
+    const section = header.parentElement;
+    const collapsed = section.classList.toggle('collapsed');
+    if (section.dataset.taskSection) taskSectionState.set(section.dataset.taskSection, collapsed);
+    header.setAttribute('aria-expanded', String(!collapsed));
 }
 
 function getActivePeriod() {

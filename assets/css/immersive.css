@@ -173,3 +173,6 @@ button { font-family: inherit; cursor: pointer; }
     .im-right-panel { flex: 1; overflow-y: auto; }
 }
 .im-dur-tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 0.65rem; cursor: pointer; background: #1e3a5f; color: #93c5fd; border: 1px solid #334155; margin: 2px 0; }
+.im-task-section .task-section-header { color: var(--im-text-secondary); margin-top: 12px; border-top: 1px solid var(--im-border); }
+.im-task-section .task-section-header:hover, .im-task-section .section-count { background: var(--im-bg); }
+.im-task-section .task-stage-badge { background: var(--im-bg); color: var(--im-text-secondary); }

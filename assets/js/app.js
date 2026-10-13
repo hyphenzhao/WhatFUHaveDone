@@ -216,5 +216,10 @@ function taskTypeBadge(task) {
     return task.task_type === 'meeting' ? '<span class="task-type-badge" title="会议计划结束后自动完成">会议</span>' : '';
 }
 
+function taskStageBadge(task) {
+    const labels = { in_progress: '进行中', stage_complete: '阶段性完成', completed: '已完成', failed: '失败/放弃' };
+    return labels[task.stage] ? `<span class="task-stage-badge">${labels[task.stage]}</span>` : '';
+}
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => App.init());

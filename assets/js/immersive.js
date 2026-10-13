@@ -203,13 +203,15 @@ const IM = {
     async loadTasks() {
         const el = document.getElementById('imContent');
         try {
-            const [dailyRes, tasksRes, wlRes] = await Promise.all([
+            const [dailyRes, tasksRes, meetingsRes, wlRes] = await Promise.all([
                 API.stats.daily(this.date),
-                API.tasks.list(0, 'in_progress'),
+                API.get('/tasks?archived=0&stage=in_progress&task_type=general'),
+                API.get('/tasks?archived=0&task_type=meeting'),
                 API.worklogs.forDate(this.date),
             ]);
             const daily = dailyRes.data || {};
             const inProgress = tasksRes.data || [];
+            const meetings = meetingsRes.data || [];
             const wlTaskIds = new Set((wlRes.data||[]).map(w => w.task_id));
             const wlNotes = {};
             try {
@@ -218,7 +220,7 @@ const IM = {
             } catch(e) {}
 
             const historyTitle = t => escapeHtml(t.name) + ' ' + taskTypeBadge(t) + (Number(t.archived) ? ' <small style="font-weight:400;opacity:0.75">已归档</small>' : '');
-            const renderCard = (t, showWorklog) => {
+            const renderCard = (t, showWorklog, showStage = false) => {
                 const note = wlNotes[t.id] || '';
                 const tags = (t.tags||[]).map(tg => `<span class="im-tag-dot" style="background:${escapeHtml(tg.color)}" data-tag="${escapeHtml(tg.name)}"></span>`).join('');
                 const wlActive = showWorklog && wlTaskIds.has(t.id);
@@ -231,7 +233,7 @@ const IM = {
                 const dur = t.duration || '';
                 const durHtml = showWorklog ? `<span class="im-dur-tag" onclick="showDurPicker(${(t.work_log_id||0)},'${escapeHtml(dur)}')">${dur?'⏱️ '+escapeHtml(dur):'⏱️ 耗时'}</span>` : '';
                 return `<div class="im-card">
-                    <div class="im-card-name">${historyTitle(t)}${t.location?" 📍 "+escapeHtml(t.location):""}${deadlineHtml}</div>
+                    <div class="im-card-name">${historyTitle(t)}${showStage ? ' ' + taskStageBadge(t) : ''}${t.location?" 📍 "+escapeHtml(t.location):""}${deadlineHtml}</div>
                     <div class="im-card-tags">${tags}</div>
                     ${durHtml}
                     ${wlLogBtn}
@@ -240,7 +242,7 @@ const IM = {
                         ${wlBtn}
                         <button onclick="IM.addPlan(${t.id})">📅</button>
                         <button onclick="IM.addResult(${t.id})">🏆</button>
-                        <select class="im-stage-select" onchange="IM.changeStage(${t.id},this.value)"><option value="">⚙</option><option value="stage_complete">完</option><option value="completed">✓</option><option value="failed">✗</option></select>
+                        <select class="im-stage-select" onchange="IM.changeStage(${t.id},this.value)"><option value="">⚙</option>${t.stage !== 'in_progress' ? '<option value="in_progress">进行</option>' : ''}<option value="stage_complete">完</option><option value="completed">✓</option><option value="failed">✗</option></select>
                     </div>
                 </div>`;
             };
@@ -307,7 +309,11 @@ const IM = {
             } else {
                 inProgress.forEach(t => { html += renderCard(t, true); });
             }
-            html += '</div>';
+            const folded = isTaskSectionCollapsed('im-meeting');
+            html += `<div class="task-section im-task-section${folded ? ' collapsed' : ''}" data-task-section="im-meeting">
+                <button type="button" class="task-section-header" onclick="toggleSection(this)" aria-expanded="${!folded}" aria-controls="task-list-im-meeting"><span class="toggle-arrow">▼</span><span>📅 会议</span><span class="section-count">${meetings.length}</span></button>
+                <div class="task-list" id="task-list-im-meeting">${meetings.map(t => renderCard(t, true, true)).join('') || '<div class="im-empty">暂无会议</div>'}</div>
+                </div></div>`;
             el.innerHTML = html;
         } catch(e) { el.innerHTML = '<div class="im-empty">加载失败</div>'; }
     },

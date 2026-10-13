@@ -27,6 +27,8 @@ const PlanUI = {
         const done = this.isCompleted(plan);
         const time = plan.plan_time ? plan.plan_time.slice(0, 5) + (plan.plan_end_time ? '–' + plan.plan_end_time.slice(0, 5) : '') : '';
         const label = (time ? time + ' ' : '') + (plan.name || '');
-        return `<div class="calendar-plan-line${done ? ' is-completed' : ''}" data-plan-id="${Number(plan.plan_id) || 0}" style="${this.style(plan)}" title="${escapeHtml(label)} · ${done ? '已完成' : '待完成'}">${done ? '<span class="calendar-plan-check" role="img" aria-label="已完成">✓</span>' : ''}<span class="calendar-plan-label">${escapeHtml(label)}</span></div>`;
+        const timing = time ? `<span class="calendar-plan-time">${escapeHtml(time)}</span>` : '';
+        const timeNote = !time && plan.completion_source === 'execution_note' ? ' · 原定时间未保留' : '';
+        return `<div class="calendar-plan-line${done ? ' is-completed' : ''}" data-plan-id="${Number(plan.plan_id) || 0}" style="${this.style(plan)}" title="${escapeHtml(label)} · ${done ? '已完成' : '待完成'}${timeNote}">${done ? '<span class="calendar-plan-check" role="img" aria-label="已完成">✓</span>' : ''}${timing}<span class="calendar-plan-label">${escapeHtml(plan.name || '')}</span></div>`;
     }
 };

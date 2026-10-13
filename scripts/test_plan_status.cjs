@@ -30,6 +30,7 @@ const done={...pending,plan_id:12,plan_time:'14:00',plan_end_time:'15:00',is_com
 check(!PlanUI.calendarLine(pending).includes('is-completed'), 'pending plan keeps outlined style');
 check(PlanUI.calendarLine(done).includes('calendar-plan-check'), 'completion check visible');
 check(PlanUI.calendarLine(done).includes('14:00–15:00'), 'schedule remains visible');
+check(PlanUI.calendarLine(done).includes('<span class="calendar-plan-time">14:00–15:00</span>'), 'scheduled time stays outside the truncated task label');
 check(PlanUI.calendarLine(done).includes('&lt;校对&gt;'), 'task names escaped');
 Calendar.calendarData={'2026-10-12':[pending,done,pending]}; Calendar.calendarMeta={};
 const html=Calendar._renderDay(12,'2026-10-12',false,1);
@@ -38,6 +39,7 @@ check((html.match(/class="calendar-plan-check"/g)||[]).length===1,'completion on
 const allDay={...done,plan_id:13,plan_time:'',plan_end_time:''};
 check(PlanUI.calendarLine(allDay).includes('is-completed') && PlanUI.calendarLine(allDay).includes('calendar-plan-check'),'all-day completed plans have the same fill and check');
 check(!PlanUI.calendarLine(allDay).includes('14:00'),'no fabricated time for all-day plans');
+check(PlanUI.calendarLine({...allDay,completion_source:'execution_note'}).includes('原定时间未保留'),'missing historical schedule is not labelled as an all-day plan');
 const legacy1={...allDay,plan_id:null,completion_key:'execution:42|09:00|10:00'};
 const legacy2={...allDay,plan_id:null,completion_key:'execution:42|14:00|15:00'};
 Calendar.calendarData={'2026-10-12':[legacy1,legacy2,legacy1]};

@@ -38,6 +38,8 @@ try {
     pc_check($first['work_log_id']===$log && pc_count('work_logs','task_id',$task)===1,'existing work log reused');
     pc_check(pc_count('worklog_notes','id',$note)===1 && pc_note_attachments($uid,$note)===1,'notes and attachment preserved');
     pc_check(pc_count('worklog_notes','worklog_id',$log)===2,'one completion note appended');
+    $executionNote=$db->prepare('SELECT content FROM worklog_notes WHERE worklog_id=? AND id<>?');$executionNote->execute([$log,$note]);
+    pc_check($executionNote->fetchColumn()==='已按计划执行（09:00–10:00）','execution history also keeps the original scheduled range');
     $again=pc_request($client,"/api/plans/$p1/complete",[])['body']['data'];
     pc_check($again['completed_at']===$first['completed_at'] && pc_count('worklog_notes','worklog_id',$log)===2,'retry is idempotent');
     $daily=pc_request($client,'/api/stats?type=daily&date='.$day)['body']['data']; $plans=array_column($daily['plan_tasks'],null,'plan_id');
@@ -45,6 +47,8 @@ try {
     $events=pc_request($client,'/api/stats?type=calendar&month=2026-10')['body']['data']['days'][$day];
     $events=array_values(array_filter($events,fn($e)=>$e['event_type']==='plan'));
     pc_check(count($events)===3 && count(array_unique(array_column($events,'plan_id')))===3,'calendar exposes every plan id');
+    $calendarPlans=array_column($events,null,'plan_id');
+    pc_check($calendarPlans[$p1]['plan_time']==='09:00' && $calendarPlans[$p1]['plan_end_time']==='10:00','completed calendar entry keeps both scheduled times');
     pc_check(pc_request($client,"/api/plans/$foreign/complete",[])['status']===404,'foreign plan cannot complete');
     pc_check(pc_count('work_logs','task_id',$foreignTask)===0,'foreign workload unaffected');
     $result=pc_request($client,"/api/plans/$p3/complete",[])['body']['data'];

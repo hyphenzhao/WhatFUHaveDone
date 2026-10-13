@@ -1700,6 +1700,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .calendar-plans { margin-top: 2px; }
 .calendar-plan-line { display: flex; align-items: center; gap: 3px; font-size: 0.64rem; line-height: 1.5; white-space: nowrap; overflow: hidden; color: #111827; background: #fff; padding: 2px 4px; border-left: 3px solid var(--plan-color, var(--color-primary)); border-radius: 3px; margin: 2px 0; }
 .calendar-plan-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.calendar-plan-time { flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .calendar-plan-line.is-completed { background: var(--plan-background); color: var(--plan-foreground); }
 .calendar-plan-check { flex-shrink: 0; font-weight: 800; }
 .plan-completed-badge { display: inline-flex; align-items: center; gap: 3px; color: inherit; font-size: .75rem; font-weight: 600; white-space: nowrap; padding: 2px 4px; }

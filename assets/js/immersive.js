@@ -206,7 +206,7 @@ const IM = {
             const [dailyRes, tasksRes, meetingsRes, wlRes] = await Promise.all([
                 API.stats.daily(this.date),
                 API.get('/tasks?archived=0&stage=in_progress&task_type=general'),
-                API.get('/tasks?archived=0&task_type=meeting'),
+                API.get('/tasks?archived=0&stage=in_progress&task_type=meeting'),
                 API.worklogs.forDate(this.date),
             ]);
             const daily = dailyRes.data || {};

@@ -618,15 +618,15 @@ async function loadRightPanel() {
             `;
         };
 
-        const regular = response => (response.data || []).filter(t => t.task_type !== 'meeting');
-        const meetings = [...new Map([inProgress, stageComplete, completed, failed]
-            .flatMap(r => r.data || []).filter(t => t.task_type === 'meeting').map(t => [t.id, t])).values()];
+        // Only ongoing meetings have their own group; other stages include every task type.
+        const regularInProgress = (inProgress.data || []).filter(t => t.task_type !== 'meeting');
+        const meetings = (inProgress.data || []).filter(t => t.task_type === 'meeting');
         panel.innerHTML =
-            renderSection('进行中', regular(inProgress), '🔄', 'in_progress') +
+            renderSection('进行中', regularInProgress, '🔄', 'in_progress') +
             renderSection('会议', meetings, '📅', 'meeting') +
-            renderSection('阶段性完成', regular(stageComplete), '✅', 'stage_complete') +
-            renderSection('已完成', regular(completed), '🎉', 'completed') +
-            renderSection('失败/放弃', regular(failed), '❌', 'failed');
+            renderSection('阶段性完成', stageComplete.data || [], '✅', 'stage_complete') +
+            renderSection('已完成', completed.data || [], '🎉', 'completed') +
+            renderSection('失败/放弃', failed.data || [], '❌', 'failed');
 
     } catch (e) {
         panel.innerHTML = '<div style="padding:16px;color:var(--color-danger);">加载失败: ' + escapeHtml(e.message) + '</div>';

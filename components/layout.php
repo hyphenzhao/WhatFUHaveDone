@@ -190,6 +190,8 @@ $layout_user = current_user();
     <script src="/assets/js/mail-admin.js?v=<?= $asset_ver ?>"></script>
     <?php elseif ($current_page === 'external-access'): ?>
     <script src="/assets/js/external-access.js?v=<?= $asset_ver ?>"></script>
+    <?php elseif ($current_page === 'ai-admin'): ?>
+    <script src="/assets/js/ai-admin.js?v=<?= $asset_ver ?>"></script>
     <?php elseif ($current_page === 'people'): ?>
     <script src="/assets/js/people.js?v=<?= $asset_ver ?>"></script>
     <?php elseif ($current_page === 'tasks'): ?>

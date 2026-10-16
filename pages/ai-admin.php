@@ -4,7 +4,7 @@ $current_page = 'ai-admin';
 $page_content = <<<'HTML'
 <div class="page-header">
     <h2>🤖 智能助手配置</h2>
-    <p style="color:var(--color-text-secondary);margin-top:4px;">配置 AI 提供者和模型参数，用于右侧面板的智能助手</p>
+    <p style="color:var(--color-text-secondary);margin-top:4px;">统一用于系统对话、邮件分析、个人侧写和周期报告。</p>
 </div>
 
 <div class="ai-admin-panel">
@@ -13,30 +13,33 @@ $page_content = <<<'HTML'
         <select class="form-select" id="aiProvider">
             <option value="ollama">Ollama (本地)</option>
             <option value="deepseek">DeepSeek (云端)</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic（Claude）</option>
+            <option value="openai_compatible">OpenAI 兼容接口（自定义）</option>
         </select>
+        <div id="aiProviderHint" style="font-size:0.8rem;color:var(--color-text-secondary);margin-top:4px;"></div>
     </div>
     <div class="form-group">
         <label>API 地址</label>
         <input type="text" class="form-input" id="aiEndpoint" placeholder="http://localhost:11434/v1">
         <div style="font-size:0.75rem;color:var(--color-text-secondary);margin-top:2px;">
-            Ollama 默认: http://localhost:11434/v1 | DeepSeek: https://api.deepseek.com/v1
+            可填基础地址（如 …/v1）或完整请求地址，也可使用服务商提供的代理地址。
         </div>
     </div>
     <div class="form-group" id="apiKeyGroup">
         <label>API Key</label>
-        <input type="password" class="form-input" id="aiApiKey" placeholder="DeepSeek API Key（Ollama 本地无需填写）">
+        <input type="password" class="form-input" id="aiApiKey" autocomplete="new-password" placeholder="读取配置中…">
+        <div style="font-size:0.8rem;color:var(--color-text-secondary);margin-top:4px;">同一提供者、同一地址留空保留已保存的密钥；切换提供者或地址后请重新填写。</div>
     </div>
     <div class="form-group">
         <label>模型名称</label>
-        <input type="text" class="form-input" id="aiModel" placeholder="qwen2.5:7b">
-        <div style="font-size:0.75rem;color:var(--color-text-secondary);margin-top:2px;">
-            Ollama 推荐: qwen2.5:7b / llama3.1:8b | DeepSeek: deepseek-chat
-        </div>
+        <input type="text" class="form-input" id="aiModel" placeholder="填写账户可用的模型 ID">
     </div>
     <div style="display:flex;gap:8px;">
-        <button class="btn btn-outline" id="testConnection">🔍 测试连接</button>
-        <button class="btn btn-primary" id="saveAiConfig">💾 保存配置</button>
+        <button class="btn btn-outline" id="testConnection" disabled>🔍 测试连接</button>
+        <button class="btn btn-primary" id="saveAiConfig" disabled>💾 保存配置</button>
     </div>
+    <p style="font-size:0.8rem;color:var(--color-text-secondary);margin-top:10px;">测试不会更换当前使用的 AI，点击“保存配置”后才生效。</p>
     <div id="testResult"></div>
 </div>
 
@@ -59,60 +62,6 @@ $page_content = <<<'HTML'
 .ai-test-result.error { background: #fef2f2; color: #991b1b; }
 </style>
 
-<script>
-document.addEventListener('DOMContentLoaded', async () => {
-    // Load current config
-    try {
-        const res = await API.get('/ai/config');
-        if (res.data) {
-            document.getElementById('aiProvider').value = res.data.provider || 'ollama';
-            document.getElementById('aiEndpoint').value = res.data.endpoint || '';
-            document.getElementById('aiModel').value = res.data.model || '';
-        }
-    } catch (e) { /* use defaults */ }
-
-    // Toggle API key visibility
-    document.getElementById('aiProvider').addEventListener('change', () => {
-        const isOllama = document.getElementById('aiProvider').value === 'ollama';
-        document.getElementById('apiKeyGroup').style.display = isOllama ? 'none' : 'block';
-    });
-    document.getElementById('aiProvider').dispatchEvent(new Event('change'));
-
-    // Save
-    document.getElementById('saveAiConfig').addEventListener('click', async () => {
-        try {
-            await API.post('/ai/config', {
-                provider: document.getElementById('aiProvider').value,
-                endpoint: document.getElementById('aiEndpoint').value.trim(),
-                api_key: document.getElementById('aiApiKey').value,
-                model: document.getElementById('aiModel').value.trim(),
-            });
-            Toast.success('AI 配置已保存');
-        } catch (e) { Toast.error('保存失败: ' + e.message); }
-    });
-
-    // Test connection
-    document.getElementById('testConnection').addEventListener('click', async () => {
-        const btn = document.getElementById('testConnection');
-        const result = document.getElementById('testResult');
-        btn.disabled = true; btn.textContent = '⏳ 测试中...';
-        result.innerHTML = '';
-
-        try {
-            const res = await API.post('/ai/config/test', {
-                endpoint: document.getElementById('aiEndpoint').value.trim(),
-                api_key: document.getElementById('aiApiKey').value,
-                model: document.getElementById('aiModel').value.trim(),
-            });
-            result.innerHTML = `<div class="ai-test-result success">✅ ${res.message}</div>`;
-        } catch (e) {
-            result.innerHTML = `<div class="ai-test-result error">❌ 连接失败: ${escapeHtml(e.message)}</div>`;
-        } finally {
-            btn.disabled = false; btn.textContent = '🔍 测试连接';
-        }
-    });
-});
-</script>
 HTML;
 
 require __DIR__ . '/../components/layout.php';

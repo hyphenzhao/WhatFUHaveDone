@@ -3,12 +3,13 @@
  * Shared LLM client — usable from any API file or CLI script.
  *
  * api/ai.php dispatches routes at include time, so other modules must not
- * require it. This file holds the provider-agnostic (OpenAI-compatible)
+ * require it. This file holds the shared OpenAI-compatible/Anthropic
  * config loading + HTTP call so ai.php, reports.php, mail.php and the CLI
  * worker all share one implementation.
  */
 
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/ai_protocols.php';
 
 /** Load per-user AI config (lazily inserting defaults). */
 function ai_load_config(PDO $db, int $uid): array {
@@ -37,32 +38,18 @@ function ai_is_configured(array $config): bool {
 }
 
 /**
- * Call an OpenAI-compatible /chat/completions endpoint (non-streaming).
+ * Call OpenAI-compatible Chat Completions or Anthropic Messages (non-streaming).
  * Returns a normalized assistant message:
  *   role, content, reasoning_content?, tool_calls?, _usage, _model, _finish_reason
  */
-function ai_call_llm(array $config, array $messages, int $timeout = 60, array $tools = []): array {
-    $url = rtrim((string)$config['endpoint'], '/') . '/chat/completions';
-
-    $body = [
-        'model'       => $config['model'],
-        'messages'    => $messages,
-        'max_tokens'  => AI_MAX_TOKENS,
-        'temperature' => AI_TEMPERATURE,
-        'stream'      => false,
-    ];
-    if (!empty($tools)) $body['tools'] = $tools;
-
-    $headers = ['Content-Type: application/json'];
-    if (!empty($config['api_key'])) {
-        $headers[] = 'Authorization: Bearer ' . $config['api_key'];
-    }
-
-    $ch = curl_init($url);
+function ai_call_llm(array $config, array $messages, int $timeout = 60, array $tools = [], ?int $maxTokens = null): array {
+    $request = ai_build_request($config, $messages, $tools, $maxTokens);
+    $ch = curl_init($request['url']);
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => json_encode($body, JSON_UNESCAPED_UNICODE),
-        CURLOPT_HTTPHEADER     => $headers,
+        CURLOPT_POSTFIELDS     => json_encode($request['body'], JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+        CURLOPT_HTTPHEADER     => $request['headers'],
+        CURLOPT_PROTOCOLS      => CURLPROTO_HTTP | CURLPROTO_HTTPS,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => max(5, $timeout),
         CURLOPT_CONNECTTIMEOUT => min(10, max(3, $timeout)),
@@ -74,29 +61,20 @@ function ai_call_llm(array $config, array $messages, int $timeout = 60, array $t
     curl_close($ch);
 
     if ($error) throw new Exception('LLM connection failed: ' . $error);
-    if ($httpCode !== 200) {
-        $b = json_decode((string)$response, true);
-        $msg = $b['error']['message'] ?? "HTTP $httpCode";
+    $data = json_decode((string)$response, true);
+    if ($httpCode !== 200 || isset($data['error'])) {
+        $msg = $data['error']['message'] ?? "HTTP $httpCode";
+        if (!empty($config['api_key'])) $msg = str_replace($config['api_key'], '[redacted]', (string)$msg);
         throw new Exception("LLM error: $msg");
     }
-
-    $data = json_decode((string)$response, true);
-    $choice = $data['choices'][0]['message'] ?? [];
-    $msg = [
-        'role'           => 'assistant',
-        'content'        => $choice['content'] ?? '',
-        '_usage'         => $data['usage'] ?? [],
-        '_model'         => $data['model'] ?? '',
-        '_finish_reason' => $data['choices'][0]['finish_reason'] ?? '',
-    ];
-    // DeepSeek thinking mode: reasoning_content must be echoed back on later turns.
-    if (!empty($choice['reasoning_content'])) {
-        $msg['reasoning_content'] = $choice['reasoning_content'];
+    if (!is_array($data)) throw new RuntimeException('AI 接口返回了无效的 JSON');
+    if (($config['provider'] ?? '') === 'anthropic' && is_array($data['content'] ?? null)) {
+        $wire = json_decode((string)$response);
+        foreach ($wire->content as $i=>$block) {
+            if (($block->type ?? '') === 'tool_use' && isset($block->input)) $data['content'][$i]['input'] = $block->input;
+        }
     }
-    if (!empty($choice['tool_calls'])) {
-        $msg['tool_calls'] = $choice['tool_calls'];
-    }
-    return $msg;
+    return ai_parse_response($config, $data);
 }
 
 /** Convenience: plain text completion (no tools); throws on empty content. */

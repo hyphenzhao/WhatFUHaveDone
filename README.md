@@ -1,6 +1,6 @@
 # 📋 WhatFUHaveDone — 工作日志与智能助手
 
-一个功能完整的个人工作日志系统，集成了**黄历、八字命理、天气预报**，并搭载**AI 智能助手**（支持 DeepSeek / Ollama），帮助你记录任务、分析工作趋势、管理人际关系。
+一个功能完整的个人工作日志系统，集成了**黄历、八字命理、天气预报**，并搭载**AI 智能助手**（支持 DeepSeek、OpenAI、Anthropic、Ollama 和自定义 OpenAI 兼容接口），帮助你记录任务、分析工作趋势、管理人际关系。
 
 ---
 
@@ -129,30 +129,35 @@ define('DB_PASS', 'your_password');
 
 ---
 
-## AI 智能助手配置（推荐 DeepSeek）
+## AI 智能助手配置
 
-### 为什么选 DeepSeek？
+### 选择提供者
 
-| 对比 | DeepSeek | Ollama |
-|------|----------|--------|
-| 部署 | 无需 GPU，云端调用 | 需本地 GPU |
-| 速度 | 快（云端算力） | 取决于本地硬件 |
-| 费用 | 极低（¥2/百万 token） | 免费（电费） |
-| 推荐模型 | `deepseek-chat` (V3) | `qwen2.5:7b` 或 `llama3.1:8b` |
+| 提供者 | API 基础地址 | 模型填写方式 |
+|--------|-------------|-------------|
+| DeepSeek | `https://api.deepseek.com/v1` | 保留现有模型或填写服务商提供的 ID |
+| OpenAI | `https://api.openai.com/v1` | 填写账户可用的模型 ID |
+| Anthropic（Claude） | `https://api.anthropic.com/v1` | 填写账户可用的 Claude 模型 ID |
+| OpenAI 兼容接口（自定义） | 按服务商提供的地址填写 | 按服务商提供的模型 ID 填写 |
+| Ollama（本地） | `http://localhost:11434/v1` | 填写本机已安装的模型名称 |
 
-> 💡 **建议**：追求效果和速度选 DeepSeek；追求隐私和免费选 Ollama。
+- 进入“系统管理 → AI 配置”，选择提供者、填写密钥和模型，先测试，再保存。测试草稿不会切换当前使用的 AI；保存后统一供聊天、邮件分析、用户侧写、对话摘要和周期报告使用。
+- 原有 DeepSeek 配置不需迁移。密钥留空会保留同一提供者、同一地址的已保存密钥；切换提供者或地址后需重新填写，避免将旧密钥发往新服务。表单中的密钥不会写入浏览器本地存储。
+- 地址可填基础地址或完整的 `/chat/completions`、`/messages` 请求地址。OpenAI 提供者使用 Chat Completions 的 `max_completion_tokens`；DeepSeek、Ollama 和自定义兼容接口继续使用原有 `max_tokens` 与采样参数。
+- Anthropic 使用原生 Messages API，自动转换系统提示、工具定义、工具调用和工具结果，并保留工具回合中的签名思考块。写入任务、发送邮件等操作继续要求用户确认。支持自定义代理地址，但代理需实现所选协议。
+- 接口参考：[OpenAI 官方文档](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)、[Anthropic 官方文档](https://platform.claude.com/docs/en/api/messages/create)。
+- 验证：`php scripts/test_ai_client.php`（协议与密钥规则）和 `php scripts/test_ai_providers.php`（本地模拟接口、聊天工具确认及邮件正文/附件分析；不调用付费接口、不修改已有用户配置）。
 
 ### 配置 DeepSeek
 
 1. 访问 DeepSeek 官网 [platform.deepseek.com](https://platform.deepseek.com) 注册并获取 **API Key**
-   - 新用户通常有免费额度
 
 2. 打开你的 WorkLog → 左侧导航 → **🤖 AI 配置**
 
 3. 填写：
    | 字段 | 值 |
    |------|-----|
-   | AI 提供者 | `DeepSeek (云端)` |
+   | AI 提供者 | `DeepSeek` |
    | API 地址 | `https://api.deepseek.com/v1` |
    | API Key | `sk-xxxxxxxxxxxxxxxx` |
    | 模型名称 | `deepseek-chat` |
@@ -173,7 +178,7 @@ define('DB_PASS', 'your_password');
 
    | 字段 | 值 |
    |------|-----|
-   | AI 提供者 | `Ollama (本地)` |
+   | AI 提供者 | `Ollama（本地）` |
    | API 地址 | `http://localhost:11434/v1` |
    | API Key | （留空） |
    | 模型名称 | `qwen2.5:7b` |

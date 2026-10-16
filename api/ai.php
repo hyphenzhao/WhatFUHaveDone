@@ -880,51 +880,36 @@ function attach_task_tags(PDO $db, int $task_id, array $tag_ids): void {
 
 if ($action === 'config' && $method === 'GET') {
     $config = load_ai_config($db);
+    $config['has_api_key'] = $config['api_key'] !== '';
     $config['api_key'] = $config['api_key'] ? '***' . substr($config['api_key'], -4) : '';
+    $config['providers'] = ai_provider_presets();
     json_success($config);
 }
 
 if ($action === 'config' && ($parts[3] ?? '') === '' && $method === 'POST') {
     $data = get_json_input();
+    try { $candidate = ai_config_candidate(load_ai_config($db), $data); }
+    catch (InvalidArgumentException $e) { json_error($e->getMessage()); }
     $stmt = $db->prepare('INSERT INTO ai_config (user_id, provider, endpoint, api_key, model) VALUES (?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE provider=VALUES(provider), endpoint=VALUES(endpoint), api_key=VALUES(api_key), model=VALUES(model)');
     $stmt->execute([
         $uid,
-        optional_string($data, 'provider', AI_DEFAULT_PROVIDER),
-        optional_string($data, 'endpoint', AI_DEFAULT_ENDPOINT),
-        optional_string($data, 'api_key', ''),
-        optional_string($data, 'model', AI_DEFAULT_MODEL),
+        $candidate['provider'],
+        $candidate['endpoint'],
+        $candidate['api_key'],
+        $candidate['model'],
     ]);
-    json_success(null, 'AI configuration saved');
+    json_success(['provider'=>$candidate['provider'],'endpoint'=>$candidate['endpoint'],'model'=>$candidate['model'],'has_api_key'=>$candidate['api_key'] !== ''], 'AI configuration saved');
 }
 
 if ($action === 'config' && ($parts[3] ?? '') === 'test' && $method === 'POST') {
     $data = get_json_input();
-    $testEndpoint = rtrim(optional_string($data, 'endpoint', AI_DEFAULT_ENDPOINT), '/') . '/chat/completions';
-    $testModel = optional_string($data, 'model', AI_DEFAULT_MODEL);
-    $testKey = optional_string($data, 'api_key', '');
-
-    $ch = curl_init($testEndpoint);
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => json_encode([
-            'model' => $testModel,
-            'messages' => [['role' => 'user', 'content' => 'Hi']],
-            'max_tokens' => 5, 'stream' => false,
-        ]),
-        CURLOPT_HTTPHEADER => array_filter([
-            'Content-Type: application/json',
-            $testKey ? "Authorization: Bearer $testKey" : null,
-        ]),
-        CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_CONNECTTIMEOUT => 5,
-    ]);
-    $resp = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err = curl_error($ch);
-    curl_close($ch);
-    if ($err) json_error("Connection failed: $err");
-    if ($httpCode !== 200) json_error("Provider returned HTTP $httpCode");
-    json_success(null, "Connection successful (HTTP $httpCode)");
+    try {
+        $candidate = ai_config_candidate(load_ai_config($db), $data);
+        if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+        $reply = ai_call_llm($candidate, [['role'=>'user','content'=>'Reply briefly with OK.']], 30, [], 256);
+        json_success(['provider'=>$candidate['provider'],'model'=>$reply['_model']], '连接成功，接口已正常响应；测试不会修改已保存的配置');
+    } catch (Exception $e) { json_error('连接失败：'.$e->getMessage()); }
 }
 
 // ===== SYSTEM PROMPT =====

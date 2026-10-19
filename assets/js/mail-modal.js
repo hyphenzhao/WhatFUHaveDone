@@ -395,9 +395,9 @@ async function openMailModal(id) {
                     <div class="mail-modal-pane" id="mailModalMail">
                         ${MailUI.headerHtml(msg)}
                         <div class="mail-read-actions" id="mailModalActions">
-                            <a class="btn btn-outline btn-sm" href="/mail?open=${id}">在邮箱中打开</a>
-                            <a class="btn btn-outline btn-sm" href="/mail?compose=reply&id=${id}">↩️ 回复</a>
-                            <a class="btn btn-outline btn-sm" href="/mail?compose=forward&id=${id}">↪️ 转发</a>
+                            <a class="btn btn-outline btn-sm" href="${appUrl('/mail?open=' + id)}">在邮箱中打开</a>
+                            <a class="btn btn-outline btn-sm" href="${appUrl('/mail?compose=reply&id=' + id)}">↩️ 回复</a>
+                            <a class="btn btn-outline btn-sm" href="${appUrl('/mail?compose=forward&id=' + id)}">↪️ 转发</a>
                             <span style="flex:1"></span>
                             <button class="btn btn-primary btn-sm" onclick="MailUI.analyze(${id}, '_mailModalRefreshAnalysis', ${hasAnalysis ? 'true' : 'false'})">🤖 ${hasAnalysis ? '重新分析' : 'AI 分析'}</button>
                         </div>

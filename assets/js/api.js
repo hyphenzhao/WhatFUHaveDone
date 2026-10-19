@@ -1,8 +1,26 @@
 /**
- * API client — fetch wrapper for all backend calls
+ * API client — fetch wrapper for all backend calls.
+ * window.APP_BASE is '' at '/' and e.g. '/calendar' behind the reverse proxy.
  */
+if (typeof window.appUrl !== 'function') {
+    window.APP_BASE = window.APP_BASE || '';
+    window.appUrl = function (path) {
+        const base = window.APP_BASE || '';
+        if (path == null || path === '' || path === '/') return base === '' ? '/' : base + '/';
+        path = String(path);
+        let hash = '', query = '';
+        const hi = path.indexOf('#');
+        if (hi >= 0) { hash = path.slice(hi); path = path.slice(0, hi); }
+        const qi = path.indexOf('?');
+        if (qi >= 0) { query = path.slice(qi); path = path.slice(0, qi); }
+        if (path === '' || path === '/') return (base === '' ? '/' : base + '/') + query + hash;
+        if (path.charAt(0) !== '/') path = '/' + path;
+        if (base && (path === base || path.indexOf(base + '/') === 0)) return path + query + hash;
+        return base + path + query + hash;
+    };
+}
 const API = {
-    base: '/api',
+    base: (window.APP_BASE || '') + '/api',
 
     async request(method, path, body = null) {
         const opts = {
@@ -14,7 +32,7 @@ const API = {
         }
         const res = await fetch(this.base + path, opts);
         if (res.status === 401) {
-            window.location.href = '/login';
+            window.location.href = appUrl('/login');
             throw new Error('未登录');
         }
         const data = await res.json();
@@ -33,7 +51,7 @@ const API = {
     async upload(path, formData) {
         const res = await fetch(this.base + path, { method: 'POST', body: formData });
         if (res.status === 401) {
-            window.location.href = '/login';
+            window.location.href = appUrl('/login');
             throw new Error('未登录');
         }
         const data = await res.json();
@@ -180,8 +198,8 @@ const API = {
             return API.upload('/attachments', fd);
         },
         remove(id) { return API.delete(`/attachments/${id}`); },
-        downloadUrl(id) { return `/api/attachments/${id}/download`; },
-        inlineUrl(id) { return `/api/attachments/${id}/download?inline=1`; },
+        downloadUrl(id) { return appUrl(`/api/attachments/${id}/download`); },
+        inlineUrl(id) { return appUrl(`/api/attachments/${id}/download?inline=1`); },
     },
 
     // --- Reports ---
@@ -214,7 +232,7 @@ const API = {
         update(id, data) { return API.put(`/profile_docs/${id}`, data); },
         reextract(id) { return API.post(`/profile_docs/${id}/reextract`, {}); },
         remove(id) { return API.delete(`/profile_docs/${id}`); },
-        downloadUrl(id) { return `/api/profile_docs/${id}/download`; },
+        downloadUrl(id) { return appUrl(`/api/profile_docs/${id}/download`); },
     },
 
     // --- AI impressions (secondary memory about the user) ---

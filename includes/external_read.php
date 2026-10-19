@@ -71,7 +71,7 @@ final class ExternalReader {
         if ($kind === 'profile_document') $r['authority'] = 'user_uploaded';
         if (in_array($kind, ['impression','profile_snapshot'], true)) $r['authority'] = 'secondary_impression';
         $pages = ['mail'=>'/mail?open=','task'=>'/tasks','report'=>'/reports','profile_document'=>'/profile','profile_snapshot'=>'/profile'];
-        if (isset($pages[$kind])) $r['url'] = $pages[$kind] . ($kind === 'mail' ? substr($r['ref'],5) : '');
+        if (isset($pages[$kind])) $r['url'] = app_url($pages[$kind] . ($kind === 'mail' ? substr($r['ref'], 5) : ''));
         return $r;
     }
 

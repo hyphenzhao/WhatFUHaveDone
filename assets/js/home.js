@@ -300,7 +300,7 @@ async function renderBaziPillars(dateStr) {
 
     const p = await loadBaziProfile();
     if (!p) {
-        grid.innerHTML = '<div class="no-daily-data">请先在<a href="/profile">个人侧写</a>中设置生辰八字</div>';
+        grid.innerHTML = '<div class="no-daily-data">请先在<a href="' + appUrl('/profile') + '">个人侧写</a>中设置生辰八字</div>';
         return;
     }
 
@@ -909,7 +909,7 @@ const wlNotesResizeObserver = typeof ResizeObserver !== 'undefined'
     ? new ResizeObserver(entries => entries.forEach(e => markClippedNotes(e.target)))
     : null;
 async function setWorklogDuration(wlId, duration) {
-    try { await fetch('/api/worklogs', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id: wlId, duration}) }); refreshAll(); } catch(e) {}
+    try { await fetch(appUrl('/api/worklogs'), { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id: wlId, duration}) }); refreshAll(); } catch(e) {}
 }
 
 function showPlanTimePicker(planId, pt, pet) {
@@ -1228,14 +1228,14 @@ async function loadDailyMail(date, force) {
     if (analyzeBtn) analyzeBtn.style.display = (d.ai_configured && d.has_accounts && d.total > d.analyzed) ? '' : 'none';
     if (!d.has_accounts) {
         meta.textContent = '';
-        box.innerHTML = `<div class="no-daily-data">尚未配置邮箱，<a href="/mail-admin">去添加</a>${d.imap_ext ? '' : '（服务器还需安装 PHP imap 扩展）'}</div>`;
+        box.innerHTML = `<div class="no-daily-data">尚未配置邮箱，<a href="${appUrl('/mail-admin')}">去添加</a>${d.imap_ext ? '' : '（服务器还需安装 PHP imap 扩展）'}</div>`;
         return;
     }
     meta.textContent = d.total ? `${d.total} 封${d.unread ? ` · ${d.unread} 未读` : ''} · 已分析 ${d.analyzed}` : '';
     meta.title = d.is_today ? '未读邮件始终显示在今天；已读邮件固定在阅读当天' : '该日期显示当天读过的邮件';
     let html = '';
     if (!d.ai_configured) {
-        html += '<div class="daily-mail-notice">🤖 请先配置AI，<a href="/ai-admin">前往 AI 配置</a>。配置后这里会显示每封邮件的摘要、优先级和相关度。</div>';
+        html += '<div class="daily-mail-notice">🤖 请先配置AI，<a href="' + appUrl('/ai-admin') + '">前往 AI 配置</a>。配置后这里会显示每封邮件的摘要、优先级和相关度。</div>';
     }
     if (!d.items.length) {
         html += `<div class="no-daily-data">${d.is_today ? '没有待处理的邮件（未读邮件会显示在这里）' : '这一天没有读过邮件'}</div>`;

@@ -178,7 +178,7 @@ async function uploadFile(type, input) {
     if (!file) return;
     const form = new FormData(); form.append('file', file);
     try {
-        const res = await fetch('/api/upload', { method: 'POST', body: form });
+        const res = await fetch(appUrl('/api/upload'), { method: 'POST', body: form });
         const data = await res.json();
         if (data.error) { Toast.error(data.message); return; }
         const d = data.data;

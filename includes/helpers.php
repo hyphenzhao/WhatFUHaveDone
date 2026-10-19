@@ -14,8 +14,13 @@ function get_method(): string {
 }
 
 function get_path_parts(): array {
-    $uri = $_SERVER['REQUEST_URI'] ?? '/';
-    $uri = parse_url($uri, PHP_URL_PATH);
+    if (function_exists('app_request_path')) {
+        $uri = app_request_path();
+    } else {
+        $uri = $_SERVER['REQUEST_URI'] ?? '/';
+        $uri = parse_url($uri, PHP_URL_PATH);
+        if (!is_string($uri) || $uri === '') $uri = '/';
+    }
     $uri = trim($uri, '/');
     return $uri ? explode('/', $uri) : [];
 }

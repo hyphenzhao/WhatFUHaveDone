@@ -19,7 +19,7 @@ const IM = {
         app.innerHTML = `
             <div class="im-container">
                 <div class="im-header">
-                    <button class="im-back" onclick="window.location='/'">🏠 返回</button>
+                    <button class="im-back" onclick="window.location=appUrl('/')">🏠 返回</button>
                     <button class="im-back" onclick="IM.openAiChat()">🤖 AI 助手</button>
                     <span class="im-title">🕶️ 沉浸模式</span>
                     <span style="font-size:0.8rem;color:var(--im-text-secondary);" id="imDateShort"></span>
@@ -63,7 +63,7 @@ const IM = {
                 el.innerHTML = `
                     <div class="im-w-icon">${w.emoji}</div>
                     <div class="im-w-info">
-                        <div class="im-w-city" onclick="window.location='/'" style="cursor:pointer">📍 ${escapeHtml(w.city||'')}</div>
+                        <div class="im-w-city" onclick="window.location=appUrl('/')" style="cursor:pointer">📍 ${escapeHtml(w.city||'')}</div>
                         <div class="im-w-temp">${Math.round(w.temp_max)}°<span style="font-size:0.8rem;font-weight:400;"> / ${Math.round(w.temp_min)}°</span></div>
                         <div class="im-w-desc">${w.desc}</div>
                         <div class="im-w-detail">💧${w.humidity}% 🌬️${Math.round(w.wind)}km/h</div>

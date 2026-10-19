@@ -23,9 +23,9 @@ const Mail = {
         if (!this.status.imap_ext) {
             banner.innerHTML = `<div class="mail-banner mail-banner-warn">⚠️ ${escapeHtml(this.status.imap_hint || 'PHP imap 扩展未安装')}</div>`;
         } else if (!this.status.accounts.length) {
-            banner.innerHTML = `<div class="mail-banner">还没有邮箱账户，<a href="/mail-admin">前往邮箱管理添加</a>。</div>`;
+            banner.innerHTML = `<div class="mail-banner">还没有邮箱账户，<a href="${appUrl('/mail-admin')}">前往邮箱管理添加</a>。</div>`;
         } else if (!this.status.ai_configured) {
-            banner.innerHTML = `<div class="mail-banner">🤖 请先配置AI（<a href="/ai-admin">AI 配置</a>），之后可对邮件做自动分析与讨论。</div>`;
+            banner.innerHTML = `<div class="mail-banner">🤖 请先配置AI（<a href="${appUrl('/ai-admin')}">AI 配置</a>），之后可对邮件做自动分析与讨论。</div>`;
         }
         await this.loadFolders();
 
@@ -323,7 +323,7 @@ const Mail = {
                 <div class="form-group mail-compose-signature">
                     <label class="mail-check"><input type="checkbox" id="mcUseSignature"> 本封邮件使用签名</label>
                     <textarea class="form-textarea" id="mcSignature" aria-label="本封邮件的签名" rows="3" maxlength="4000" placeholder="可在邮箱管理中保存默认签名，也可在此临时填写"></textarea>
-                    <div class="mail-hint">此处修改仅对本封邮件生效。<a href="/mail-admin" target="_blank" rel="noopener">管理默认签名</a></div>
+                    <div class="mail-hint">此处修改仅对本封邮件生效。<a href="${appUrl('/mail-admin')}" target="_blank" rel="noopener">管理默认签名</a></div>
                 </div>
                 ${tpl.quoted_text ? `<details class="form-group mail-compose-quote"><summary>原邮件（随信发送，位于签名之后）</summary><textarea class="form-textarea" id="mcQuote" aria-label="原邮件引用" rows="6">${escapeHtml(tpl.quoted_text.trim())}</textarea></details>` : ''}
                 <div class="form-group"><label>附件</label><input type="file" id="mcFiles" multiple>

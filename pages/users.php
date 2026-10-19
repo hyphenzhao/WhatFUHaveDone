@@ -3,8 +3,7 @@
  * Users Management Page (admin only)
  */
 if (!is_admin()) {
-    header('Location: /');
-    exit;
+    app_redirect('/');
 }
 $page_title = '用户管理';
 $current_page = 'users';

@@ -209,7 +209,7 @@ function sortData(data, col, asc) {
 // Logout (sidebar footer button)
 async function logout() {
     try { await API.auth.logout(); } catch (e) { /* ignore */ }
-    window.location.href = '/login';
+    window.location.href = appUrl('/login');
 }
 
 function taskTypeBadge(task) {

@@ -119,7 +119,7 @@ function mail_get_message_full(PDO $db, int $uid, int $id): ?array {
     foreach ($at->fetchAll() as $a) {
         $a['id'] = (int)$a['id']; $a['size'] = (int)$a['size']; $a['stored'] = (int)$a['is_stored']; $a['has_text'] = (int)$a['has_text'];
         unset($a['is_stored']);
-        $a['download_url'] = '/api/attachments/' . $a['id'] . '/download';
+        $a['download_url'] = app_url('/api/attachments/' . $a['id'] . '/download');
         $a['inline_url'] = $a['download_url'] . '?inline=1';
         if ($a['content_id'] !== '' && $a['stored']) $cidMap[$a['content_id']] = $a['inline_url'];
         $attachments[] = $a;

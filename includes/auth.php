@@ -9,8 +9,18 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/response.php';
 
-const REMEMBER_COOKIE = 'remember';
 const REMEMBER_DAYS = 30;
+
+function auth_cookie_options(int $expires): array {
+    $opts = [
+        'expires' => $expires,
+        'path' => app_cookie_path(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+        'secure' => app_is_https(),
+    ];
+    return $opts;
+}
 
 /**
  * Start the session and attempt remember-me auto login.
@@ -18,12 +28,13 @@ const REMEMBER_DAYS = 30;
  */
 function auth_boot(): void {
     if (session_status() === PHP_SESSION_ACTIVE) return;
+    session_name(app_session_name());
     session_set_cookie_params([
         'lifetime' => 0,
-        'path' => '/',
+        'path' => app_cookie_path(),
         'httponly' => true,
         'samesite' => 'Lax',
-        'secure' => false, // 内网 HTTP 部署
+        'secure' => app_is_https(),
     ]);
     session_start();
     if (empty($_SESSION['user_id'])) {
@@ -36,7 +47,8 @@ function auth_boot(): void {
 }
 
 function try_remember_login(): void {
-    $cookie = $_COOKIE[REMEMBER_COOKIE] ?? '';
+    $name = app_remember_cookie_name();
+    $cookie = $_COOKIE[$name] ?? '';
     if ($cookie === '' || strpos($cookie, ':') === false) return;
     [$selector, $validator] = explode(':', $cookie, 2);
     if ($selector === '' || $validator === '') return;
@@ -47,7 +59,7 @@ function try_remember_login(): void {
     $row = $stmt->fetch();
     if (!$row || !hash_equals($row['validator_hash'], hash('sha256', $validator))) {
         // 无效/过期 token：清 cookie
-        setcookie(REMEMBER_COOKIE, '', ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax']);
+        setcookie($name, '', auth_cookie_options(time() - 3600));
         return;
     }
 
@@ -58,12 +70,7 @@ function try_remember_login(): void {
     $new_validator = bin2hex(random_bytes(32));
     $stmt = $db->prepare('UPDATE auth_tokens SET validator_hash = ?, expires_at = DATE_ADD(NOW(), INTERVAL ' . REMEMBER_DAYS . ' DAY) WHERE id = ?');
     $stmt->execute([hash('sha256', $new_validator), $row['id']]);
-    setcookie(REMEMBER_COOKIE, $selector . ':' . $new_validator, [
-        'expires' => time() + REMEMBER_DAYS * 86400,
-        'path' => '/',
-        'httponly' => true,
-        'samesite' => 'Lax',
-    ]);
+    setcookie(app_remember_cookie_name(), $selector . ':' . $new_validator, auth_cookie_options(time() + REMEMBER_DAYS * 86400));
 }
 
 /**
@@ -87,12 +94,7 @@ function auth_login(string $username, string $password, bool $remember = true): 
         $validator = bin2hex(random_bytes(32));
         $stmt = $db->prepare('INSERT INTO auth_tokens (user_id, selector, validator_hash, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL ' . REMEMBER_DAYS . ' DAY))');
         $stmt->execute([$user['id'], $selector, hash('sha256', $validator)]);
-        setcookie(REMEMBER_COOKIE, $selector . ':' . $validator, [
-            'expires' => time() + REMEMBER_DAYS * 86400,
-            'path' => '/',
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
+        setcookie(app_remember_cookie_name(), $selector . ':' . $validator, auth_cookie_options(time() + REMEMBER_DAYS * 86400));
     }
 
     unset($user['password_hash']);
@@ -100,15 +102,26 @@ function auth_login(string $username, string $password, bool $remember = true): 
 }
 
 function auth_logout(): void {
-    $cookie = $_COOKIE[REMEMBER_COOKIE] ?? '';
+    $name = app_remember_cookie_name();
+    $cookie = $_COOKIE[$name] ?? '';
     if ($cookie !== '' && strpos($cookie, ':') !== false) {
         [$selector] = explode(':', $cookie, 2);
         $stmt = get_db()->prepare('DELETE FROM auth_tokens WHERE selector = ?');
         $stmt->execute([$selector]);
     }
-    setcookie(REMEMBER_COOKIE, '', ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax']);
+    setcookie($name, '', auth_cookie_options(time() - 3600));
     $_SESSION = [];
     if (session_status() === PHP_SESSION_ACTIVE) {
+        $params = session_get_cookie_params();
+        $clear = [
+            'expires' => time() - 3600,
+            'path' => ($params['path'] ?? '') !== '' ? $params['path'] : '/',
+            'secure' => (bool)($params['secure'] ?? false),
+            'httponly' => (bool)($params['httponly'] ?? true),
+            'samesite' => $params['samesite'] ?? 'Lax',
+        ];
+        if (!empty($params['domain'])) $clear['domain'] = $params['domain'];
+        setcookie(session_name(), '', $clear);
         session_destroy();
     }
 }

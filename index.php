@@ -22,8 +22,14 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/auth.php';
 
-$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$uri = trim($uri, '/');
+app_ensure_authorization_header();
+// Prefix-kept proxies (/calendar/assets/...) have no file at that path.
+// Prefix-stripped proxies never reach this for real files.
+if (app_serve_prefixed_static()) {
+    exit;
+}
+
+$uri = trim(app_request_path(), '/');
 $parts = $uri ? explode('/', $uri) : [];
 
 // External AI uses its own scoped read-only bearer authentication, never a session.
@@ -43,8 +49,7 @@ if (!$is_public && empty($_SESSION['user_id'])) {
         echo json_encode(['error' => true, 'message' => 'Unauthorized'], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    header('Location: /login');
-    exit;
+    app_redirect('/login');
 }
 
 // AI routes (handles sub-paths: /api/ai/chat, /api/ai/config, etc.)

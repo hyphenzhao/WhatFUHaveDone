@@ -2,7 +2,7 @@
 const ExternalAccess = {
     csrf: '',
     async request(method = 'GET', path = '', data) {
-        const response = await fetch('/api/external_keys' + path, {
+        const response = await fetch(appUrl('/api/external_keys' + path), {
             method, credentials: 'same-origin', cache: 'no-store',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrf },
             body: data === undefined ? undefined : JSON.stringify(data)
@@ -29,7 +29,7 @@ const ExternalAccess = {
     notice(message) { document.getElementById('externalKeyNotice').textContent = message; },
     dismiss() { document.getElementById('externalToken').value = ''; document.getElementById('externalNewKey').hidden = true; },
     async init() {
-        document.getElementById('externalMcpConfig').textContent = `[mcp_servers.worklog]\nurl = "${location.origin}/api/external/mcp"\nbearer_token_env_var = "WORKLOG_API_TOKEN"`;
+        document.getElementById('externalMcpConfig').textContent = `[mcp_servers.worklog]\nurl = "${location.origin}${appUrl('/api/external/mcp')}"\nbearer_token_env_var = "WORKLOG_API_TOKEN"`;
         document.getElementById('externalDismiss').addEventListener('click', () => this.dismiss());
         window.addEventListener('pagehide', () => this.dismiss());
         document.getElementById('externalCopy').addEventListener('click', async () => {

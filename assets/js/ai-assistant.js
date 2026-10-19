@@ -223,7 +223,7 @@ const AiChat = {
         try {
             const formData = new FormData();
             formData.append('file', file);
-            const res = await fetch('/api/upload', { method: 'POST', body: formData }).then(r => r.json());
+            const res = await fetch(appUrl('/api/upload'), { method: 'POST', body: formData }).then(r => r.json());
             if (res.error) throw new Error(res.message);
             this.pendingFile = { name: res.data.name, content: res.data.content };
             nameEl.textContent = '📄 ' + res.data.name + ' (' + (res.data.content.length > 200 ? '已提取文本' : res.data.content.length + ' 字符') + ')';
@@ -315,7 +315,7 @@ const AiChat = {
             const ctrl = new AbortController();
             this.requestController = ctrl;
             const timeout = setTimeout(() => ctrl.abort(), this._isLongTask(text) ? 310000 : 100000);
-            const res = await fetch('/api/ai/chat', {
+            const res = await fetch(appUrl('/api/ai/chat'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(this._requestBody()),
@@ -524,7 +524,7 @@ const AiChat = {
             body.message = this.messages[this.messages.length - 1];
             body.confirmations = pendingCalls.map(c => ({ id: c.id, action: approved ? 'confirm' : 'reject' }));
             if (approved && secrets && Object.keys(secrets).length) body.secrets = secrets;
-            const response = await fetch('/api/ai/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
+            const response = await fetch(appUrl('/api/ai/confirm'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
             clearTimeout(timeout);
             const res = await response.json();
             if (!response.ok || res.error) throw new Error(res.message || '请求失败');

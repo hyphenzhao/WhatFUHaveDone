@@ -1,12 +1,14 @@
 <?php
 $page_title = '沉浸模式';
 $current_page = 'immersive';
+app_begin_html();
 ?><!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>🕶️ 沉浸模式 — WorkLog</title>
+    <?= app_base_script() ?>
     <link rel="stylesheet" href="/assets/css/app.css?v=<?= ASSET_VER ?>">
     <link rel="stylesheet" href="/assets/css/mail.css?v=<?= ASSET_VER ?>">
     <link rel="stylesheet" href="/assets/css/immersive.css?v=<?= ASSET_VER ?>">

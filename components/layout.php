@@ -7,6 +7,7 @@ $page_title = $page_title ?? APP_NAME;
 $current_page = $current_page ?? 'home';
 $asset_ver = ASSET_VER;
 $layout_user = current_user();
+app_begin_html();
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -14,6 +15,9 @@ $layout_user = current_user();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title><?= htmlspecialchars($page_title) ?> — <?= APP_NAME ?></title>
+    <?= app_base_script() ?>
+    <!-- Root-absolute href/src below are rewritten with the base path when one is active.
+         An empty base path leaves this markup unchanged. -->
     <link rel="stylesheet" href="/assets/css/app.css?v=<?= $asset_ver ?>">
     <link rel="stylesheet" href="/assets/css/mail.css?v=<?= $asset_ver ?>">
     <!-- Loaded last: contains ONLY max-width media queries (+ one 900–1279 block),

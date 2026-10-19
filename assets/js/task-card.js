@@ -310,7 +310,7 @@ const TaskCard = {
                 }
 
                 // Log the result via result_logs API
-                const logRes = await fetch('/api/result_logs', {
+                const logRes = await fetch(appUrl('/api/result_logs'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

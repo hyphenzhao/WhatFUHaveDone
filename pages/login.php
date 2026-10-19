@@ -3,9 +3,9 @@
  * Login page — standalone skeleton (does not use layout.php)
  */
 if (!empty($_SESSION['user_id'])) {
-    header('Location: /');
-    exit;
+    app_redirect('/');
 }
+app_begin_html();
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -13,6 +13,7 @@ if (!empty($_SESSION['user_id'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录 — <?= APP_NAME ?></title>
+    <?= app_base_script() ?>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -77,7 +78,7 @@ if (!empty($_SESSION['user_id'])) {
         errEl.textContent = '';
         btn.disabled = true;
         try {
-            const res = await fetch('/api/auth/login', {
+            const res = await fetch(appUrl('/api/auth/login'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -90,7 +91,7 @@ if (!empty($_SESSION['user_id'])) {
             if (!res.ok || data.error) {
                 throw new Error(data.message || '登录失败');
             }
-            location.href = '/';
+            location.href = appUrl('/');
         } catch (err) {
             errEl.textContent = err.message || '登录失败';
             btn.disabled = false;

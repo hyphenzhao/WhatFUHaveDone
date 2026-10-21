@@ -8,76 +8,102 @@ let filterStage = 'all';
 let filterType = 'all';
 let isPrioritySort = true;
 let sortAsc = true;
+let allTasksData = null, taskSearch = null, taskLoadVersion = 0;
 
 document.addEventListener('DOMContentLoaded', async () => {
+    taskSearch = TaskSearch.mount(document.getElementById('tasksSearch'), {
+        id: 'taskSearchInput', placeholder: '搜索任务、人物、标签…（含已归档）', controls: 'tasksTable archivedTasksSection', onChange: renderTasks
+    });
     document.getElementById('typeFilter').addEventListener('change', e => {
         filterType = e.target.value;
-        loadTasks();
+        renderTasks();
     });
     document.getElementById('stageFilter').addEventListener('change', (e) => {
         filterStage = e.target.value;
-        loadTasks();
+        renderTasks();
     });
     document.getElementById('sortSelect').addEventListener('change', (e) => {
         sortBy = e.target.value;
-        isPrioritySort = (sortBy === 'priority');
-        loadTasks();
+        renderTasks();
     });
     document.getElementById('sortDir').addEventListener('click', () => {
         sortAsc = !sortAsc;
         document.getElementById('sortDir').textContent = sortAsc ? '▲' : '▼';
-        loadTasks();
+        renderTasks();
+    });
+    document.getElementById('resetTaskFilters').addEventListener('click', () => {
+        filterType = filterStage = 'all';
+        document.getElementById('typeFilter').value = document.getElementById('stageFilter').value = 'all';
+        renderTasks();
     });
     await loadTasks();
 });
 
 async function loadTasks() {
+    const version = ++taskLoadVersion;
     try {
-        // Reordering a filtered subset would overwrite hidden tasks' priorities.
-        isPrioritySort = sortBy === 'priority' && filterType === 'all' && filterStage === 'all';
-        let stageParam = filterStage === 'all' ? '' : '&stage=' + filterStage;
-        const sortParam = '&sort=' + sortBy;
         const [active, archived] = await Promise.all([
-            API.tasks.list(0), // always get all active, filter client-side for simplicity
+            API.tasks.list(0),
             API.tasks.list(1)
         ]);
-        let activeList = active.data || [];
-        if (filterType !== 'all') activeList = activeList.filter(t => t.task_type === filterType);
-        if (filterStage !== 'all') {
-            activeList = activeList.filter(t => t.stage === filterStage);
-        }
-        if (sortBy === 'priority') {
-            activeList.sort((a, b) => sortAsc ? (a.priority||999) - (b.priority||999) : (b.priority||999) - (a.priority||999));
-        } else {
-            // "按更新时间" — sort by updated_at (string YYYY-MM-DD HH:MM:SS compares lexically)
-            activeList.sort((a, b) => {
-                const cmp = String(a.updated_at || '').localeCompare(String(b.updated_at || ''));
-                return sortAsc ? cmp : -cmp;
-            });
-        }
-        tasksData = { active: activeList, archived: (archived.data || []).filter(t => filterType === 'all' || t.task_type === filterType) };
-        renderTasksTable(tasksData.active, 'tasksTableBody', false);
-        renderTasksTable(tasksData.archived, 'archivedTasksBody', true);
-        document.getElementById('archivedTasksSection').style.display = tasksData.archived.length ? 'block' : 'none';
-        if (isPrioritySort) initDragDrop();
-    } catch (e) { Toast.error('加载失败: ' + e.message); }
+        if (version !== taskLoadVersion) return;
+        allTasksData = { active: active.data || [], archived: archived.data || [] };
+        renderTasks();
+    } catch (e) {
+        if (version !== taskLoadVersion) return;
+        taskSearch.status('加载失败，请刷新页面重试。');
+        if (!allTasksData) document.getElementById('tasksTableBody').innerHTML = '<tr><td colspan="8">加载失败，请刷新页面重试。</td></tr>';
+        Toast.error('加载失败: ' + e.message);
+    }
+}
+
+function renderTasks() {
+    if (!allTasksData) return;
+    const terms = taskSearch.terms();
+    const filtered = filterType !== 'all' || filterStage !== 'all';
+    // Never let a search result subset overwrite hidden tasks' priorities.
+    isPrioritySort = sortBy === 'priority' && sortAsc && !filtered && !terms.length;
+    const visible = list => list.filter(t => (filterType === 'all' || t.task_type === filterType)
+        && (filterStage === 'all' || t.stage === filterStage) && TaskSearch.matches(t, terms));
+    const activeList = visible(allTasksData.active), archivedList = visible(allTasksData.archived);
+    const compare = sortBy === 'priority'
+        ? (a, b) => sortAsc ? (a.priority||999) - (b.priority||999) : (b.priority||999) - (a.priority||999)
+        : (a, b) => {
+            const cmp = String(a.updated_at || '').localeCompare(String(b.updated_at || ''));
+            return sortAsc ? cmp : -cmp;
+        };
+    activeList.sort(compare); archivedList.sort(compare);
+    tasksData = { active: activeList, archived: archivedList };
+    renderTasksTable(tasksData.active, 'tasksTableBody', false);
+    renderTasksTable(tasksData.archived, 'archivedTasksBody', true);
+    document.getElementById('archivedTasksSection').style.display = tasksData.archived.length ? 'block' : 'none';
+    const total = activeList.length + archivedList.length;
+    taskSearch.status(`${terms.length || filtered ? '找到' : '共'} ${total} 项任务 · 未归档 ${activeList.length} · 已归档 ${archivedList.length}`);
+    document.getElementById('taskFilterHint').textContent = filtered ? '当前分类和阶段筛选同时适用于已归档任务。' : '';
+    document.getElementById('resetTaskFilters').hidden = !filtered;
+    if (isPrioritySort) initDragDrop();
 }
 
 function renderTasksTable(tasks, tbodyId, isArchived) {
     const tbody = document.getElementById(tbodyId);
     const cols = isArchived ? 4 : 8;
+    const terms = taskSearch.terms();
+    const text = value => TaskSearch.highlight(value, terms);
     if (tasks.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--color-text-secondary);">暂无数据</td></tr>`;
+        const searching = terms.length || filterType !== 'all' || filterStage !== 'all';
+        const archivedMatches = !isArchived && tasksData.archived.length;
+        tbody.innerHTML = `<tr><td colspan="${cols}"><div class="task-search-empty"><strong>${archivedMatches ? '匹配的任务都在下方“已归档任务”中' : searching ? '没有找到匹配的任务' : '还没有任务'}</strong><p>${archivedMatches ? '可以直接查看详情，或点击“恢复”继续处理。' : searching ? '试试更短的关键词，或清空搜索、重置筛选。' : '点击右上方“新建任务”开始记录。'}</p></div></td></tr>`;
         return;
     }
     tbody.innerHTML = tasks.map(t => {
-        const peopleNames = (t.people || []).map(p => escapeHtml(p.name)).join(', ') || '-';
-        const tagSpans = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${tg.color}">${escapeHtml(tg.name)}</span>`).join(' ') || '-';
-        if (isArchived) return `<tr data-id="${t.id}"><td><strong>${escapeHtml(t.name)}</strong> ${taskTypeBadge(t)}</td><td>${STAGE_LABELS[t.stage] || t.stage}</td><td>${t.stage_number}</td><td><div class="table-actions"><button class="btn btn-outline btn-sm" onclick="restoreTask(${t.id})">恢复</button><button class="btn btn-danger btn-sm" onclick="deleteTask(${t.id})">删除</button></div></td></tr>`;
+        const peopleNames = (t.people || []).map(p => text(p.name)).join(', ') || '-';
+        const tagSpans = (t.tags || []).map(tg => `<span class="task-card-tag" style="background:${escapeHtml(tg.color)}">${text(tg.name)}</span>`).join(' ') || '-';
+        const title = `<div class="task-table-title"><button type="button" class="task-search-open" onclick="TaskDetail.open(${t.id})" title="查看任务详情">${text(t.name)}</button> ${taskTypeBadge(t)}${TaskSearch.context(t, terms)}</div>`;
+        if (isArchived) return `<tr data-id="${t.id}"><td>${title}</td><td>${STAGE_LABELS[t.stage] || escapeHtml(t.stage)}</td><td>${t.stage_number}</td><td><div class="table-actions"><button class="btn btn-outline btn-sm" onclick="restoreTask(${t.id})">恢复</button><button class="btn btn-danger btn-sm" onclick="deleteTask(${t.id})">删除</button></div></td></tr>`;
         return `<tr data-id="${t.id}" class="${isPrioritySort?'draggable':''}">
-            <td><span class="drag-handle" style="cursor:${isPrioritySort?'grab':'default'};margin-right:4px;">${isPrioritySort?'⋮⋮':''}</span><strong>${escapeHtml(t.name)}</strong> ${taskTypeBadge(t)}</td>
+            <td><div class="task-table-name">${isPrioritySort ? '<span class="drag-handle" style="cursor:grab;">⋮⋮</span>' : ''}${title}</div></td>
             <td>${t.priority || '-'}</td>
-            <td>${STAGE_LABELS[t.stage] || t.stage}</td>
+            <td>${STAGE_LABELS[t.stage] || escapeHtml(t.stage)}</td>
             <td>${t.stage_number}</td>
             <td>${getDeadlineBadge(t.deadline)}</td>
             <td>${peopleNames}</td>
@@ -94,7 +120,7 @@ function initDragDrop() {
         row.addEventListener('dragstart', (e) => { draggedRow = row; row.style.opacity = '0.5'; });
         row.addEventListener('dragend', async (e) => {
             row.style.opacity = '1';
-            if (!draggedRow) return;
+            if (!draggedRow || !isPrioritySort || !row.isConnected) { draggedRow = null; return; }
             const rows = Array.from(tbody.querySelectorAll('tr.draggable'));
             const ids = rows.map(r => parseInt(r.dataset.id));
             // Get the priority of the first visible task as baseline

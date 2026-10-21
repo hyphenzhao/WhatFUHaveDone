@@ -130,7 +130,8 @@ app_begin_html();
             </div>
             <?php if ($is_home): ?>
             <div class="right-panel-body" id="rightPanelBody">
-                <!-- Task cards rendered by JS -->
+                <div class="task-search task-search-panel" id="rightTaskSearch"></div>
+                <div id="rightPanelTaskSections"><!-- Task cards rendered by JS --></div>
             </div>
             <?php endif; ?>
             <div class="right-panel-body<?= $is_home ? ' rp-hidden' : '' ?>" id="rightPanelAi">
@@ -179,6 +180,10 @@ app_begin_html();
     <script src="/assets/js/attachments.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/ai-assistant.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/mail-modal.js?v=<?= $asset_ver ?>"></script>
+    <?php if (in_array($current_page, ['home', 'tasks'], true)): ?>
+    <script src="/assets/js/task-search.js?v=<?= $asset_ver ?>"></script>
+    <script src="/assets/js/task-detail.js?v=<?= $asset_ver ?>"></script>
+    <?php endif; ?>
     <?php if (in_array($current_page, ['home', 'reports'], true)): ?>
     <script src="/assets/js/plan-status.js?v=<?= $asset_ver ?>"></script>
     <?php endif; ?>
@@ -187,7 +192,6 @@ app_begin_html();
     <script src="/assets/js/task-card.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/calendar.js?v=<?= $asset_ver ?>"></script>
     <script src="/assets/js/home.js?v=<?= $asset_ver ?>"></script>
-    <script src="/assets/js/task-detail.js?v=<?= $asset_ver ?>"></script>
     <?php elseif ($current_page === 'mail'): ?>
     <script src="/assets/js/mail.js?v=<?= $asset_ver ?>"></script>
     <?php elseif ($current_page === 'mail-admin'): ?>

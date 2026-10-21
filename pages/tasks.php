@@ -18,6 +18,7 @@ $page_content = <<<HTML
             <option value="in_progress">🔄 进行中</option>
             <option value="stage_complete">✅ 阶段性完成</option>
             <option value="completed">🎉 已完成</option>
+            <option value="failed">❌ 失败/放弃</option>
         </select>
         <select class="form-select" id="sortSelect" style="width:auto;">
             <option value="priority">按优先级</option>
@@ -27,6 +28,9 @@ $page_content = <<<HTML
         <button class="btn btn-primary" onclick="showTaskModal()">＋ 新建任务</button>
     </div>
 </div>
+
+<div class="task-search task-search-management" id="tasksSearch"></div>
+<div class="task-filter-summary"><span id="taskFilterHint"></span><button type="button" class="btn btn-ghost btn-sm" id="resetTaskFilters" hidden>重置筛选</button></div>
 
 <table class="data-table" id="tasksTable">
     <thead>

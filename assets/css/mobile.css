@@ -195,6 +195,13 @@
    ============================================================================ */
 @media (max-width: 560px) {
     :root { --page-pad: 12px; }
+    body[data-page="tasks"] .page-header { gap: 12px; }
+    body[data-page="tasks"] .task-toolbar { width: 100%; gap: 6px; }
+    body[data-page="tasks"] .task-toolbar select { min-width: 0; }
+    body[data-page="tasks"] .task-toolbar #typeFilter,
+    body[data-page="tasks"] .task-toolbar #stageFilter { flex: 1 1 calc(50% - 3px); }
+    body[data-page="tasks"] .task-toolbar #sortSelect { flex: 1 1 120px; }
+    .task-search-management { padding: 12px; }
 
     /* Stacked forms. .main-content prefix outranks pages/profile.php's <style>. */
     .main-content .form-row-2, .main-content .form-row-3,

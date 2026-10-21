@@ -12,9 +12,11 @@ const TaskCard = {
         const date = options.date || App.selectedDate;
         const workLogActive = options.workLogActive || false;
         const latestNote = options.latestNote || '';
+        const terms = options.searchTerms || [];
+        const text = value => terms.length ? TaskSearch.highlight(value, terms) : escapeHtml(value);
 
         const tagsHtml = (task.tags || []).map(t =>
-            `<span class="task-card-tag" style="background:${escapeHtml(t.color)}">${escapeHtml(t.name)}</span>`
+            `<span class="task-card-tag" style="background:${escapeHtml(t.color)}">${text(t.name)}</span>`
         ).join('');
 
         let actionsHtml = '';
@@ -34,8 +36,9 @@ const TaskCard = {
 
         return `
             <div class="task-card" data-task-id="${task.id}" data-stage="${stage}">
-                <div class="task-card-name">${escapeHtml(task.name)} ${taskTypeBadge(task)}${options.showStage ? ' ' + taskStageBadge(task) : ''}${task.location ? ' <span class="task-location">📍 ' + escapeHtml(task.location) + '</span>' : ''}</div>
+                <div class="task-card-name">${terms.length ? `<button type="button" class="task-search-open" onclick="TaskDetail.open(${task.id})" title="查看任务详情">${text(task.name)}</button>` : text(task.name)} ${taskTypeBadge(task)}${options.showStage ? ' ' + taskStageBadge(task) : ''}${task.location ? ' <span class="task-location">📍 ' + text(task.location) + '</span>' : ''}</div>
                 <div class="task-card-tags"><span class="task-tags-left">${tagsHtml}</span><span class="task-tags-right">${deadlineHtml}</span></div>
+                ${terms.length ? TaskSearch.context(task, terms) : ''}
                 ${task.stage_number > 1 ? `<div style="font-size:0.7rem;color:var(--color-text-secondary);margin-bottom:4px;">阶段 ${task.stage_number}${task.stage_changed_at ? ' · ' + timeAgo(task.stage_changed_at) : ''}</div>` : ''}
                 ${noteHtml}
                 <div class="task-card-actions">

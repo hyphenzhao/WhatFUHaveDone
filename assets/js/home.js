@@ -539,13 +539,17 @@ async function analyzeBazi(dateStr, type, label, gz, ss) {
 
 // Expansion choices last for this page session; a fresh page opens only in-progress.
 const taskSectionState = new Map();
+let rightPanelData = null, rightPanelSearch = null;
 function isTaskSectionCollapsed(key) {
     return taskSectionState.has(key) ? taskSectionState.get(key) : key !== 'in_progress';
 }
 
 async function loadRightPanel() {
-    const panel = document.getElementById('rightPanelBody');
+    const panel = document.getElementById('rightPanelTaskSections');
     if (!panel) return;
+    if (!rightPanelSearch) rightPanelSearch = TaskSearch.mount(document.getElementById('rightTaskSearch'), {
+        id: 'rightTaskSearchInput', placeholder: '搜索任务、人物、标签…', controls: 'rightPanelTaskSections', onChange: renderRightPanel
+    });
 
     try {
         // Task lists and notes do not depend on the selected date: fetch them once
@@ -567,70 +571,88 @@ async function loadRightPanel() {
         const workLogNotes = {};
         (notesRes.data || []).forEach(n => { if (n.latest_note) workLogNotes[n.task_id] = n.latest_note; });
 
-        function deadlineScore(dl) {
-            if (!dl) return 999;
-            if (dl === '自由') return 900;
-            if (/^\d{4}-\d{2}-\d{2}$/.test(dl)) {
-                const h = (new Date(dl + 'T23:59:59') - new Date()) / 3600000;
-                if (h < 0) return 0;
-                if (h < 24) return 10;
-                if (h < 72) return 300;
-                if (h < 168) return 700;
-                return 800 + Math.abs(h);
-            }
-            if (dl === '尽快') return 200;
-            return 500;
-        }
-        function sortTasks(tasks) {
-            const sort = localStorage.getItem('taskSort') || 'priority';
-            if (sort === 'deadline') {
-                return [...tasks].sort((a, b) => deadlineScore(a.deadline) - deadlineScore(b.deadline));
-            }
-            return [...tasks].sort((a, b) => (a.priority || 999) - (b.priority || 999));
-        }
-
-        const renderSection = (title, tasks, icon, stageClass) => {
-            const sorted = sortTasks(tasks);
-            const collapsed = isTaskSectionCollapsed(stageClass);
-            const cardsHtml = sorted.map(t =>
-                TaskCard.render(t, { date: App.selectedDate, workLogActive: workLogTaskIds.has(t.id), latestNote: workLogNotes[t.id] || '', showStage: stageClass === 'meeting' })
-            ).join('');
-
-            return `
-                <div class="task-section${collapsed ? ' collapsed' : ''}" data-task-section="${stageClass}">
-                    <button type="button" class="task-section-header" onclick="toggleSection(this)" aria-expanded="${!collapsed}" aria-controls="task-list-${stageClass}">
-                        <span class="toggle-arrow">▼</span>
-                        <span>${icon} ${title}</span>
-                        <span class="section-count">${tasks.length}</span>
-                    </button>
-                    <div class="task-list" id="task-list-${stageClass}">
-                        ${stageClass === 'in_progress' ? `
-                            <div style="display:flex;gap:6px;align-items:center;">
-                                <div class="add-task-bar" onclick="showAddTaskModal()" style="flex:1;">
-                                    <span>＋</span> 添加新任务
-                                </div>
-                                <button class="btn btn-ghost btn-sm" onclick="IMtoggleTaskSort()" style="font-size:0.7rem;white-space:nowrap;" title="切换排序方式">${localStorage.getItem('taskSort')==='deadline'?'📅 截止':'🔢 优先级'}</button>
-                            </div>
-                        ` : ''}
-                        ${cardsHtml || '<div style="padding:8px;color:var(--color-text-secondary);font-size:0.8rem;text-align:center;">暂无任务</div>'}
-                    </div>
-                </div>
-            `;
-        };
-
-        // Only ongoing meetings have their own group; other stages include every task type.
-        const regularInProgress = (inProgress.data || []).filter(t => t.task_type !== 'meeting');
-        const meetings = (inProgress.data || []).filter(t => t.task_type === 'meeting');
-        panel.innerHTML =
-            renderSection('进行中', regularInProgress, '🔄', 'in_progress') +
-            renderSection('会议', meetings, '📅', 'meeting') +
-            renderSection('阶段性完成', stageComplete.data || [], '✅', 'stage_complete') +
-            renderSection('已完成', completed.data || [], '🎉', 'completed') +
-            renderSection('失败/放弃', failed.data || [], '❌', 'failed');
-
+        rightPanelData = { date: selDate, inProgress: inProgress.data || [], stageComplete: stageComplete.data || [],
+            completed: completed.data || [], failed: failed.data || [], workLogTaskIds, workLogNotes };
+        renderRightPanel();
     } catch (e) {
         panel.innerHTML = '<div style="padding:16px;color:var(--color-danger);">加载失败: ' + escapeHtml(e.message) + '</div>';
+        rightPanelSearch.status('加载失败，请点击任务列表旁的刷新按钮重试。');
     }
+}
+
+function renderRightPanel() {
+    if (!rightPanelData) return;
+    if (rightPanelData.date !== App.selectedDate) { rightPanelSearch.status('正在加载所选日期的任务…'); return; }
+    const panel = document.getElementById('rightPanelTaskSections');
+    const { inProgress, stageComplete, completed, failed, workLogTaskIds, workLogNotes } = rightPanelData;
+    const terms = rightPanelSearch.terms(), searching = terms.length > 0;
+    const all = [...inProgress, ...stageComplete, ...completed, ...failed];
+    const matches = all.filter(t => TaskSearch.matches(t, terms));
+    rightPanelSearch.status(searching ? `找到 ${matches.length} / ${all.length} 项任务 · 点击名称查看详情` : `共 ${all.length} 项任务 · 包含全部阶段`);
+
+    function deadlineScore(dl) {
+        if (!dl) return 999;
+        if (dl === '自由') return 900;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dl)) {
+            const h = (new Date(dl + 'T23:59:59') - new Date()) / 3600000;
+            if (h < 0) return 0;
+            if (h < 24) return 10;
+            if (h < 72) return 300;
+            if (h < 168) return 700;
+            return 800 + Math.abs(h);
+        }
+        if (dl === '尽快') return 200;
+        return 500;
+    }
+    function sortTasks(tasks) {
+        const sort = localStorage.getItem('taskSort') || 'priority';
+        if (sort === 'deadline') {
+            return [...tasks].sort((a, b) => deadlineScore(a.deadline) - deadlineScore(b.deadline));
+        }
+        return [...tasks].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+    }
+
+    const renderSection = (title, tasks, icon, stageClass) => {
+        const filtered = tasks.filter(t => TaskSearch.matches(t, terms));
+        if (searching && !filtered.length) return '';
+        const sorted = sortTasks(filtered);
+        const collapsed = searching ? false : isTaskSectionCollapsed(stageClass);
+        const cardsHtml = sorted.map(t =>
+            TaskCard.render(t, { date: App.selectedDate, workLogActive: workLogTaskIds.has(t.id), latestNote: workLogNotes[t.id] || '', showStage: stageClass === 'meeting', searchTerms: terms })
+        ).join('');
+
+        return `
+            <div class="task-section${collapsed ? ' collapsed' : ''}" data-task-section="${stageClass}">
+                <button type="button" class="task-section-header" onclick="toggleSection(this)" aria-expanded="${!collapsed}" aria-controls="task-list-${stageClass}">
+                    <span class="toggle-arrow">▼</span>
+                    <span>${icon} ${title}</span>
+                    <span class="section-count">${filtered.length}</span>
+                </button>
+                <div class="task-list" id="task-list-${stageClass}">
+                    ${stageClass === 'in_progress' && !searching ? `
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <div class="add-task-bar" onclick="showAddTaskModal()" style="flex:1;">
+                                <span>＋</span> 添加新任务
+                            </div>
+                            <button class="btn btn-ghost btn-sm" onclick="IMtoggleTaskSort()" style="font-size:0.7rem;white-space:nowrap;" title="切换排序方式">${localStorage.getItem('taskSort')==='deadline'?'📅 截止':'🔢 优先级'}</button>
+                        </div>
+                    ` : ''}
+                    ${cardsHtml || '<div style="padding:8px;color:var(--color-text-secondary);font-size:0.8rem;text-align:center;">暂无任务</div>'}
+                </div>
+            </div>
+        `;
+    };
+
+    // Only ongoing meetings have their own group; other stages include every task type.
+    const regularInProgress = inProgress.filter(t => t.task_type !== 'meeting');
+    const meetings = inProgress.filter(t => t.task_type === 'meeting');
+    panel.innerHTML =
+        renderSection('进行中', regularInProgress, '🔄', 'in_progress') +
+        renderSection('会议', meetings, '📅', 'meeting') +
+        renderSection('阶段性完成', stageComplete, '✅', 'stage_complete') +
+        renderSection('已完成', completed, '🎉', 'completed') +
+        renderSection('失败/放弃', failed, '❌', 'failed') ||
+        '<div class="task-search-empty"><strong>没有找到匹配的任务</strong><p>试试更短的关键词，或用人物、标签查找。</p><a href="' + appUrl('/tasks') + '">前往任务管理搜索已归档任务 →</a></div>';
 }
 
 function IMtoggleTaskSort() {
@@ -642,7 +664,7 @@ function IMtoggleTaskSort() {
 function toggleSection(header) {
     const section = header.parentElement;
     const collapsed = section.classList.toggle('collapsed');
-    if (section.dataset.taskSection) taskSectionState.set(section.dataset.taskSection, collapsed);
+    if (section.dataset.taskSection && !rightPanelSearch?.terms().length) taskSectionState.set(section.dataset.taskSection, collapsed);
     header.setAttribute('aria-expanded', String(!collapsed));
 }
 

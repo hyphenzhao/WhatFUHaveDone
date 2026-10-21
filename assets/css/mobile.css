@@ -257,6 +257,7 @@
    compact while a touch tablet in landscape still gets big targets.
    ============================================================================ */
 @media (pointer: coarse) {
+    .task-priority-buttons button { min-width: 36px; min-height: 36px; }
     .btn, .rbtn, .tag-chip, .dur-chip, .period-btn, .mail-filter-btn,
     .multi-select-add, .graph-toggle button, .calendar-nav button, .rp-tab {
         min-height: 40px;

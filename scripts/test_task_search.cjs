@@ -84,6 +84,13 @@ const fixtures = [
     check(management.read('isPrioritySort') && management.read('tasksData.active.length') === 3, 'clear restores original tasks and sorting');
     management.document.getElementById('sortDir').emit('click');
     check(!management.read('isPrioritySort'), 'descending view cannot accidentally rewrite priorities');
+    setManagementQuery('论文');
+    management.document.getElementById('typeFilter').value='meeting'; management.document.getElementById('typeFilter').emit('change');
+    check(!management.document.getElementById('enableTaskReorder').hidden, 'filtered views provide an explicit way back to priority ordering');
+    management.document.getElementById('enableTaskReorder').emit('click');
+    check(!taskInput.value && management.read("sortBy === 'priority' && sortAsc && filterType === 'all' && filterStage === 'all' && isPrioritySort"), 'reorder entry clears search/filters and restores ascending priorities');
+    check(management.document.getElementById('tasksTableBody').innerHTML.includes('draggable="true"') && management.document.getElementById('tasksTableBody').innerHTML.includes('moveTaskPriority('), 'full task list has explicit native drag handles and step controls');
+    check(management.document.getElementById('taskReorderHint').textContent.includes('拖动'), 'reorder availability is explained on the page');
     check(requests === 2, 'typing, filtering, sorting and clearing never request task data again');
 
     const home = environment(); let homeRequests = 0;

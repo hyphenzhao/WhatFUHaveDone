@@ -129,12 +129,31 @@ if ($method === 'POST') {
 if ($method === 'PUT' && ($parts[2] ?? '') === 'reorder') {
     $data = get_json_input();
     $ids = $data['ids'] ?? [];
-    if (empty($ids)) json_error('ids array required');
-    $stmt = $db->prepare('UPDATE tasks SET priority = ? WHERE id = ? AND user_id = ?');
-    foreach ($ids as $i => $id) {
-        $stmt->execute([$i + 1, (int)$id, $uid]);
+    if (!is_array($ids) || !array_is_list($ids) || !$ids) json_error('请提供完整的任务顺序');
+    foreach ($ids as &$id) {
+        if ((!is_int($id) && !is_string($id)) || filter_var($id, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) === false) json_error('任务 ID 无效');
+        $id = (int)$id;
     }
-    json_success(null, 'Priorities updated');
+    unset($id);
+    if (count(array_unique($ids)) !== count($ids)) json_error('任务顺序中有重复项');
+    try {
+        $db->beginTransaction();
+        $stmt = $db->prepare('SELECT id FROM tasks WHERE user_id=? AND archived=0 ORDER BY id FOR UPDATE');
+        $stmt->execute([$uid]);
+        $current = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        $submitted = $ids; sort($submitted, SORT_NUMERIC);
+        if ($submitted !== $current) {
+            $db->rollBack();
+            json_error('任务列表已变化，请刷新后重新调整优先级', 409);
+        }
+        $stmt = $db->prepare('UPDATE tasks SET priority=? WHERE id=? AND user_id=? AND archived=0');
+        foreach ($ids as $i => $id) $stmt->execute([$i + 1, $id, $uid]);
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) $db->rollBack();
+        throw $e;
+    }
+    json_success(['ids'=>$ids], 'Priorities updated');
 }
 
 // PUT /api/tasks/{id} — update (partial updates supported)

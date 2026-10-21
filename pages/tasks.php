@@ -31,6 +31,7 @@ $page_content = <<<HTML
 
 <div class="task-search task-search-management" id="tasksSearch"></div>
 <div class="task-filter-summary"><span id="taskFilterHint"></span><button type="button" class="btn btn-ghost btn-sm" id="resetTaskFilters" hidden>重置筛选</button></div>
+<div class="task-reorder-bar"><span id="taskReorderHint" role="status" aria-live="polite"></span><button type="button" class="btn btn-outline btn-sm" id="enableTaskReorder" hidden>调整优先级</button></div>
 
 <table class="data-table" id="tasksTable">
     <thead>

@@ -68,7 +68,7 @@ const TaskSearch = {
             if (e.key === 'Enter') { e.preventDefault(); notify(); }
         });
         clear.addEventListener('click', () => { input.value = ''; notify(); input.focus(); });
-        return { terms: () => this.tokens(input.value), query: () => input.value.trim(),
+        return { terms: () => this.tokens(input.value), query: () => input.value.trim(), clear: () => { input.value = ''; notify(); },
             status: message => { status.textContent = message; } };
     }
 };

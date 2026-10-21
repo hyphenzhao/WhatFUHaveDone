@@ -63,13 +63,12 @@ function renderTasks() {
     if (!allTasksData) return;
     const terms = taskSearch.terms();
     const filtered = filterType !== 'all' || filterStage !== 'all';
-    // Never let a search result subset overwrite hidden tasks' priorities.
-    isPrioritySort = !taskReorderSaving && sortBy === 'priority' && sortAsc && !filtered && !terms.length;
+    isPrioritySort = !taskReorderSaving && sortBy === 'priority';
     const visible = list => list.filter(t => (filterType === 'all' || t.task_type === filterType)
         && (filterStage === 'all' || t.stage === filterStage) && TaskSearch.matches(t, terms));
     const activeList = visible(allTasksData.active), archivedList = visible(allTasksData.archived);
     const compare = sortBy === 'priority'
-        ? (a, b) => sortAsc ? (a.priority||999) - (b.priority||999) : (b.priority||999) - (a.priority||999)
+        ? (a, b) => (sortAsc ? 1 : -1) * compareTaskPriority(a, b)
         : (a, b) => {
             const cmp = String(a.updated_at || '').localeCompare(String(b.updated_at || ''));
             return sortAsc ? cmp : -cmp;
@@ -84,8 +83,8 @@ function renderTasks() {
     document.getElementById('taskFilterHint').textContent = filtered ? '当前分类和阶段筛选同时适用于已归档任务。' : '';
     document.getElementById('resetTaskFilters').hidden = !filtered;
     document.getElementById('taskReorderHint').textContent = taskReorderSaving ? '正在保存优先级…'
-        : isPrioritySort ? '拖动任务左侧的 ⋮⋮ 调整优先级，也可使用 ↑ ↓ 微调。'
-        : '搜索、筛选或其他排序下暂不调整顺序；点击“调整优先级”回到完整列表。';
+        : isPrioritySort ? (filtered || terms.length ? '可直接拖动筛选结果左侧的 ⋮⋮，或用 ↑ ↓ 调整；其他任务保持原位置。' : '拖动任务左侧的 ⋮⋮ 调整优先级，也可使用 ↑ ↓ 微调。') + (sortAsc ? '' : ' 当前按优先级降序显示。')
+        : '当前按更新时间显示；点击“调整优先级”切换排序，搜索和筛选条件会保留。';
     const reorderButton = document.getElementById('enableTaskReorder');
     reorderButton.hidden = isPrioritySort; reorderButton.disabled = taskReorderSaving;
     if (isPrioritySort) initDragDrop();
@@ -122,10 +121,13 @@ function renderTasksTable(tasks, tbodyId, isArchived) {
 
 function enableTaskReorder() {
     if (taskReorderSaving) return;
-    filterType = filterStage = 'all'; sortBy = 'priority'; sortAsc = true;
-    document.getElementById('typeFilter').value = document.getElementById('stageFilter').value = 'all';
+    sortBy = 'priority'; sortAsc = true;
     document.getElementById('sortSelect').value = 'priority'; document.getElementById('sortDir').textContent = '▲';
-    taskSearch.clear();
+    renderTasks();
+}
+
+function compareTaskPriority(a, b) {
+    return Number(a.priority ?? 999) - Number(b.priority ?? 999) || Number(a.id) - Number(b.id);
 }
 
 async function saveTaskOrder(ids) {
@@ -133,10 +135,17 @@ async function saveTaskOrder(ids) {
     const before = tasksData.active.map(t => Number(t.id));
     if (before.length !== ids.length || ids.some(id => !before.includes(id)) || new Set(ids).size !== ids.length) return;
     if (before.every((id, i) => id === ids[i])) return;
+    // Replace only the visible tasks' slots in the full order. Hidden tasks keep
+    // their positions, including when the user is viewing priorities descending.
+    const previous = [...allTasksData.active].sort(compareTaskPriority).map(t => Number(t.id));
+    const selected = new Set(before), ascending = sortAsc ? ids : [...ids].reverse();
+    let index = 0;
+    const order = previous.map(id => selected.has(id) ? ascending[index++] : id);
+    if (index !== ids.length) return;
     taskReorderSaving = true; renderTasks();
     try {
-        await API.tasks.reorder(ids);
-        const priorities = new Map(ids.map((id, i) => [id, i + 1]));
+        await API.tasks.reorder(order, previous);
+        const priorities = new Map(order.map((id, i) => [id, i + 1]));
         allTasksData.active.forEach(task => { if (priorities.has(Number(task.id))) task.priority = priorities.get(Number(task.id)); });
         Toast.success('优先级已保存');
     } catch (e) {

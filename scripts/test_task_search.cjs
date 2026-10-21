@@ -70,7 +70,7 @@ const fixtures = [
     check(requests === 2 && management.read('isPrioritySort'), 'initial list loads active and archived once, full list remains reorderable');
     setManagementQuery('王老师 实验');
     check(management.read('tasksData.active.length') === 2 && management.read('tasksData.archived.length') === 1, 'search includes active and archived descriptions and people');
-    check(!management.read('isPrioritySort'), 'search subset cannot reorder priorities');
+    check(management.read('isPrioritySort'), 'search results keep their drag controls');
     management.document.getElementById('stageFilter').value='completed'; management.document.getElementById('stageFilter').emit('change');
     check(management.read('tasksData.active.length') === 0 && management.read('tasksData.archived.length') === 1, 'stage filter applies to archives too');
     check(management.document.getElementById('tasksTableBody').innerHTML.includes('都在下方'), 'archive-only match has helpful guidance');
@@ -83,12 +83,16 @@ const fixtures = [
     managementHost.querySelector('button').emit('click');
     check(management.read('isPrioritySort') && management.read('tasksData.active.length') === 3, 'clear restores original tasks and sorting');
     management.document.getElementById('sortDir').emit('click');
-    check(!management.read('isPrioritySort'), 'descending view cannot accidentally rewrite priorities');
+    check(management.read('isPrioritySort'), 'descending priority view remains reorderable');
     setManagementQuery('论文');
     management.document.getElementById('typeFilter').value='meeting'; management.document.getElementById('typeFilter').emit('change');
-    check(!management.document.getElementById('enableTaskReorder').hidden, 'filtered views provide an explicit way back to priority ordering');
+    management.document.getElementById('sortSelect').value='updated_at'; management.document.getElementById('sortSelect').emit('change');
+    check(!management.document.getElementById('enableTaskReorder').hidden, 'updated-time view offers priority ordering');
     management.document.getElementById('enableTaskReorder').emit('click');
-    check(!taskInput.value && management.read("sortBy === 'priority' && sortAsc && filterType === 'all' && filterStage === 'all' && isPrioritySort"), 'reorder entry clears search/filters and restores ascending priorities');
+    check(taskInput.value === '论文' && management.read("sortBy === 'priority' && sortAsc && filterType === 'meeting' && filterStage === 'all' && isPrioritySort"), 'switching to priority ordering preserves query and filters');
+    managementHost.querySelector('button').emit('click'); management.document.getElementById('resetTaskFilters').emit('click');
+    management.document.getElementById('stageFilter').value='in_progress'; management.document.getElementById('stageFilter').emit('change');
+    check(management.read('isPrioritySort && tasksData.active.length === 2') && management.document.getElementById('tasksTableBody').innerHTML.includes('draggable="true"'), 'in-progress filter directly supports dragging');
     check(management.document.getElementById('tasksTableBody').innerHTML.includes('draggable="true"') && management.document.getElementById('tasksTableBody').innerHTML.includes('moveTaskPriority('), 'full task list has explicit native drag handles and step controls');
     check(management.document.getElementById('taskReorderHint').textContent.includes('拖动'), 'reorder availability is explained on the page');
     check(requests === 2, 'typing, filtering, sorting and clearing never request task data again');

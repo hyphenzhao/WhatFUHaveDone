@@ -108,7 +108,7 @@ const API = {
             if (stage) q += `&stage=${stage}`;
             return API.get(`/tasks${q}`);
         },
-        reorder(ids) { return API.put('/tasks/reorder', { ids }); },
+        reorder(ids, previousIds = null) { return API.put('/tasks/reorder', previousIds ? { ids, previous_ids: previousIds } : { ids }); },
         get(id) { return API.get(`/tasks/${id}`); },
         create(data) { return API.post('/tasks', data); },
         update(id, data) { return API.put(`/tasks/${id}`, data); },

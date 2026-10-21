@@ -78,7 +78,7 @@ if ($method === 'GET') {
             $sql .= ' AND stage = ?';
             $params[] = $stage;
         }
-        $sql .= ($sort === 'priority') ? ' ORDER BY priority ASC' : ' ORDER BY updated_at DESC';
+        $sql .= ($sort === 'priority') ? ' ORDER BY priority ASC, id ASC' : ' ORDER BY updated_at DESC';
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
         $tasks = $stmt->fetchAll();
@@ -136,13 +136,24 @@ if ($method === 'PUT' && ($parts[2] ?? '') === 'reorder') {
     }
     unset($id);
     if (count(array_unique($ids)) !== count($ids)) json_error('任务顺序中有重复项');
+    $previous = $data['previous_ids'] ?? null;
+    if ($previous !== null) {
+        if (!is_array($previous) || !array_is_list($previous) || count($previous) !== count($ids)) json_error('原任务顺序无效');
+        foreach ($previous as &$id) {
+            if ((!is_int($id) && !is_string($id)) || filter_var($id, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) === false) json_error('原任务 ID 无效');
+            $id = (int)$id;
+        }
+        unset($id);
+        if (count(array_unique($previous)) !== count($previous)) json_error('原任务顺序中有重复项');
+    }
     try {
         $db->beginTransaction();
-        $stmt = $db->prepare('SELECT id FROM tasks WHERE user_id=? AND archived=0 ORDER BY id FOR UPDATE');
+        $stmt = $db->prepare('SELECT id FROM tasks WHERE user_id=? AND archived=0 ORDER BY priority,id FOR UPDATE');
         $stmt->execute([$uid]);
         $current = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
         $submitted = $ids; sort($submitted, SORT_NUMERIC);
-        if ($submitted !== $current) {
+        $currentSet = $current; sort($currentSet, SORT_NUMERIC);
+        if ($submitted !== $currentSet || ($previous !== null && $previous !== $current)) {
             $db->rollBack();
             json_error('任务列表已变化，请刷新后重新调整优先级', 409);
         }

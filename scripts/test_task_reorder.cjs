@@ -8,7 +8,7 @@ class Node {
     emit(type,extra={}){return this.handlers[type]?.({preventDefault(){},...extra});}
 }
 const tasks=[{id:1,priority:10},{id:2,priority:30},{id:3,priority:70}];
-let rows=[],requests=[],errors=[],reloads=0,heldResolve=null,fail=false;
+let rows=[],requests=[],baselines=[],errors=[],reloads=0,heldResolve=null,fail=false;
 const tbody={
     querySelectorAll(selector){return selector==='tr.draggable'?rows:rows.filter(r=>r.classes.has('task-drop-target'));},
     insertBefore(row,before){rows=rows.filter(r=>r!==row);const i=before?rows.indexOf(before):rows.length;rows.splice(i,0,row);}
@@ -18,7 +18,7 @@ function createRows(ids){
         Object.defineProperty(row,'nextSibling',{get:()=>rows[rows.indexOf(row)+1]||null});return row;});
 }
 const ctx=vm.createContext({console,Map,Set,document:{addEventListener(){},getElementById:()=>tbody,querySelector:()=>null},
-    API:{tasks:{async reorder(ids){requests.push([...ids]);if(heldResolve!==null)await new Promise(resolve=>{heldResolve=resolve;});if(fail)throw Error('fixture server error');}}},
+    API:{tasks:{async reorder(ids,previous){requests.push([...ids]);baselines.push(previous);if(heldResolve!==null)await new Promise(resolve=>{heldResolve=resolve;});if(fail)throw Error('fixture server error');}}},
     Toast:{success(){},error:message=>errors.push(message)}});
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../assets/js/tasks.js'),'utf8'),ctx);
 ctx.initial=tasks;vm.runInContext("allTasksData={active:initial,archived:[]};tasksData={active:[...initial],archived:[]};isPrioritySort=true;renderTasks=()=>{};loadTasks=async()=>{reloadNotice();};",ctx);
@@ -44,7 +44,7 @@ function start(id){const row=rows.find(r=>Number(r.dataset.id)===id),dataTransfe
     rows[1].handle.emit('keydown',{key:'ArrowUp'});await tick();check(JSON.stringify(requests[2])==='[2,3,1]','keyboard arrows on the handle change priorities');
     const count=requests.length;await read('moveTaskPriority(3,0)');await read('saveTaskOrder([1,1,2])');check(requests.length===count,'invalid steps and duplicate IDs never reach the server');
     read('isPrioritySort=false');await read('moveTaskPriority(3,-1)');let prevented=false;rows[0].handle.emit('dragstart',{preventDefault:()=>{prevented=true;}});
-    check(requests.length===count && prevented,'search/sort transition cancels an existing drag safely');read('isPrioritySort=true');
+    check(requests.length===count && prevented,'non-priority sort transition cancels an existing drag safely');read('isPrioritySort=true');
     createRows([3,2,1]);read('initDragDrop()');drag=start(1);drag.row.isConnected=false;rows[0].emit('drop');await tick();
     check(requests.length===count,'refresh removing the source row cannot reinsert a stale task');
     fail=true;const before=tasks.map(t=>t.priority).join();await read('saveTaskOrder([1,2,3])');
@@ -52,5 +52,17 @@ function start(id){const row=rows.find(r=>Number(r.dataset.id)===id),dataTransfe
     fail=false;heldResolve=()=>{};const pending=read('saveTaskOrder([1,2,3])');await tick();const inflight=requests.length;
     await read('saveTaskOrder([1,3,2])');check(requests.length===inflight,'a second reorder cannot overlap a pending save');heldResolve();await pending;
     check(!read('taskReorderSaving'),'save lock is released after success');
+    heldResolve=null;
+    ctx.scoped=[{id:1,priority:1,stage:'in_progress'},{id:2,priority:2,stage:'completed'},{id:3,priority:3,stage:'in_progress'},{id:4,priority:4,stage:'failed'},{id:5,priority:5,stage:'in_progress'}];
+    read("allTasksData={active:scoped,archived:[]};tasksData={active:[scoped[0],scoped[2],scoped[4]],archived:[]};sortAsc=true;filterStage='in_progress';isPrioritySort=true;");
+    createRows([1,3,5]);read('initDragDrop()');drag=start(5);rows[0].emit('drop');await tick();
+    check(JSON.stringify(requests.at(-1))==='[5,2,1,4,3]','filtered drag fills only the selected tasks original slots');
+    check(JSON.stringify(baselines.at(-1))==='[1,2,3,4,5]','save includes the previous full order to reject stale edits');
+    check(read("filterStage === 'in_progress'") && ctx.scoped[1].priority===2 && ctx.scoped[3].priority===4,'stage filter stays selected and hidden task positions stay fixed');
+    read('tasksData.active=[scoped[2],scoped[0],scoped[4]];sortAsc=false;');await read('moveTaskPriority(3,1)');
+    check(JSON.stringify(requests.at(-1))==='[5,2,3,4,1]','descending filtered view converts movement back into ascending priority slots');
+    check(ctx.scoped[1].priority===2 && ctx.scoped[3].priority===4,'descending adjustment also preserves hidden slots');
+    read('tasksData.active=[scoped[4],scoped[0]];sortAsc=true;');await read('saveTaskOrder([1,5])');
+    check(JSON.stringify(requests.at(-1))==='[1,2,3,4,5]','a smaller search subset can be reordered without moving any other task');
     console.log(`PASS: ${checks} native drag / keyboard / priority persistence checks`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -38,6 +38,17 @@ try {
     reorder_check(reorder_http('/api/tasks/reorder','PUT',['ids'=>[$b,$new,$a,$d]])['status']===200,'updated complete list can be saved');
     $rows=array_column(reorder_priorities($uid),null,'id');
     reorder_check((int)$rows[$b]['priority']===1 && (int)$rows[$new]['priority']===2 && (int)$rows[$d]['priority']===4,'second complete order persists');
+    $hidden=reorder_insert('tasks',['user_id'=>$uid,'name'=>'筛选后隐藏的已完成任务','priority'=>80,'stage'=>'completed']);
+    $before=[$a,$hidden,$new,$b,$d];
+    reorder_check(reorder_http('/api/tasks/reorder','PUT',['ids'=>$before])['status']===200,'interleaved fixture order saved');
+    $filteredOrder=[$d,$hidden,$a,$b,$new];
+    reorder_check(reorder_http('/api/tasks/reorder','PUT',['ids'=>$filteredOrder,'previous_ids'=>$before])['status']===200,'filtered order merged into the complete list accepted');
+    $rows=array_column(reorder_priorities($uid),null,'id');
+    reorder_check((int)$rows[$hidden]['priority']===2 && (int)$rows[$b]['priority']===4 && (int)$rows[$d]['priority']===1 && (int)$rows[$new]['priority']===5,'hidden completed tasks keep their original slots');
+    $unchanged=json_encode(reorder_priorities($uid));
+    reorder_check(reorder_http('/api/tasks/reorder','PUT',['ids'=>$before,'previous_ids'=>$before])['status']===409,'concurrent priority changes invalidate an old full-order snapshot');
+    reorder_check(json_encode(reorder_priorities($uid))===$unchanged,'stale order does not overwrite a newer reorder');
+    reorder_check(reorder_http('/api/tasks/reorder','PUT',['ids'=>$before,'previous_ids'=>'bad'])['status']===400,'malformed previous order rejected');
     reorder_check((int)reorder_priorities($other)[0]['priority']===50 && hash('sha256',json_encode(reorder_priorities(1)))===$realBefore,'real and other-user priorities are untouched');
     echo "PASS: $checks task reorder API / ownership / stale-list checks\n";
 } finally {
